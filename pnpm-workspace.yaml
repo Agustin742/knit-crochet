@@ -1,0 +1,22 @@
+# pnpm workspace / settings
+#
+# Override forzado de postcss: vite 8.1.5 declara una dependencia dura en
+# postcss@^8.5.17, versión no publicada en el registry de este entorno
+# (último publicado: 8.5.16). Se fija a 8.4.31 — la misma versión que Next.js
+# ya usa y que npm había instalado — para reproducir el árbol funcional.
+overrides:
+  postcss: 8.4.31
+
+# Dependencias con build scripts nativos aprobadas explícitamente (pnpm 11
+# bloquea los scripts de postinstall por defecto). sharp lo usa Next.js para
+# optimización de imágenes; unrs-resolver es el resolver nativo de ESLint;
+# esbuild lo usa drizzle-kit para compilar drizzle.config.ts (feature #2).
+onlyBuiltDependencies:
+  - sharp
+  - unrs-resolver
+  - esbuild
+
+allowBuilds:
+  esbuild: true
+  sharp: true
+  unrs-resolver: true

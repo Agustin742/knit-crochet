@@ -1,0 +1,20 @@
+# dependencias
+node_modules/
+
+# build Next.js
+.next/
+out/
+build/
+
+# entorno / secretos
+.env
+.env.*
+!.env.example
+
+# logs y temporales
+*.log
+*.tmp
+.DS_Store
+
+# drizzle (mantener migraciones versionadas; ignorar solo metadatos si aplica)
+# drizzle/meta/_journal.json  # descomenta si genera ruido

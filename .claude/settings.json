@@ -1,0 +1,41 @@
+{
+  "$schema_comment": "Hooks que automatizan la verificación. El harness los ejecuta, no el agente, así que no se pueden saltar. Guardados para degradar con gracia mientras el proyecto es greenfield (sin package.json).",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'if [ -f package.json ] && node -e \"process.exit((require(\\\"./package.json\\\").scripts||{}).test?0:1)\" 2>/dev/null; then pnpm test --silent 2>&1 | tail -5; else echo \"[harness] sin tests configurados todavía — omitido\"; fi'",
+            "description": "Tras editar o escribir archivos, corre los tests (si existen) y muestra el resumen."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ./init.sh > /tmp/harness_init.log 2>&1 && echo '[harness] init.sh OK' || (echo '[harness] init.sh FALLÓ — revisa /tmp/harness_init.log antes de cerrar' && tail -20 /tmp/harness_init.log)",
+            "description": "Antes de cerrar la sesión, fuerza una verificación completa."
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(bash ./init.sh)",
+      "Bash(pnpm lint)",
+      "Bash(pnpm typecheck)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm exec tsc --noEmit)",
+      "Bash(pnpm dev)",
+      "Bash(pnpm build)",
+      "Bash(pnpm install)",
+      "Bash(pnpm run:*)"
+    ]
+  }
+}

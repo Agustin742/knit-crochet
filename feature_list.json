@@ -1,0 +1,179 @@
+{
+  "project": "knit-crochet",
+  "description": "App web para gestionar tejido (dos agujas / crochet). Alcance del PRD-01: estructura funcional (datos, BFF, lógica). UI/estilos y Three.js quedan FUERA de este PRD.",
+  "source_of_truth": "docs/product/PRD-01-estructura-funcional.md",
+  "rules": {
+    "one_feature_at_a_time": true,
+    "require_tests_to_close": true,
+    "valid_status": ["pending", "in_progress", "done", "blocked"]
+  },
+  "_instructions": "Cada feature deriva del checklist §12 del PRD y respeta la arquitectura feature-first (docs/harness/architecture.md). El acceptance es verificable con tests. Trabajar una a la vez, en orden de id salvo que se justifique.",
+  "features": [
+    {
+      "id": 1,
+      "name": "project_scaffold",
+      "title": "Scaffold Next.js 16 + TS + estructura feature-first",
+      "prd_ref": "§12.1, §3",
+      "description": "Base del proyecto Next.js 16 (App Router, TS strict) con la estructura src/{app,features,shared} y el tooling de verificación corriendo.",
+      "acceptance": [
+        "package.json con scripts: dev, build, lint, typecheck y test",
+        "Next.js 16 App Router con TypeScript strict:true",
+        "Estructura base src/app, src/features, src/shared/{db,lib,config,ui} creada",
+        "Zod instalado y disponible para validación",
+        "pnpm lint y pnpm exec tsc --noEmit pasan; al menos un test de humo verde",
+        ".gitignore cubre node_modules, .next y .env*; existe .env.example"
+      ],
+      "status": "done"
+    },
+    {
+      "id": 2,
+      "name": "db_setup_drizzle_neon",
+      "title": "Conexión Neon + Drizzle + migraciones",
+      "prd_ref": "§12.2, §2",
+      "description": "Cliente Drizzle contra Neon configurado desde variables de entorno, con drizzle-kit para generar/aplicar migraciones.",
+      "acceptance": [
+        "shared/db expone el cliente Drizzle configurado desde env (DATABASE_URL)",
+        "drizzle.config listo y drizzle-kit genera migraciones a partir del schema",
+        "Ningún componente importa Drizzle (acceso aislado en shared/db + features)",
+        "Test que verifica que el cliente se inicializa con la env correcta"
+      ],
+      "status": "done"
+    },
+    {
+      "id": 3,
+      "name": "db_schemas",
+      "title": "Schemas Drizzle de todas las entidades + enums",
+      "prd_ref": "§12.3, §4, §5",
+      "description": "Definir en Drizzle todas las entidades del PRD §4 con sus relaciones (§5) y los enums globales en shared/config.",
+      "acceptance": [
+        "Enums en shared/config: CraftType, ProjectStatus, ColorFamily (valores exactos del PRD §4)",
+        "Schemas: User, Project, Pattern, Brand, YarnType, Yarn, ProjectYarn, CraftSession",
+        "Relaciones y constraints del PRD: FKs por userId, ProjectYarn PK compuesta, (brandId, colorCode) único",
+        "Migración inicial generada y aplicable",
+        "Tests de forma/constraints de los schemas clave"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 4,
+      "name": "auth_jwt",
+      "title": "Autenticación JWT propia + protección de rutas",
+      "prd_ref": "§12.4, §9(Auth), §10",
+      "description": "Registro/login con password hasheado, sesión por cookie httpOnly con JWT, y proxy.ts protegiendo (app)/** y /api/** (excepto auth público).",
+      "acceptance": [
+        "Endpoints: POST /api/auth/register, /api/auth/login, /api/auth/logout, GET /api/auth/me",
+        "Password hasheado (bcrypt/argon2); JWT en cookie httpOnly SameSite=Lax",
+        "src/proxy.ts protege rutas privadas y deja pasar auth público",
+        "Helper de verificación de sesión reutilizable en shared/lib (extrae userId)",
+        "Tests: registro válido, login válido, credenciales inválidas (401), acceso protegido sin token (401)"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 5,
+      "name": "cloudinary_upload",
+      "title": "Integración Cloudinary (upload → guardar URL)",
+      "prd_ref": "§12.11, §2",
+      "description": "Utilidad compartida para subir una imagen a Cloudinary y devolver la URL, que las entidades con imagen guardarán en la DB.",
+      "acceptance": [
+        "shared/lib/cloudinary expone una función de upload configurada desde env",
+        "El flujo devuelve la URL final; se persiste solo la URL (no el binario)",
+        "Manejo de error de upload explícito (no rompe el endpoint que la usa)",
+        "Test del helper con el cliente de Cloudinary mockeado en el borde"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 6,
+      "name": "projects_crud",
+      "title": "CRUD Project + progress + rounds + steps + enlace Yarn",
+      "prd_ref": "§12.5, §4.2, §6.2, §9(Projects)",
+      "description": "Feature completo de proyectos: CRUD con scoping por usuario, progress calculado, contador de rounds, pasos completados y enlace N:N con lanas.",
+      "acceptance": [
+        "GET/POST /api/projects (con filtros ?active=&type=&needle=&yarnId=&from=&to=), GET/PATCH/DELETE /api/projects/:id",
+        "progress se recalcula en el servicio al mutar rounds/targetRounds (0 si targetRounds=0), clamp 0..100",
+        "POST /api/projects/:id/rounds ({ delta }) y PATCH /api/projects/:id/steps ({ completedSteps })",
+        "POST/DELETE /api/projects/:id/yarns[/:yarnId] gestionan el enlace N:N (solo referencia)",
+        "Todo scoping por userId; validación zod por endpoint",
+        "Tests: creación, cálculo de progress, rounds delta, steps, enlace/desenlace de lana, acceso ajeno (404/401)"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 7,
+      "name": "time_tracking",
+      "title": "Cronómetro (CraftSession start/stop) + cache time",
+      "prd_ref": "§12.6, §4.7, §9(Sessions)",
+      "description": "Sesiones de tejido en vivo: crear al arrancar (end=null), cerrar al detener calculando duration, y mantener Project.time como suma cacheada.",
+      "acceptance": [
+        "POST /api/projects/:id/sessions/start crea CraftSession con end=null",
+        "PATCH /api/projects/:id/sessions/stop cierra la sesión activa, setea end y duration",
+        "Project.time se actualiza como suma cacheada de duration",
+        "GET /api/projects/:id/sessions devuelve el historial",
+        "Tests: start crea sesión abierta, stop calcula duration y actualiza time, doble stop controlado"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 8,
+      "name": "yarns_catalogs",
+      "title": "CRUD Yarn + catálogos Brand/YarnType + advertencia de borrado",
+      "prd_ref": "§12.7, §4.4, §4.5, §6.3, §9(Yarns)",
+      "description": "Lanas y sus catálogos jerárquicos (marca → tipo) por usuario, con la regla de borrado seguro cuando una lana está referenciada por un proyecto.",
+      "acceptance": [
+        "GET/POST /api/brands y GET/POST /api/brands/:id/types (jerárquico, por usuario)",
+        "CRUD /api/yarns con filtros ?brandId=&typeId=&colorFamily=",
+        "Constraint (brandId, colorCode) único; colorFamily de la lista fija",
+        "DELETE de lana referenciada por un proyecto responde 409 + advertencia; requiere ?force=true",
+        "quantity la gestiona el usuario; enlazar a proyecto NO descuenta stock",
+        "Tests: CRUD, filtros, unicidad de colorCode por marca, borrado con y sin force"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 9,
+      "name": "patterns_crud",
+      "title": "CRUD Pattern (biblioteca / embebido)",
+      "prd_ref": "§12.8, §4.3, §6.4, §9(Patterns)",
+      "description": "Patrones con instrucciones ordenadas clave-valor y metadata flexible; pueden vivir embebidos en un proyecto (inLibrary=false) o publicarse a la biblioteca (inLibrary=true, reusables en N proyectos).",
+      "acceptance": [
+        "CRUD /api/patterns con filtros ?type=&inLibrary=",
+        "instructions como array ordenado { key, value }; metadata como array { key, value }",
+        "inLibrary distingue biblioteca vs embebido; un patrón de biblioteca enlaza a varios proyectos (1→N)",
+        "El completado de pasos NO vive en el patrón (vive en Project.completedSteps)",
+        "Tests: CRUD, filtro por type e inLibrary, patrón embebido vs biblioteca"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 10,
+      "name": "dashboard_metrics",
+      "title": "Métricas del dashboard",
+      "prd_ref": "§12.9, §8, §9(Dashboard)",
+      "description": "Endpoint de métricas con filtros año/tipo y métrica conmutable (horas, proyectos, metros de lana) más las comparativas graciosas.",
+      "acceptance": [
+        "GET /api/dashboard/metrics?year=&type= devuelve { hours, projects, yarnMeters, comparison }",
+        "hours = Σ CraftSession.duration con start en el año; projects filtrable por startDate/endDate",
+        "yarnMeters = Σ (Yarn.usedQuantity × Yarn.length) como agregado lifetime (ver nota PRD §8)",
+        "comparison usa la lista fija de comparativas en shared/config",
+        "Tests: agregados por año/tipo y selección de comparativa"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 11,
+      "name": "calculators",
+      "title": "Calculadoras (aumentos + regla de 3)",
+      "prd_ref": "§12.10, §7",
+      "description": "Lógica pura sin DB: distribución de aumentos y regla de 3. Resultados efímeros (se ejecuta en cliente, no se persiste).",
+      "acceptance": [
+        "features/calculators con función de aumentos: entrada P y A, salida instrucción legible en español",
+        "Validación: A<=0 o P<=0 → error; algoritmo base=floor(P/A), remainder=P mod A",
+        "Regla de 3: skeinsB = ceil(skeinsA * lengthB / lengthA)",
+        "Sin endpoints ni acceso a DB",
+        "Tests: caso P=40,A=6 → '7 p... (×4); 6 p... (×2). Total 46 p'; regla de 3 con redondeo hacia arriba; validaciones"
+      ],
+      "status": "pending"
+    }
+  ]
+}
