@@ -1,5 +1,9 @@
-// Barrel de schemas Drizzle. La feature #2 solo deja el pipeline listo; las
-// entidades reales (User, Project, Yarn, …) las añade la feature #3
-// re-exportando cada `features/<x>/schema.ts` desde aquí. `drizzle.config.ts`
-// apunta a este archivo como fuente única de tablas para las migraciones.
-export {};
+// Barrel de schemas Drizzle: fuente única de tablas/enums para drizzle-kit
+// (ver `drizzle.config.ts`, apunta a este archivo). Re-exporta cada
+// `features/<x>/schema.ts` y los `pgEnum` compartidos.
+export * from "@/shared/db/enums";
+export * from "@/features/auth/schema";
+export * from "@/features/patterns/schema";
+export * from "@/features/yarns/schema";
+export * from "@/features/projects/schema";
+export * from "@/features/time-tracking/schema";

@@ -3,7 +3,7 @@
 > Este archivo se vacía al cerrar cada sesión y se mueve a `history.md`.
 > Mientras trabajas, **mantenlo actualizado en tiempo real**, no al final.
 
-- **Feature en curso:** _ninguna_ (última cerrada: #2 `db_setup_drizzle_neon` → done)
+- **Feature en curso:** _ninguna_ (última cerrada: #3 `db_schemas` → done)
 - **Inicio:** _—_
 - **Agente:** _—_
 
@@ -13,11 +13,12 @@ _Describe en 3-5 bullets qué vas a hacer antes de tocar código._
 
 ## Bitácora
 
-- #1 `project_scaffold`, migración pnpm y #2 `db_setup_drizzle_neon` cerradas (ver `history.md`).
-- #2 hecha con research de **context7** (Drizzle + Neon) → `progress/reports/research_drizzle_neon.md`.
+- #1 `project_scaffold`, migración pnpm, #2 `db_setup_drizzle_neon` y #3 `db_schemas` cerradas (ver `history.md`).
+- #3 hecha: enums en `shared/config`, 8 schemas Drizzle feature-first, migración `drizzle/0000_cold_marrow.sql`.
 
 ## Próximo paso
 
-- Siguiente en cola: **#3 `db_schemas`** (entidades del PRD §4/§5 + enums en shared/config,
-  migración inicial aplicable). Usa el barrel `src/shared/db/schema.ts` ya creado en #2.
+- Siguiente en cola: **#4 `auth_jwt`** (register/login/logout/me, password hasheado,
+  JWT en cookie httpOnly, `src/proxy.ts` protegiendo rutas privadas, helper de sesión
+  en `shared/lib`). Depende de los schemas de #3 (`User` en `features/auth/schema.ts`).
   A la espera de luz verde del usuario.

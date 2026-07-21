@@ -72,3 +72,21 @@
 - **Informes:** `progress/reports/impl_db_setup_drizzle_neon.md`,
   `progress/reports/review_db_setup_drizzle_neon.md`.
 - **Próximo:** feature #3 `db_schemas`.
+
+## 2026-07-21 — Feature #3 `db_schemas` (DONE)
+- **Agente:** leader (orquesta) → implementer → reviewer (APROBADO).
+- **Cambios:** enums globales en `src/shared/config` (`CraftType`, `ProjectStatus`,
+  `ColorFamily`) como arrays `as const` + tipos TS (fuente única de valores);
+  `pgEnum` en `src/shared/db/enums.ts` construidos desde esos arrays. 8 entidades
+  del PRD §4 en `src/features/<x>/schema.ts`: User (auth), Project + ProjectYarn
+  (projects), Pattern (patterns), Brand + YarnType + Yarn (yarns), CraftSession
+  (time-tracking). Constraints §4/§5: FKs por `userId`, `ProjectYarn` PK compuesta
+  `(projectId, yarnId)`, `Yarn` único `(brandId, colorCode)`, `User.email` único,
+  `patternId` nullable FK→Pattern; cadenas Brand→YarnType→Yarn y Project→CraftSession.
+  Barrel `src/shared/db/schema.ts` re-exporta todos los schemas + `index.ts` por feature.
+- **Verificación:** `bash ./init.sh` verde (lint, typecheck, 26 tests). `pnpm
+  db:generate` → 8 tablas en `drizzle/0000_cold_marrow.sql`. Aislamiento de Drizzle
+  intacto. Tests de forma/constraints con `getTableConfig`.
+- **Informes:** `progress/reports/impl_db_schemas.md`,
+  `progress/reports/review_db_schemas.md`.
+- **Próximo:** feature #4 `auth_jwt`.
