@@ -67,7 +67,7 @@
         "Helper de verificación de sesión reutilizable en shared/lib (extrae userId)",
         "Tests: registro válido, login válido, credenciales inválidas (401), acceso protegido sin token (401)"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 5,

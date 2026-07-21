@@ -90,3 +90,39 @@
 - **Informes:** `progress/reports/impl_db_schemas.md`,
   `progress/reports/review_db_schemas.md`.
 - **Próximo:** feature #4 `auth_jwt`.
+
+## 2026-07-21 — Feature #4 `auth_jwt` (DONE)
+- **Agente:** leader (orquesta) → 2 exploradores en paralelo → implementer → reviewer (APROBADO).
+- **Research:** context7 **NO estaba disponible** en el entorno; los exploradores lo
+  sustituyeron por el código fuente de `next@16.2.10` instalado (`node_modules/next/dist`,
+  incluidos los docs empaquetados) + doc oficial + verificación empírica de librerías.
+  Informes: `progress/reports/research_next16_proxy.md`, `research_jwt_hashing.md`.
+- **Hallazgos del research que definieron el diseño (verificados contra el código de Next):**
+  1. `proxy.ts` corre SIEMPRE en runtime **Node.js** en Next 16 (`get-page-static-info.js`:
+     "Proxy always runs on Node.js runtime"); exportar `runtime` = error de build **E1031**.
+     Cae la restricción histórica de edge para hashing/JWT.
+  2. El matcher **no puede usar route groups**: `(app)/**` no existe en la URL. Solución:
+     matcher amplio (excluye assets) + **allowlist explícita en TS, fail-closed**.
+  3. El `config.matcher` debe ser **literal inline**: se analiza estáticamente en build y una
+     constante importada se ignora **en silencio**, dejando el proxy sin cobertura.
+  4. En 16.2.10 el export real es `unstable_doesMiddlewareMatch` (no `unstable_doesProxyMatch`).
+- **Cambios:** `pnpm add jose@^6.2.4 bcryptjs@^3.0.3`. Helpers en
+  `src/shared/lib/auth/{jwt,password,session}.ts` + `src/shared/lib/http.ts`.
+  Lógica en `src/features/auth/api/{store,errors,register,login,current-user}.ts` +
+  `types.ts`/`validation.ts` (zod por endpoint). Route Handlers finos en
+  `src/app/api/auth/{register,login,logout,me}/route.ts`. `src/proxy.ts` con matcher
+  literal inline + allowlist fail-closed y respuesta diferenciada (`/api/**` → 401 JSON,
+  páginas → redirect). JWT HS256 en cookie httpOnly SameSite=Lax; secret desde env
+  (en `.env.example`, con error nombrado si falta, sin default hardcodeado).
+- **Verificación:** `bash ./init.sh` VERDE (lint, typecheck, **60 tests** en 10 archivos,
+  26 previos + 34 nuevos) y `JWT_SECRET=… pnpm build` VERDE (confirma que no salta E1031
+  y que Next detecta el Proxy). El reviewer ejecutó ambos él mismo y probó vectores de
+  bypass del matcher (prefijos tipo `/api/authfoo`, trailing slash, mayúsculas).
+- **Deuda anotada para #6 (no bloqueante):** `requireSessionUserId()` vive en
+  `shared/lib/auth/session.ts` pero lanza `InvalidSessionError` exportado desde
+  `jwt.ts` → cada endpoint privado necesita 2 imports + el mismo `try/catch → 401`.
+  Con ~25 endpoints privados por venir (#6-#10), conviene reexportar el error desde
+  `session.ts` y añadir `withSession(handler)` / `sessionErrorResponse(error)` en
+  `shared/lib/http.ts` **al arrancar #6**.
+- **Informes:** `progress/reports/impl_auth_jwt.md`, `progress/reports/review_auth_jwt.md`.
+- **Próximo:** feature #5 `cloudinary_upload`.
