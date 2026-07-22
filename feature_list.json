@@ -97,7 +97,7 @@
         "Todo scoping por userId; validación zod por endpoint",
         "Tests: creación, cálculo de progress, rounds delta, steps, enlace/desenlace de lana, acceso ajeno (404/401)"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 7,

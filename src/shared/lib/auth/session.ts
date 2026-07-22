@@ -8,6 +8,10 @@ import {
   verifySessionToken,
 } from "@/shared/lib/auth/jwt";
 
+// Se reexporta para que un Route Handler privado necesite un solo import de
+// sesión (el error y el helper que lo lanza viven en el mismo módulo).
+export { InvalidSessionError };
+
 async function readSessionToken(): Promise<string | undefined> {
   const cookieStore = await cookies();
   return cookieStore.get(JWT_COOKIE_NAME)?.value;

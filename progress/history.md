@@ -149,3 +149,46 @@
 - **Informes:** `progress/reports/impl_cloudinary_upload.md`,
   `progress/reports/review_cloudinary_upload.md`.
 - **Próximo:** feature #6 `projects_crud` (la más grande del PRD).
+
+## 2026-07-21 — Feature #6 `projects_crud` (DONE)
+- **Agente:** leader (orquesta) → implementer A → implementer B → reviewer
+  (RECHAZADO → corrección → re-review APROBADO).
+- **División:** feature muy compleja (~10 endpoints) → dividida en 2 sub-tareas
+  **secuenciales** (no paralelas: ambas escriben en `src/features/projects/**`).
+- **Sub-tarea A — cimientos + CRUD base:**
+  - Saldó la deuda de #4: `withSession(route, handler)` + `sessionErrorResponse()` en
+    `src/shared/lib/http.ts`, `InvalidSessionError` reexportado desde
+    `shared/lib/auth/session.ts`, y `/api/auth/me` migrado sin cambiar su
+    comportamiento observable. Se hizo aquí porque lo consumen ~25 endpoints de #6-#10.
+  - `features/projects/{types,validation}.ts` + servicios + `ProjectStore`.
+  - `calculateProgress`: `round(rounds/targetRounds*100)`, clamp 0..100,
+    `targetRounds=0 → 0`. Se recalcula **en el servicio**; nunca se acepta `progress`
+    del cliente.
+  - Endpoints `GET/POST /api/projects` (filtros `?active=&type=&needle=&yarnId=&from=&to=`,
+    validados con zod) y `GET/PATCH/DELETE /api/projects/:id`. 70 → **103 tests**.
+- **Sub-tarea B — endpoints de acción:** `POST /:id/rounds` (delta negativo soportado,
+  `rounds` nunca < 0, recalcula progress), `PATCH /:id/steps` (`completedSteps`
+  normalizado como conjunto ordenado), `POST/DELETE /:id/yarns[/:yarnId]` (enlace N:N
+  idempotente: 201 crea / 200 ya existía / 204; scoping cruzado proyecto+lana, ajeno →
+  404). Reutilizó `calculateProgress` de A sin duplicarla. 103 → **131 tests**.
+- **Rechazo del reviewer (defecto real, encontrado en la costura entre A y B):**
+  `DELETE /api/projects/:id` devolvía **500** si el proyecto tenía lanas enlazadas. La FK
+  `project_yarns_project_id_projects_id_fk` es `ON DELETE no action`; en cuanto B habilitó
+  `POST /:id/yarns`, la secuencia *enlazar → borrar* pasó a violar la FK y `withSession`
+  lo convertía en 500. Flujo de usuario corriente y `DELETE` está en el acceptance ⇒
+  defecto de #6, no deuda para #7. **Ambos implementers lo anotaron en sus informes
+  (A 5.11, B 6.1) y ninguno lo corrigió**: cada uno lo dio por ajeno a su mitad. Es
+  exactamente el hueco que abre dividir una feature, y para lo que sirve el reviewer.
+- **Corrección (implementer B, quirúrgica y sin migración** — el schema es de #3, ya
+  cerrada): `deleteProject` comprueba propiedad con `findById`, borra los enlaces con el
+  nuevo `store.removeYarnLinks(projectId)` y luego la fila; el 404 para ajeno/inexistente
+  quedó intacto. `schema.ts` sin cambios y sin migración nueva en `drizzle/`. +3 tests:
+  204 con lanas enlazadas, **enlaces de otros proyectos intactos** (el riesgo obvio: un
+  `delete` mal filtrado se llevaría los enlaces de todos), y ajeno → 404 sin borrar nada.
+- **Verificación final:** `bash ./init.sh` VERDE — **134 tests en 17 archivos** (desde 70
+  en 12 al empezar la feature). `pnpm build` OK. El reviewer auditó el scoping por
+  `userId` endpoint por endpoint (tabla en el informe) antes de aprobar.
+- **Informes:** `progress/reports/impl_projects_crud_a.md`, `impl_projects_crud_b.md`,
+  `review_projects_crud.md` (conserva el rechazo original + la sección "Re-review tras
+  corrección").
+- **Próximo:** feature #7 `time_tracking`.
