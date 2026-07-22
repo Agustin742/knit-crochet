@@ -126,3 +126,26 @@
   `shared/lib/http.ts` **al arrancar #6**.
 - **Informes:** `progress/reports/impl_auth_jwt.md`, `progress/reports/review_auth_jwt.md`.
 - **Próximo:** feature #5 `cloudinary_upload`.
+
+## 2026-07-21 — Feature #5 `cloudinary_upload` (DONE)
+- **Agente:** leader (orquesta) → implementer → reviewer (APROBADO). Sin exploradores
+  (feature pequeña y aislada: helper de `shared/lib` + tests).
+- **Decisión técnica cerrada por el implementer:** **`fetch` directo con upload firmado**
+  en vez del SDK `cloudinary`. Motivo: cero dependencias nuevas, compatible con Node y
+  Edge, y borde mockeable sin red. `package.json` no cambió.
+- **Cambios:** `src/shared/lib/cloudinary/{config,upload,index}.ts` + tests. Config desde
+  env (documentada en `.env.example`) con errores nombrados `MissingCloudinaryConfigError`
+  y `CloudinaryUploadError` (con `reason`). Devuelve la URL final; solo la URL se persiste.
+  El `api_secret` nunca viaja en el body/query ni aparece en logs o mensajes de error.
+- **Auditoría de la firma (lo más delicado de la feature):** el reviewer recomputó la
+  firma con una implementación independiente (`node:crypto`) fuera del test y confirmó que
+  el algoritmo coincide con el que exige Cloudinary (params en orden, `api_secret` al
+  final, **SHA-1** hex minúscula). Firma **correcta**: descartado el riesgo de "falla solo
+  en producción" que los tests mockeados no detectarían. El test no es tautológico (la
+  constante es reproducible con cualquier implementación de SHA-1 ajena al repo).
+- **Verificación:** `bash ./init.sh` VERDE — **70 tests en 12 archivos** (antes 60 en 10;
+  +10 tests, ninguno roto). Alcance respetado: no se tocaron `src/features/**`,
+  `src/app/**` ni schemas.
+- **Informes:** `progress/reports/impl_cloudinary_upload.md`,
+  `progress/reports/review_cloudinary_upload.md`.
+- **Próximo:** feature #6 `projects_crud` (la más grande del PRD).

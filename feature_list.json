@@ -81,7 +81,7 @@
         "Manejo de error de upload explícito (no rompe el endpoint que la usa)",
         "Test del helper con el cliente de Cloudinary mockeado en el borde"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 6,
