@@ -76,11 +76,11 @@ export type YarnStore = {
 const UNIQUE_VIOLATION = "23505";
 const COLOR_CODE_CONSTRAINT = "yarns_brand_color_code_unique";
 
-/** Reconoce la violación del índice `(brandId, colorCode)` sin acoplarse al driver. */
-function isDuplicateColorCode(error: unknown): boolean {
-  if (typeof error !== "object" || error === null) {
-    return false;
-  }
+/** Profundidad máxima de la cadena `.cause` que se inspecciona (evita ciclos). */
+const MAX_CAUSE_DEPTH = 5;
+
+/** ¿Este nivel del error (sin mirar `.cause`) es la violación buscada? */
+function matchesDuplicateColorCode(error: object): boolean {
   const candidate = error as {
     code?: string;
     constraint?: string;
@@ -96,6 +96,28 @@ function isDuplicateColorCode(error: unknown): boolean {
     typeof candidate.message === "string" &&
     candidate.message.includes(COLOR_CODE_CONSTRAINT)
   );
+}
+
+/**
+ * Reconoce la violación del índice `(brandId, colorCode)` sin acoplarse al
+ * driver. El driver real (`drizzle-orm/neon-http`) envuelve el error de
+ * Postgres en un `DrizzleQueryError` cuyos `.code`/`.constraint` son
+ * `undefined`; el `NeonDbError` con `code: "23505"` viaja en `.cause`. Por eso
+ * se recorre la cadena de `.cause` (con guarda de profundidad) además del nivel
+ * superior, manteniendo también el match plano que entregan otros entornos.
+ */
+function isDuplicateColorCode(error: unknown): boolean {
+  let current = error;
+  for (let depth = 0; depth <= MAX_CAUSE_DEPTH; depth += 1) {
+    if (typeof current !== "object" || current === null) {
+      return false;
+    }
+    if (matchesDuplicateColorCode(current)) {
+      return true;
+    }
+    current = (current as { cause?: unknown }).cause;
+  }
+  return false;
 }
 
 export function createYarnStore(database: NeonHttpDatabase = db): YarnStore {

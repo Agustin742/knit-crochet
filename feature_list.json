@@ -144,7 +144,7 @@
         "El completado de pasos NO vive en el patrón (vive en Project.completedSteps)",
         "Tests: CRUD, filtro por type e inLibrary, patrón embebido vs biblioteca"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 10,

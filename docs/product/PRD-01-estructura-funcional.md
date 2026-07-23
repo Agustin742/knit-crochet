@@ -404,10 +404,13 @@ Todos requieren JWT válido (salvo `register`/`login`) y hacen scoping por `user
 - `GET   /api/projects/:id/sessions` — historial
 
 ### Yarns + catálogos
-- `GET/POST /api/brands`, `GET/POST /api/brands/:id/types` (jerárquico)
+- `GET/POST /api/brands`, `DELETE /api/brands/:id`
+- `GET/POST /api/brands/:id/types`, `DELETE /api/brands/:id/types/:typeId` (jerárquico)
+  - `DELETE` de marca con tipos/lanas, o de tipo con lanas → **`409` (bloquear)**: no hay
+    cascada ni `?force`; el usuario debe vaciar los hijos primero (ver §11.8).
 - `GET  /api/yarns` — filtros: `?brandId=&typeId=&colorFamily=`
 - `POST/GET/PATCH/DELETE /api/yarns[/:id]`
-  - `DELETE` con lana referenciada → responde `409` + advertencia; requiere `?force=true`
+  - `DELETE` con lana referenciada por un proyecto → responde `409` + advertencia; requiere `?force=true`
 
 ### Patterns (patrones)
 - `GET  /api/patterns` — filtros: `?type=&inLibrary=`
@@ -439,6 +442,21 @@ Todos requieren JWT válido (salvo `register`/`login`) y hacen scoping por `user
 4. `needles` como `number[]` (mm); el label agujas/ganchillo se deriva de `type`.
 5. `completedSteps` vive en el **`Project`** (el patrón es compartido, el avance es por proyecto).
 6. Timestamps (`createdAt`/`updatedAt`) en todas las entidades para orden y auditoría.
+7. **Cableado de Cloudinary — diferido a la fase de UI, como endpoint de subida único.**
+   El helper de subida (`shared/lib/cloudinary`) ya existe (feature 5), pero el **cableado**
+   real (recibir un archivo → subirlo → devolver la URL) se implementa recién en la fase de
+   UI, no en la etapa funcional de este PRD. Las entidades con imagen (`Project`, `Yarn`,
+   `Pattern`) guardan `image` como **URL string** y eso es suficiente para el alcance datos/
+   BFF/lógica: sin formulario no hay archivo (`Blob`) que subir. Cuando se cablee, será un
+   **único endpoint compartido** (p. ej. `POST /api/uploads/image`), no uno por entidad, y
+   deberá derivar `folder`/`publicId` del `userId` del JWT validados con zod, **nunca** del
+   body crudo (deuda técnica 3 del harness). *(Decisión tomada el 2026-07-22.)*
+8. **Borrado de catálogos (`Brand`/`YarnType`) = `409` bloqueante, sin `?force` ni cascada.**
+   Borrar una marca con tipos o lanas, o un tipo con lanas, se **bloquea** con `409`: el
+   usuario debe vaciar los hijos antes. Es intencionalmente **distinto** del borrado de una
+   `Yarn` referenciada por un proyecto (que sí admite `?force=true` para forzar). Por eso las
+   FKs `yarn_types→brands`, `yarns→brands`, `yarns→yarn_types` son `ON DELETE no action` a
+   propósito, y el `409` se comprueba **antes** de borrar. *(Decisión tomada el 2026-07-22.)*
 
 ---
 

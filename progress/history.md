@@ -333,3 +333,83 @@
   Al cablearlo aplica la deuda 3 (folder/publicId desde el `userId` del JWT, validados con zod,
   nunca del body crudo).
 - **Próximo:** feature #9 `patterns_crud`.
+
+## 2026-07-23 — Decisiones asentadas en el PRD (Cloudinary + borrado de catálogos)
+- **Agente:** leader (edición de docs, tarea propia — no toca código).
+- A pedido del usuario, se **asentaron formalmente en el PRD** (fuente única de verdad) dos
+  decisiones que hasta ahora solo vivían en memoria/bitácora:
+  - **§11.7 — Cableado de Cloudinary diferido a la fase de UI**, como endpoint de subida único
+    compartido (`POST /api/uploads/image`), no per-entidad; `image` = URL string es suficiente
+    para la etapa funcional; al cablear, derivar `folder`/`publicId` del `userId` del JWT
+    validados con zod, nunca del body (deuda 3).
+  - **§11.8 — Borrado de `Brand`/`YarnType` = 409 bloqueante**, sin `?force` ni cascada (distinto
+    del borrado de `Yarn` referenciada, que sí admite force).
+- También se actualizó **PRD §9 (Yarns + catálogos)** para listar los `DELETE /api/brands/:id` y
+  `DELETE /api/brands/:id/types/:typeId` que se implementaron en la ampliación de #8 (antes el
+  PRD solo listaba GET/POST y quedaba desincronizado con el código).
+
+## 2026-07-23 — Feature #9 `patterns_crud` (DONE)
+- **Agente:** leader (orquesta, costura del borrado nombrada en el brief) → implementer →
+  reviewer (APROBADO a la primera, sin cambios requeridos).
+- **Cambios:** feature `src/features/patterns/**` (types + validation + `api/{errors,store,
+  create,list,get,update,delete,index}` + doble en memoria) y route handlers finos
+  `src/app/api/patterns/{route,[id]/route,params}`. CRUD completo con filtros `?type=&inLibrary=`.
+  `patterns/index.ts` pasa a exportar `./api`, `./types`, `./validation`. Feature casi
+  **autocontenida** (Pattern solo referencia a User; el store de producción solo importa su
+  propio schema + shared/db).
+- **Modelo:** `instructions` y `metadata` como arrays ordenados `{ key, value }`; `inLibrary`
+  bool (default false = embebido; true = biblioteca, reusable 1→N vía `project.patternId`). El
+  completado de pasos NO vive en el patrón (sigue en `Project.completedSteps`, #6).
+- **Costura del borrado (decidida y asignada en el brief — resuelta de entrada):** la FK
+  `projects.pattern_id → patterns` es `ON DELETE set null` (S2). `DELETE /api/patterns/:id` →
+  **204**; los proyectos que lo usaban quedan con `patternId = null` **por la FK, no por el
+  servicio** (sin limpieza manual — S2). **NO** 409, **NO** `?force`, **NO** aviso a nivel BFF
+  (un aviso sería confirmación de UI, fuera del alcance del PRD). El doble en memoria simula el
+  `set null` compartiendo `projects.rows` y mutándolo in-place; test honesto (servicio + ruta)
+  que confirma que el proyecto sobrevive con `patternId = null`.
+- **Verificación:** `bash ./init.sh` VERDE — **242 tests en 25 archivos** (antes 219 en 23,
+  +23, 0 rotos). `pnpm build` OK, 2 rutas nuevas registradas. Sin tocar `schema.ts` ni migración;
+  añadir `./api` al barrel no rompió S1 ni introdujo ciclo.
+- **Observación no bloqueante (reviewer):** deuda #6 vigente — el `set null` real solo está
+  probado contra el doble; confirmar en el primer smoke contra Neon.
+- **Informes:** `progress/reports/impl_patterns_crud.md`, `review_patterns_crud.md`.
+- **Próximo:** feature #10 `dashboard_metrics`.
+
+## 2026-07-23 — Smoke test real contra Neon (deuda #6) + bugfix de #8
+- **Agente:** leader (aplica migración + verifica esquema, ops) → implementer (smoke) →
+  leader enruta el bug → implementer (fix) → reviewer (APROBADO).
+- **Migración APLICADA a Neon por primera vez:** el líder confirmó que la DB estaba **vacía**
+  (0 tablas), aplicó `drizzle/0000_cold_ben_urich.sql` con `pnpm db:migrate` (PostgreSQL 17.10),
+  y verificó por lectura directa que el esquema real coincide con el diseño: **8 tablas + 12 FKs**
+  con sus `ON DELETE` exactos (todos los `user_id`→CASCADE, `craft_sessions.project_id` y
+  `project_yarns.project_id`→CASCADE, `projects.pattern_id`→SET NULL, `project_yarns.yarn_id`/
+  `yarn_types.brand_id`/`yarns.brand_id`/`yarns.type_id`→NO ACTION) + UNIQUE en `users.email` y
+  `yarns(brand_id, color_code)`. Esto valida la tarea de arquitectura S2 contra Postgres real.
+- **Smoke de comportamiento:** `src/__smoke__/neon.smoke.test.ts`, guardado por flag `SMOKE_NEON`
+  (en la corrida hermética queda **skipped**, 0 conexiones; los tests normales siguen verdes).
+  Ejercita los **stores/servicios reales** inyectándoles el cliente Neon. **5/6 comportamientos
+  confirmados** contra Postgres real: cascada `deleteProject` (sin huérfanos en `project_yarns`/
+  `craft_sessions`), `set null` `deletePattern`, `numeric→number` en `sumDuration`,
+  `deleteYarn(force)`, bloqueo 409 `deleteBrand`.
+- **BUG DE PRODUCCIÓN destapado por el smoke (el valor de probar contra DB real):** la detección
+  de UNIQUE `(brandId, colorCode)` **no funcionaba** contra el driver `neon-http`. La violación
+  llega como `DrizzleQueryError` con `.code`/`.constraint` `undefined`; el `NeonDbError` real
+  (`code "23505"`, constraint) viaja en **`error.cause`**, que `isDuplicateColorCode`
+  (`yarns/api/store.ts`) NO desenvolvía → el BFF habría dado **500 en vez de 409** en `createYarn`
+  y `updateYarn`. Los unit tests estaban **verdes en falso** porque el doble imitaba la forma
+  *plana* del error. Es exactamente el punto flojo que el review de #8 marcó como no bloqueante.
+- **Fix (reabrió #8 → in_progress → done):** `isDuplicateColorCode` ahora recorre la cadena
+  `.cause` (guarda de profundidad 5, sin ciclos), conservando el match plano y la constante única
+  del nombre de constraint. +7 tests **herméticos** que alimentan la forma anidada real
+  `{ cause: { code, constraint } }` (lo que el doble no puede reproducir) + profundidad + ciclo +
+  passthrough + `updateYarn`. `bash ./init.sh` VERDE (**249 tests**, +7). Smoke re-corrido con el
+  flag → **6/6 passed**; DB dejada limpia (8 tablas a 0 filas).
+- **Hallazgo del teardown:** borrar un `users` con catálogos NO va en un solo statement
+  (`users→brands` es cascade, pero `brands→yarn_types`/`yarns` son `no action`): el teardown debe
+  ir en orden yarns→yarn_types→brands→user. Anotado por si aparece un "delete user" futuro.
+- **Deuda #6:** de "la app nunca ha hablado con una DB real" a **saldada**: esquema aplicado y
+  6/6 comportamientos de la capa de datos confirmados contra Neon. El smoke queda como guardia
+  viva (por flag) para re-verificar tras cambios de store.
+- **Informes:** `progress/reports/smoke_neon.md`, `impl_fix_duplicate_colorcode.md`,
+  `review_fix_duplicate_colorcode.md`.
+- **Próximo:** feature #10 `dashboard_metrics`.
