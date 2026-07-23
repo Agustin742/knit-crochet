@@ -121,14 +121,15 @@
       "prd_ref": "§12.7, §4.4, §4.5, §6.3, §9(Yarns)",
       "description": "Lanas y sus catálogos jerárquicos (marca → tipo) por usuario, con la regla de borrado seguro cuando una lana está referenciada por un proyecto.",
       "acceptance": [
-        "GET/POST /api/brands y GET/POST /api/brands/:id/types (jerárquico, por usuario)",
+        "GET/POST/DELETE /api/brands[/:id] y GET/POST /api/brands/:id/types + DELETE /api/brands/:id/types/:typeId (jerárquico, por usuario)",
         "CRUD /api/yarns con filtros ?brandId=&typeId=&colorFamily=",
         "Constraint (brandId, colorCode) único; colorFamily de la lista fija",
         "DELETE de lana referenciada por un proyecto responde 409 + advertencia; requiere ?force=true",
+        "DELETE de marca con tipos/lanas, o de tipo con lanas, responde 409 (bloquear, sin force); sin hijos → 204",
         "quantity la gestiona el usuario; enlazar a proyecto NO descuenta stock",
-        "Tests: CRUD, filtros, unicidad de colorCode por marca, borrado con y sin force"
+        "Tests: CRUD, filtros, unicidad de colorCode por marca, borrado de lana con/sin force, borrado de marca/tipo con y sin hijos"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 9,

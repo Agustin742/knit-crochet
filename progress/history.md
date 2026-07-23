@@ -281,3 +281,55 @@
 - **Informe:** `progress/reports/impl_arch_schema_cascade.md` (el
   `review_arch_schema_cascade.md` no llegó a escribirse por el corte de sesión).
 - **Próximo:** feature #8 `yarns_catalogs`.
+
+## 2026-07-22 — Feature #8 `yarns_catalogs` (DONE)
+- **Agente:** leader (orquesta, con las 3 costuras nombradas en el brief) → implementer →
+  reviewer (APROBADO a la primera, sin cambios requeridos).
+- **Cambios:** nueva feature `src/features/yarns/api/**` (store inyectable + doble en
+  memoria + errores nombrados + zod por endpoint) siguiendo el patrón asentado en #6/#7.
+  Endpoints: `GET/POST /api/brands`, `GET/POST /api/brands/:id/types`, `GET/POST /api/yarns`,
+  `GET/PATCH/DELETE /api/yarns/:id`. `yarns/index.ts` pasa a exportar `./api`, `./types`,
+  `./validation` (antes solo `./schema`).
+- **Las 3 costuras (nombradas en el brief, lección de #7 — resueltas de entrada):**
+  1. `DELETE /api/yarns/:id?force=`: referenciada sin `force` → **409** + `referencedBy`
+     (no borra nada); con `?force=true` borra los `project_yarns` primero (FK `no action`)
+     y luego la lana. El doble comparte de verdad el array `projectYarns` con el de
+     projects (splice in-place); filtrado solo por `yarnId` → no arrastra enlaces ajenos.
+  2. `unique(brandId, colorCode)` → **409** `DuplicateColorCodeError` (create y update),
+     nunca 500. El doble simula la unicidad.
+  3. Scoping cruzado create/update: `brandId` marca del usuario (404 si no); `typeId`
+     existe **y pertenece a esa brand** (404 si no). `assert-yarn-refs.ts` centraliza el chequeo.
+- **Fuera de scope (decisión del líder, respetada):** sin DELETE/PATCH de Brand/YarnType
+  (el PRD §9 y el acceptance solo definen GET/POST) → el 409-bloqueo de borrado de
+  marca/tipo queda diferido hasta que exista ese endpoint. `Yarn.image` = URL string (como
+  `Project.image`), sin cablear upload de Cloudinary → la deuda 3 no aplica todavía.
+- **Ciclo de imports:** añadir `./api` al barrel de yarns NO rompió nada (FKs de Drizzle son
+  closures perezosas); `projects/api/store.ts` NO se tocó. Verificado con build+typecheck+tests.
+- **Verificación:** `bash ./init.sh` VERDE — **204 tests en 23 archivos** (antes 169 en 20,
+  +35, 0 rotos). `pnpm build` OK, 4 rutas nuevas registradas. El reviewer ejecutó la
+  verificación él mismo y auditó las 3 costuras + el scoping por `userId` de cada endpoint.
+- **Observaciones no bloqueantes del reviewer (para el leader):**
+  1. Deuda #6 (heredada): la traducción del duplicado a `DuplicateColorCodeError` en el
+     store real solo está probada contra el doble; `isDuplicateColorCode` es defensiva
+     (code/constraint/mensaje). Cubrir en el smoke test al integrar DB real.
+  2. `tsconfig.tsbuildinfo` sigue trackeado (deuda 4): conviene `.gitignore`.
+- **Informes:** `progress/reports/impl_yarns_catalogs.md`, `review_yarns_catalogs.md`.
+- **Ampliación (mismo día):** el usuario detectó que faltaba el **DELETE de marca/tipo** en el
+  acceptance original. Se reabrió #8, se actualizó el acceptance y se añadió con 1 implementer +
+  1 reviewer (APROBADO a la primera). `DELETE /api/brands/:id` y
+  `DELETE /api/brands/:id/types/:typeId`: con hijos (tipos/lanas para la marca; lanas para el
+  tipo) → **409 bloqueante, SIN force y SIN cascada** (decisión de producto del usuario
+  2026-07-22, distinta del DELETE de lana que sí tiene `?force`); sin hijos → 204; ajeno/
+  inexistente o tipo que no pertenece a la marca de la URL → 404. El conteo de hijos ocurre
+  ANTES del delete porque las FKs son `no action` (si no, Postgres daría 500). Sin tocar
+  `schema.ts` ni migración. **219 tests en 23 archivos** (+15 sobre 204). Informes:
+  `progress/reports/impl_yarns_delete_catalogs.md`, `review_yarns_delete_catalogs.md`.
+- **Nota de proceso:** el acceptance de una feature puede quedar incompleto; conviene contrastar
+  contra el PRD §9 (endpoints) al redactar el brief. Aquí el DELETE de catálogos no estaba en el
+  PRD §9 explícitamente (solo GET/POST), pero sí era una necesidad real del usuario → se añadió.
+- **Decisión abierta registrada — cableado de Cloudinary:** se difiere a la fase de UI, como un
+  **endpoint de subida único compartido** (`POST /api/uploads/image`), no per-entidad. Motivo:
+  sin UI no hay archivo que subir; `image` como URL string es funcional para el alcance del PRD.
+  Al cablearlo aplica la deuda 3 (folder/publicId desde el `userId` del JWT, validados con zod,
+  nunca del body crudo).
+- **Próximo:** feature #9 `patterns_crud`.
