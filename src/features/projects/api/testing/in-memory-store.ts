@@ -6,6 +6,7 @@ import type {
   ProjectRecord,
   ProjectYarnRecord,
 } from "@/features/projects/types";
+import type { CraftSessionRecord } from "@/features/time-tracking/types";
 import { ACTIVE_PROJECT_STATUSES } from "@/shared/config";
 
 export type InMemoryProjectStore = ProjectStore & {
@@ -14,6 +15,8 @@ export type InMemoryProjectStore = ProjectStore & {
   links: ProjectYarnRecord[];
   /** Lanas visibles para el scoping cruzado (solo id + dueño). */
   yarns: { id: string; userId: string }[];
+  /** Sesiones de tejido; las comparte el doble de time-tracking (FK del DELETE). */
+  sessions: CraftSessionRecord[];
   /** Últimos filtros recibidos por `list` (para verificar el parseo del query). */
   lastFilters: ProjectFilters | undefined;
   reset(): void;
@@ -44,6 +47,16 @@ function toRecord(input: NewProjectRecord): ProjectRecord {
 }
 
 /**
+ * Borra in place las filas que cumplen el predicado. Muta el array original
+ * (no lo reemplaza) porque el doble de time-tracking comparte la referencia de
+ * `sessions`.
+ */
+function cascadeDelete<T>(items: T[], matches: (item: T) => boolean): void {
+  const remaining = items.filter((item) => !matches(item));
+  items.splice(0, items.length, ...remaining);
+}
+
+/**
  * Doble en memoria de `ProjectStore` para tests: replica el scoping por
  * `userId` y los filtros de `list`. No es código de producción; vive junto al
  * feature para que todos sus tests (y los de las rutas) compartan un solo doble.
@@ -52,16 +65,19 @@ export function createInMemoryProjectStore(): InMemoryProjectStore {
   const rows: ProjectRecord[] = [];
   const links: ProjectYarnRecord[] = [];
   const yarns: { id: string; userId: string }[] = [];
+  const sessions: CraftSessionRecord[] = [];
 
   const store: InMemoryProjectStore = {
     rows,
     links,
     yarns,
+    sessions,
     lastFilters: undefined,
     reset() {
       rows.length = 0;
       links.length = 0;
       yarns.length = 0;
+      sessions.length = 0;
       store.lastFilters = undefined;
     },
 
@@ -134,6 +150,9 @@ export function createInMemoryProjectStore(): InMemoryProjectStore {
       return updated;
     },
 
+    // Simula `ON DELETE cascade` de `project_yarns.project_id` y
+    // `craft_sessions.project_id` (regla S2): el barrido de filas poseídas lo
+    // hace Postgres, así que el doble lo hace aquí y no el servicio.
     async remove(userId, id) {
       const index = rows.findIndex(
         (row) => row.userId === userId && row.id === id,
@@ -142,6 +161,8 @@ export function createInMemoryProjectStore(): InMemoryProjectStore {
         return false;
       }
       rows.splice(index, 1);
+      cascadeDelete(links, (link) => link.projectId === id);
+      cascadeDelete(sessions, (session) => session.projectId === id);
       return true;
     },
 
@@ -180,12 +201,6 @@ export function createInMemoryProjectStore(): InMemoryProjectStore {
       return true;
     },
 
-    async removeYarnLinks(projectId) {
-      const remaining = links.filter((link) => link.projectId !== projectId);
-      const removed = links.length - remaining.length;
-      links.splice(0, links.length, ...remaining);
-      return removed;
-    },
   };
 
   return store;

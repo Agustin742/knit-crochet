@@ -5,9 +5,10 @@ import {
 } from "@/features/projects/api/store";
 
 /**
- * La FK `project_yarns.project_id` es `ON DELETE no action`: hay que vaciar los
- * enlaces N:N antes de borrar la fila o Postgres rechaza el DELETE. El enlace es
- * solo referencia (PRD §4.6), así que se borra sin tocar la lana ni su stock.
+ * Las filas poseídas por el proyecto (`project_yarns` y `craft_sessions`) las
+ * borra Postgres: ambas FKs son `ON DELETE cascade` (regla S2 de
+ * `architecture.md`). El servicio solo comprueba la propiedad antes de borrar.
+ * Ni la lana ni su stock se tocan: el enlace es referencia (PRD §4.5, §4.6).
  */
 export async function deleteProject(
   userId: string,
@@ -18,8 +19,6 @@ export async function deleteProject(
   if (!existing) {
     throw new ProjectNotFoundError();
   }
-
-  await store.removeYarnLinks(id);
 
   const deleted = await store.remove(userId, id);
   if (!deleted) {

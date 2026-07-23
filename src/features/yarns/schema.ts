@@ -8,14 +8,15 @@ import {
   unique,
   uuid,
 } from "drizzle-orm/pg-core";
-import { users } from "@/features/auth";
+// Regla S1 (architecture.md §"Capa de schema"): solo `schema.ts`, nunca el barrel.
+import { users } from "@/features/auth/schema";
 import { colorFamilyEnum } from "@/shared/db/enums";
 
 export const brands = pgTable("brands", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id")
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
 });
 
@@ -35,7 +36,7 @@ export const yarns = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id),
+      .references(() => users.id, { onDelete: "cascade" }),
     image: text("image"),
     brandId: uuid("brand_id")
       .notNull()

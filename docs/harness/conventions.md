@@ -18,6 +18,11 @@
 - **Imports:** externos primero, luego internos con alias (`@/...`). Cada feature
   expone su API pública desde un `index.ts`; consume otros features por su
   `index.ts`, no por rutas internas.
+  - **Excepción obligatoria — la capa de schema:** un `features/<x>/schema.ts`
+    importa las tablas de otro feature **por su `schema.ts` directo**
+    (`@/features/yarns/schema`), **nunca** por el `index.ts`. El barrel arrastra
+    `./api` y crea un ciclo `schema → index → api → store → schema`. Ver
+    `architecture.md` §"Capa de schema".
 - **Strings:** comillas dobles `"..."`. Template literals para interpolación.
 - **Async:** `async/await`, nada de cadenas de `.then()`.
 

@@ -192,3 +192,92 @@
   `review_projects_crud.md` (conserva el rechazo original + la sección "Re-review tras
   corrección").
 - **Próximo:** feature #7 `time_tracking`.
+
+## 2026-07-22 — Feature #7 `time_tracking` (DONE)
+- **Agente:** leader (orquesta) → implementer → reviewer (APROBADO a la primera).
+- **Cambios:** nueva feature `src/features/time-tracking/api/**` siguiendo el patrón ya
+  asentado en #6 (store inyectable + doble en memoria + errores nombrados + zod) y 3 Route
+  Handlers finos con `withSession`: `POST /:id/sessions/start`, `PATCH /:id/sessions/stop`,
+  `GET /:id/sessions`.
+- **Decisiones cerradas:**
+  - Doble start → **reutiliza** la sesión abierta (200 vs 201 al crear).
+  - Doble stop → **409** `NoActiveSessionError` (nunca 500).
+  - `duration = max(0, floor((end - start)/1000))`, **siempre calculado en el servidor**;
+    body estricto: mandar `end`/`duration` da 400. Mismo principio que `progress` en #6 —
+    el cliente no manda valores derivados. Importa porque falsear `duration` falsearía
+    las métricas del dashboard (#10).
+  - `Project.time` se **recalcula** como Σ `duration` en vez de incrementarse por delta:
+    auto-sana cualquier deriva.
+- **Frontera asignada por escrito en el brief (lección de #6, aplicada con éxito):**
+  `craft_sessions_project_id_projects_id_fk` también es `ON DELETE no action`
+  (`drizzle/0000_cold_marrow.sql:107`), así que en cuanto existieran sesiones el
+  `DELETE /api/projects/:id` habría vuelto a dar 500 — el mismo bug que rechazó #6. Esta
+  vez se asignó explícitamente a #7 en el brief y **el implementer lo resolvió de entrada**:
+  `ProjectStore.removeCraftSessions` llamado desde `deleteProject` (patrón `removeYarnLinks`),
+  sin migración y sin tocar `schema.ts`. Con tests de la costura a nivel servicio y a nivel
+  ruta (204 + cero sesiones huérfanas + sesiones de otros proyectos intactas).
+  **Conclusión de proceso: nombrar la frontera en el brief evitó repetir el rechazo.**
+- **Verificación:** `bash ./init.sh` VERDE — **169 tests en 20 archivos** (antes 134 en 17,
+  +35, 0 rotos). `pnpm build` OK. El reviewer auditó explícitamente la frontera del DELETE
+  (que no borre de más) y el scoping por `userId` de los 3 endpoints.
+- **Observaciones no bloqueantes del reviewer (para el leader):**
+  1. **Ciclo de imports** `projects` ↔ `time-tracking` a nivel schema: real pero benigno
+     (las FKs de Drizzle son closures perezosas), verificado por build/typecheck/tests. Es
+     una excepción consciente a "consume otros features por su `index.ts`". **Si se repite
+     en #8/#9, decidirlo a nivel arquitectura y no feature a feature.**
+  2. `removeCraftSessions` vive en `ProjectStore`: coherente con `removeYarnLinks`, pero el
+     store de projects ya conoce dos tablas ajenas. **Si aparece una tercera FK hacia
+     `projects`, toca un servicio de borrado en cascada explícito.**
+  3. Deuda futura: si #10/#11 añaden borrado de sesión individual, deberá recalcular
+     `Project.time` en la misma operación.
+  4. `coalesce(sum(...), 0)` devuelve `numeric` (string por el driver); `sumDuration` ya
+     hace `Number(...)` explícito (`store.ts:134`), pero confirmarlo en el primer smoke real.
+- **Informes:** `progress/reports/impl_time_tracking.md`, `review_time_tracking.md`.
+- **Próximo:** feature #8 `yarns_catalogs`.
+
+## 2026-07-22 — Arquitectura: capa de schema (S1 + S2) — no es una feature
+- **Agente:** leader (análisis + decisión con el usuario + doc) → implementer →
+  verificación directa del leader (el reviewer se cortó por límite de sesión antes de
+  escribir su informe; la verificación se rehízo en el hilo principal).
+- **Origen:** el reviewer de #7 levantó dos observaciones no bloqueantes (ciclo de
+  imports entre features a nivel schema; `ProjectStore` acumulando limpieza de tablas
+  ajenas). Al analizarlas resultaron ser **el mismo problema** y estar **a punto de
+  multiplicarse**: `yarns/index.ts` y `patterns/index.ts` solo exportaban `./schema`, así
+  que en cuanto #8 y #9 les añadieran `./api` habrían aparecido dos ciclos nuevos.
+- **Causa raíz identificada:** (a) los `schema.ts` importaban por el `index.ts` de otras
+  features, que arrastra `./api` → ciclo; (b) #3 generó **todas** las FKs como
+  `ON DELETE no action`, sin distinguir posesión de referencia — eso causó el rechazo de
+  #6, amenazó a #7 y habría reaparecido en #8.
+- **Decisión (documentada en `docs/harness/architecture.md` §"Capa de schema" y en la
+  excepción de imports de `conventions.md`):**
+  - **S1** — un `schema.ts` importa solo `schema.ts` de otras features, nunca el `index.ts`.
+  - **S2** — la cascada la declara la FK, no el servicio. Tabla de `onDelete` por FK
+    distinguiendo posesión (`cascade`) de referencia (`no action`/`set null`).
+  - Corolario: se retira el patrón de limpieza manual en los stores
+    (`removeYarnLinks`/`removeCraftSessions`).
+  - **Decisión de producto del usuario:** borrar una marca con tipos/lanas colgando →
+    **409 (bloquear)**, coherente con la regla del PRD §4.5 para lanas. Por eso
+    `yarns`/`brands`/`yarn_types` quedan `no action` **a propósito**; la lógica del 409
+    la implementa **#8**, todavía no existe.
+- **Momento elegido:** la migración nunca se había aplicado a Neon ⇒ sin datos ⇒ se pudo
+  regenerar en limpio a coste cero. Dentro de tres features habría sido una migración
+  sobre datos reales.
+- **Cambios:** 7 imports en 4 `schema.ts`; `onDelete` en las 12 FKs; migración inicial
+  regenerada (`drizzle/0000_cold_ben_urich.sql` sustituye a `0000_cold_marrow.sql`, sin
+  restos ni `0001_`); `removeYarnLinks`/`removeCraftSessions` eliminados del store Drizzle
+  y del doble; el doble en memoria ahora **simula la cascada** en su `remove()`.
+- **Verificación (hecha por el leader, no copiada del informe):**
+  - Las **12 FKs del SQL generado coinciden celda por celda** con la tabla de
+    `architecture.md`: `project_yarns→projects` y `craft_sessions→projects` cascade;
+    `projects→patterns` set null; `project_yarns→yarns`, `yarn_types→brands`,
+    `yarns→brands`, `yarns→yarn_types` no action; todas las `→users` cascade.
+  - S1: ningún `schema.ts` importa un `index.ts` (grep limpio). Grafo acíclico.
+  - Cero restos de `removeYarnLinks`/`removeCraftSessions` en `src/`.
+  - **Fidelidad del doble** (el riesgo central: un doble que imita mal a Postgres deja
+    pasar tests y rompe en Neon): `in-memory-store.ts:156-167` borra solo enlaces y
+    sesiones de ESE `projectId`, y solo tras confirmar propiedad — así que un 404 por
+    proyecto ajeno no borra nada. Fiel a las dos FKs declaradas `cascade`.
+  - `bash ./init.sh` VERDE: **169/169 tests**, cero borrados. `pnpm build` OK.
+- **Informe:** `progress/reports/impl_arch_schema_cascade.md` (el
+  `review_arch_schema_cascade.md` no llegó a escribirse por el corte de sesión).
+- **Próximo:** feature #8 `yarns_catalogs`.

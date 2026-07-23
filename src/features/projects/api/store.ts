@@ -35,8 +35,6 @@ export type ProjectStore = {
   linkYarn(projectId: string, yarnId: string): Promise<boolean>;
   /** `false` si no había enlace que borrar. */
   unlinkYarn(projectId: string, yarnId: string): Promise<boolean>;
-  /** Borra TODOS los enlaces del proyecto; imprescindible antes de `remove` (FK). */
-  removeYarnLinks(projectId: string): Promise<number>;
 };
 
 /** Lo mínimo que projects necesita saber de una lana: que existe y es del usuario. */
@@ -166,14 +164,6 @@ export function createProjectStore(
         )
         .returning({ yarnId: projectYarns.yarnId });
       return rows.length > 0;
-    },
-
-    async removeYarnLinks(projectId) {
-      const rows = await database
-        .delete(projectYarns)
-        .where(eq(projectYarns.projectId, projectId))
-        .returning({ yarnId: projectYarns.yarnId });
-      return rows.length;
     },
   };
 }

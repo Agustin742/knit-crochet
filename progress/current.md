@@ -3,7 +3,8 @@
 > Este archivo se vacía al cerrar cada sesión y se mueve a `history.md`.
 > Mientras trabajas, **mantenlo actualizado en tiempo real**, no al final.
 
-- **Feature en curso:** _ninguna_ (última cerrada: #6 `projects_crud` → done)
+- **Feature en curso:** _ninguna_ (última cerrada: #7 `time_tracking` → done)
+- **Última tarea:** arquitectura de la capa de schema (S1 + S2) → **cerrada y verificada**
 - **Inicio:** _—_
 - **Agente:** _—_
 
@@ -13,40 +14,62 @@ _Describe en 3-5 bullets qué vas a hacer antes de tocar código._
 
 ## Bitácora
 
-- #1-#6 cerradas (ver `history.md`). Infraestructura + el feature más grande del PRD.
-- `bash ./init.sh` verde: lint, typecheck, **134 tests** en 17 archivos. `pnpm build` OK.
+- #1-#7 cerradas + tarea de arquitectura de la capa de schema (ver `history.md`).
+  Quedan 4 features: #8, #9, #10, #11.
+- `bash ./init.sh` verde: lint, typecheck, **169 tests** en 20 archivos. `pnpm build` OK.
+- Migración vigente: **`drizzle/0000_cold_ben_urich.sql`** (regenerada; la anterior
+  `0000_cold_marrow.sql` ya no existe).
 - Confirmado por el usuario: el cloud name de Cloudinary (`dd1zea1lo`) es correcto.
 - Nota del entorno: **context7 no está disponible**; para research usar el código fuente
   instalado en `node_modules/` + doc oficial + verificación empírica.
 
-## Aprendizaje del ciclo #6 (aplicar en features divididas)
+## Reglas de arquitectura vigentes (leer antes de #8)
 
-Al partir una feature en sub-tareas, los defectos aparecen **en la costura**: el bug
-bloqueante (`DELETE` de proyecto con lanas enlazadas → 500 por la FK) lo anotaron los
-DOS implementers en sus informes y ninguno lo corrigió, porque cada uno lo dio por
-ajeno a su mitad. Al dividir, hay que **asignar explícitamente la frontera a una de
-las sub-tareas** o revisarla aparte. #7 vuelve a tocar `Project` (campo `time`), así
-que ojo con la interacción con lo ya cerrado en #6.
+Están en `docs/harness/architecture.md` §"Capa de schema". Resumen operativo:
 
-## Próximo paso
+- **S1** — un `features/<x>/schema.ts` importa tablas de otra feature por su
+  `schema.ts` directo, **nunca** por el `index.ts` (el barrel arrastra `./api` y crea
+  un ciclo). Al añadir `export * from "./api"` a `yarns/index.ts` en #8, esta regla es
+  lo único que evita el ciclo.
+- **S2** — la cascada de borrado la declara la FK (`onDelete`), no el servicio.
+  **No escribas métodos de limpieza manual en los stores.** Si un borrado necesita
+  lógica (advertencia, `?force=true`, recálculo de un cache), eso sí va en el servicio.
 
-- Siguiente en cola: **#7 `time_tracking`** (`CraftSession` start/stop + `Project.time`
-  como suma cacheada + historial). Tamaño medio, 3 endpoints → 1 implementer + 1 reviewer.
-  Depende de: `CraftSession` (schema de #3), `Project.time` y el patrón de servicios /
-  `withSession` / store en memoria establecido en #6 (imitar, no reinventar).
+## Aprendizaje de proceso (#6 → #7, funcionó)
+
+En #6 el bloqueante apareció **en la costura** entre sub-tareas: lo anotaron los dos
+implementers y ninguno lo corrigió. En #7 la frontera equivalente se **nombró en el
+brief y se asignó a la feature** → resuelta de entrada y aprobada a la primera.
+**Repetir: identificar la costura ANTES de lanzar al implementer y asignarla por escrito.**
+
+## Próximo paso — #8 `yarns_catalogs`
+
+- Catálogos jerárquicos Brand→YarnType + CRUD Yarn con filtros + borrado seguro.
+- **Frontera ya identificada y decidida** (asignarla en el brief):
+  - `DELETE` de lana referenciada por un proyecto → **409 + advertencia**, y con
+    `?force=true` se borra (está en el acceptance, viene del PRD §4.5). La FK
+    `project_yarns → yarns` es `no action` **a propósito** para que este 409 exista.
+  - `DELETE` de marca o tipo con hijos → **409 (bloquear)**. Decisión de producto
+    tomada por el usuario el 2026-07-22. Las FKs `yarn_types→brands`, `yarns→brands`
+    y `yarns→yarn_types` son `no action` a propósito, pero **la lógica del 409 no
+    existe todavía: la escribe #8**. Sin ella, esos borrados darán 500.
+- `Yarn.image` es la primera entidad con imagen que se cablea → aplica la deuda 3
+  (sanitización de `folder`/`publicId` de Cloudinary).
 
 ## Deuda técnica acumulada
 
-1. ~~**Boilerplate de sesión** (de #4)~~ → **saldada** en la sub-tarea A de #6
-   (`withSession(route, handler)` en `shared/lib/http.ts`).
-2. **Orden de firma de Cloudinary** (de #5): `upload.ts:59` usa `localeCompare`
-   (sensible a locale/ICU). Correcto con las claves actuales; migrar a comparador
-   binario si #8/#9 añaden más params firmables.
-3. **Sanitización al cablear Cloudinary** (de #5): `folder`/`publicId` deben venir de
-   constantes o del `userId` del JWT, validados con zod, **nunca del body crudo**.
-4. **`tsconfig.tsbuildinfo` está trackeado en git** (pre-existente): es artefacto de
-   build, añadir a `.gitignore` y dejar de versionarlo.
-5. **`readProjectId` duplicado** (de #6, no bloqueante): existe en
-   `src/app/api/projects/[id]/route.ts` y en las rutas hijas; unificar cuando se toque.
-6. **`GET /api/projects/:id` no devuelve las lanas enlazadas** (de #6): quedó fuera del
-   acceptance de #6; decidir si entra al cablear la UI.
+1. ~~**Boilerplate de sesión** (#4)~~ → saldada en #6.
+2. **Orden de firma de Cloudinary** (#5): `upload.ts:59` usa `localeCompare` (sensible a
+   locale/ICU). Migrar a comparador binario si #8/#9 añaden más params firmables.
+3. **Sanitización al cablear Cloudinary** (#5): `folder`/`publicId` desde constantes o
+   del `userId` del JWT, validados con zod, **nunca del body crudo**. **Aplica ya en #8.**
+4. **`tsconfig.tsbuildinfo` trackeado en git** (pre-existente): añadir a `.gitignore`.
+5. **`GET /api/projects/:id` no devuelve las lanas enlazadas** (#6): decidir al cablear la UI.
+6. **La app nunca ha hablado con una DB real**: todo se valida contra el doble en memoria
+   y la migración sigue sin aplicarse a Neon. Las queries Drizzle están verificadas por
+   tipos, no por ejecución. **Ahora hay un motivo extra para hacer el smoke pronto:** las
+   cascadas `ON DELETE` de S2 solo están probadas contra un doble que las *imita*.
+   Confirmar también que `coalesce(sum(...), 0)` (numeric → string por el driver) se
+   maneja bien; `sumDuration` ya hace `Number(...)` explícito.
+7. **Borrado de sesión individual** (futuro): si #10/#11 lo añaden, deberá recalcular
+   `Project.time` en la misma operación.

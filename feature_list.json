@@ -112,7 +112,7 @@
         "GET /api/projects/:id/sessions devuelve el historial",
         "Tests: start crea sesión abierta, stop calcula duration y actualiza time, doble stop controlado"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 8,

@@ -82,6 +82,41 @@ src/
 8. **Secretos por entorno.** Neon, Cloudinary y JWT viven en variables de
    entorno, nunca en el código.
 
+## Capa de schema
+
+> Decisión de arquitectura tomada tras cerrar #7 (2026-07-22), con el usuario.
+> Motivo: el reviewer de #7 detectó un ciclo de imports entre features y el
+> `ProjectStore` acumulando limpieza de tablas ajenas. Ambos síntomas tenían la
+> misma raíz, y #8/#9 los habrían multiplicado.
+
+**S1. Un `schema.ts` importa solo `schema.ts`.** Las tablas de otro feature se
+importan por su ruta directa (`@/features/yarns/schema`), nunca por el `index.ts`.
+El barrel arrastra `./api`, que llega al store, que importa el schema → ciclo.
+El grafo de FKs es un DAG; la capa de schema debe reflejarlo y quedar **por
+debajo** de la capa de servicios, sin conocerla.
+
+**S2. La cascada de borrado la declara la FK, no el servicio.** El `onDelete` de
+cada FK expresa la relación real, distinguiendo **posesión** de **referencia**:
+
+| FK | `onDelete` | Por qué |
+|---|---|---|
+| `project_yarns → projects` | `cascade` | El enlace pertenece al proyecto |
+| `craft_sessions → projects` | `cascade` | La sesión pertenece al proyecto |
+| `project_yarns → yarns` | `no action` | La lana es referenciada, no poseída: el PRD §4.5 exige 409 + `?force=true` |
+| `projects → patterns` | `set null` | `patternId` es nullable y el patrón se comparte (1→N) |
+| `yarn_types → brands` | `no action` | Borrar una marca con tipos → **409** (decisión de producto, #8) |
+| `yarns → brands` / `yarns → yarn_types` | `no action` | Íd.: no se destruye inventario por cascada |
+
+Corolario: **no se escriben métodos de limpieza manual en los stores** (el
+patrón `removeYarnLinks` / `removeCraftSessions` queda obsoleto). Si un borrado
+necesita lógica —advertencia, `?force=true`, recálculo de un cache como
+`Project.time`— eso sí vive en el servicio; el barrido de filas poseídas lo hace
+Postgres.
+
+> Precedente que lo motiva: la FK `no action` indiscriminada causó el rechazo de
+> #6 (`DELETE` de proyecto con lanas → 500) y amenazaba a #7 y #8. Se corrigió
+> cuando aún no se había aplicado ninguna migración a Neon, es decir, a coste cero.
+
 ## Qué NO hacer
 
 - Consultar Drizzle desde un componente de React.
