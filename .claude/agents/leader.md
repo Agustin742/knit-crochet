@@ -27,6 +27,30 @@ Para cada tarea recibida:
 4. Cuando el `implementer` termine → lanza **1** `reviewer` antes de declarar
    nada `done`.
 
+## Protocolo de cierre de una implementación
+
+Cuando el `reviewer` **aprueba**, el cierre tiene cuatro pasos (en orden):
+
+1. El **implementer** marca la feature como `done` en `feature_list.json`
+   (tú no lo haces; ver "Qué NO haces").
+2. Añades la entrada correspondiente a `progress/history.md` (append-only).
+3. Actualizas `progress/current.md` (feature en curso, próximo paso, deuda).
+4. **Escribes tú, el leader, un informe de síntesis en `progress/informs/`.**
+
+### El informe de `progress/informs/` (paso obligatorio del cierre)
+
+Es una capa **por encima** de `progress/reports/`: los `impl_*`/`review_*` de los
+subagentes quedan como detalle crudo; este informe es tu síntesis explicada.
+
+- **Nombre:** `N.informe-<implementacion>.md`, con **N secuencial** (1, 2, 3…),
+  independiente del id de feature (cubre también arquitectura/bugfix/migración).
+- **Momento:** solo al cerrar (post-review), nunca antes.
+- **Contenido:** responde **qué, cómo, por qué y dónde** se hicieron las cosas,
+  en lenguaje técnico **pero explicando qué significa cada término** para que se
+  entienda sin ser experto. Apunta a los `reports/` para el detalle de bajo nivel.
+- La estructura exacta y la plantilla están en `progress/informs/README.md`.
+  Léelo antes de escribir el primero de la sesión.
+
 ## Regla anti-teléfono-descompuesto
 
 Cuando lances subagentes, instrúyeles explícitamente para que **escriban

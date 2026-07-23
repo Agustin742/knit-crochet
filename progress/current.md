@@ -3,8 +3,8 @@
 > Este archivo se vacía al cerrar cada sesión y se mueve a `history.md`.
 > Mientras trabajas, **mantenlo actualizado en tiempo real**, no al final.
 
-- **Feature en curso:** _ninguna_ (última cerrada: #8 re-cerrada tras bugfix de la DB real)
-- **Última tarea:** smoke test real contra Neon → deuda #6 saldada + bugfix de `isDuplicateColorCode`
+- **Feature en curso:** _ninguna_ (última cerrada: #10 `dashboard_metrics`, APROBADA a la primera)
+- **Última tarea:** #10 `dashboard_metrics` cerrada — primer cierre con el nuevo informe de síntesis
 - **Inicio:** _—_
 - **Agente:** _—_
 
@@ -14,9 +14,9 @@ _Describe en 3-5 bullets qué vas a hacer antes de tocar código._
 
 ## Bitácora
 
-- #1-#9 cerradas + arquitectura de la capa de schema + smoke real contra Neon (ver `history.md`).
-  Quedan 2 features: #10 `dashboard_metrics`, #11 `calculators`.
-- `bash ./init.sh` verde: lint, typecheck, **249 tests** en 26 archivos (el smoke queda skipped
+- #1-#10 cerradas + arquitectura de la capa de schema + smoke real contra Neon (ver `history.md`).
+  Queda **1 feature**: #11 `calculators` (última).
+- `bash ./init.sh` verde: lint, typecheck, **266 tests** en 28 archivos (el smoke queda skipped
   sin el flag). `pnpm build` OK.
 - **La migración YA está aplicada a Neon** (`drizzle/0000_cold_ben_urich.sql`, PostgreSQL 17.10):
   8 tablas + 12 FKs verificadas contra la DB real.
@@ -40,21 +40,18 @@ _Describe en 3-5 bullets qué vas a hacer antes de tocar código._
    500 en vez de 409). Lección: para lógica que depende de la **forma del error del driver**, un
    test hermético que imite la forma REAL (anidada) + el smoke real. Vale para futuros stores.
 
-## Próximo paso — #10 `dashboard_metrics`
+## Próximo paso — #11 `calculators` (última feature)
 
-- `GET /api/dashboard/metrics?year=&type=` → `{ hours, projects, yarnMeters, comparison }`
-  (PRD §8, §9(Dashboard)). Feature de **agregación/lectura** (`features/dashboard`), sin mutaciones,
-  scoping por `userId`.
-- Cálculos (PRD §8): `hours = Σ CraftSession.duration` con `start` en el año; `projects` = iniciados/
-  terminados en el año (`startDate`/`endDate`); `yarnMeters = Σ (Yarn.usedQuantity × Yarn.length)`
-  como **agregado lifetime** (no fechado, PRD §11.2). `comparison` se deriva de `yarnMeters`.
-- Comparativas: lista fija en `shared/config` (semilla PRD §8: colectivo 12, Obelisco 67.5,
-  Eiffel 330, cancha 105, Everest 8849).
-- **Costura a decidir en el brief:** el endpoint lee de 3 features (time-tracking, projects, yarns).
-  `features/dashboard/api/` orquesta con queries de solo-lectura scopeadas por `userId`, sin duplicar
-  lógica ni romper capas. **Ojo `sum()` de Postgres → `numeric` (string por el driver): aplicar
-  `Number(...)` como en `sumDuration`** (misma trampa que ya mordió; el smoke lo confirmó). Añadir
-  un caso al smoke si se quiere cubrir el agregado real.
+- Lógica **pura sin DB** (PRD §7), resultados efímeros (se ejecuta en cliente, no se persiste).
+  `features/calculators`, sin endpoints ni acceso a DB.
+- **Aumentos:** entrada `P` (currentStitches) y `A` (stitchesToAdd) → instrucción legible en español.
+  `A<=0` o `P<=0` → error de validación. `base = floor(P/A)`, `remainder = P mod A`. Salida:
+  `remainder` tramos de `(base+1)` p + aumento, luego `(A - remainder)` tramos de `base` p + aumento.
+  Caso canónico `P=40, A=6` → `"Teje 7 p, aumenta 1 (×4); luego teje 6 p, aumenta 1 (×2). Total: 46 p."`
+- **Regla de 3:** `skeinsB = ceil(skeinsA × lengthB / lengthA)` (redondeo hacia arriba).
+- **Costura:** feature autocontenida, sin store ni schema. Ojo con la redacción EXACTA del string de
+  aumentos (el test canónico del acceptance la fija) y con el redondeo `ceil` de la regla de 3.
+- Al cerrar: informe de síntesis → `progress/informs/2.informe-calculators.md`.
 
 ## Deuda técnica acumulada
 

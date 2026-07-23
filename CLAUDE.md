@@ -36,6 +36,15 @@ Cuando lances subagentes, instrúyeles para **escribir resultados en archivos**
 dentro de `progress/reports/` (p. ej. `progress/reports/explore_<tema>.md`) y
 devolverte solo la referencia, no el contenido.
 
+### Informe de cierre (paso obligatorio al finalizar una implementación)
+
+Cuando el `reviewer` aprueba y la implementación se cierra, **tú (leader)
+escribes un informe de síntesis** en `progress/informs/` con nombre
+`N.informe-<implementacion>.md` (N secuencial). Explica **qué, cómo, por qué y
+dónde** se hicieron las cosas, en lenguaje técnico pero traduciendo cada término.
+Es una capa por encima de los `reports/` crudos de los subagentes. Plantilla y
+protocolo completo en `progress/informs/README.md` y `.claude/agents/leader.md`.
+
 ### Cuándo NO aplica este rol
 
 - Preguntas conceptuales o de exploración del repo (lectura pura) → responde

@@ -413,3 +413,43 @@
 - **Informes:** `progress/reports/smoke_neon.md`, `impl_fix_duplicate_colorcode.md`,
   `review_fix_duplicate_colorcode.md`.
 - **Próximo:** feature #10 `dashboard_metrics`.
+
+## 2026-07-23 — Nuevo paso de proceso: informe de cierre en `progress/informs/`
+- **Agente:** leader (edición de arnés/docs, tarea propia — no toca código).
+- A pedido del usuario: al **cerrar** cada implementación (post-review), el leader escribe un
+  **informe de síntesis** en `progress/informs/N.informe-<impl>.md` (**N secuencial**, no el id de
+  feature). Responde **qué/cómo/por qué/dónde**, en lenguaje técnico pero explicando cada término,
+  como capa por encima de los `reports/` crudos de los subagentes.
+- **Grabado en:** `progress/informs/README.md` (convención + plantilla), `.claude/agents/leader.md`
+  (protocolo de cierre de 4 pasos) y `CLAUDE.md` (visible en arranque). Solo aplica post-review;
+  sin informe retroactivo de #9.
+
+## 2026-07-23 — Feature #10 `dashboard_metrics` (DONE)
+- **Agente:** leader (recon + costura nombrada en el brief) → implementer → reviewer (APROBADO a la
+  primera, sin cambios requeridos). **Primer cierre con el nuevo informe de síntesis.**
+- **Cambios:** feature `src/features/dashboard/**` (types + validation zod + `api/{store,metrics,
+  comparison,index}` + doble en memoria) y Route Handler fino `src/app/api/dashboard/metrics/route.ts`
+  con `withSession`. `GET /api/dashboard/metrics?year=&type=` → `{ hours, projects, yarnMeters,
+  comparison }`. Feature de **agregación/solo-lectura**, scoping por `userId`. Lista fija
+  `YARN_COMPARISONS` añadida a `src/shared/config/index.ts` (+ test). Sin tocar `schema.ts` ni migración.
+- **Reglas de cálculo (PRD §8):** `hours = Σ craft_sessions.duration` con `start` en el año (join a
+  `projects` si hay `type`); devuelve el **crudo en segundos** (unidad de `Project.time`, sin dividir).
+  `projects` = con `startDate` OR `endDate` en el año (+ `type`). `yarnMeters = Σ(usedQuantity × length)`
+  **lifetime** (PRD §11.2): ignora `year` y `type` (las lanas no son craft-typed), solo `userId`.
+  `comparison` = mayor referencia con `meters ≤ yarnMeters` (menor si ninguna cabe).
+- **Costuras resueltas de entrada (nombradas en el brief):**
+  1. **Trampa `numeric→string`** del driver `neon-http`: los 3 agregados (`sum(duration)`, `count`,
+     `sum(usedQuantity*length)`) van envueltos en `Number(coalesce(...,0))`, igual que `sumDuration`.
+     El reviewer verificó cada `sum` por archivo:línea.
+  2. **Costura S1:** el `DashboardStore` lee de 3 features importando sus TABLAS por `schema.ts`
+     directo (no barrels), sin llamar a stores ajenos ni duplicar lógica; sin ciclo (build/typecheck
+     verdes) y sin nueva migración.
+  3. **`yarnMeters` invariante** a year/type: con test dedicado.
+- **Verificación:** `bash ./init.sh` VERDE — **266 tests en 28 archivos** (antes 249 en 26, +17,
+  0 rotos). `pnpm build` OK, ruta `/api/dashboard/metrics` registrada.
+- **Observación no bloqueante (reviewer):** los agregados SQL reales (`sum(usedQuantity*length)`,
+  `innerJoin` de horas) solo están cubiertos por el doble fiel; convendría un caso en `neon.smoke.test.ts`
+  para ejercerlos contra Neon (opcional, deuda #8 del harness).
+- **Informes:** `progress/reports/impl_dashboard_metrics.md`, `review_dashboard_metrics.md`.
+- **Informe de síntesis (nuevo):** `progress/informs/1.informe-dashboard_metrics.md`.
+- **Próximo:** feature #11 `calculators` (última; lógica pura sin DB).
