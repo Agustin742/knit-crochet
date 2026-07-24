@@ -3,20 +3,25 @@
 > Este archivo se vacía al cerrar cada sesión y se mueve a `history.md`.
 > Mientras trabajas, **mantenlo actualizado en tiempo real**, no al final.
 
-- **Feature en curso:** _ninguna_ (última cerrada: #10 `dashboard_metrics`, APROBADA a la primera)
-- **Última tarea:** #10 `dashboard_metrics` cerrada — primer cierre con el nuevo informe de síntesis
+- **Feature en curso:** _ninguna_ — ✅ **las 11 features del PRD-01 están DONE**
+- **Última tarea:** #11 `calculators` cerrada (APROBADA a la primera) → alcance funcional completo
 - **Inicio:** _—_
 - **Agente:** _—_
 
 ## Plan
 
-_Describe en 3-5 bullets qué vas a hacer antes de tocar código._
+- Crear `src/features/calculators/` autocontenida SIN `api/`, `schema.ts` ni rutas.
+- `errors.ts`: `InvalidCalculatorInputError` (clase nombrada, estilo del repo).
+- `increases.ts`: valida enteros positivos (P>0, A>0); `base=floor(P/A)`, `remainder=P%A`;
+  string en español. Casos borde: `remainder=0` (solo tramo base, sin ×0), `P<A` (base=0 → fraseo alternativo), singular/plural de (×1).
+- `rule-of-three.ts`: `ceil(skeinsA*lengthB/lengthA)`, valida entradas >0.
+- `types.ts` + `index.ts` (barrel). Tests co-ubicados. Verificar `bash ./init.sh` + `pnpm build`.
 
 ## Bitácora
 
-- #1-#10 cerradas + arquitectura de la capa de schema + smoke real contra Neon (ver `history.md`).
-  Queda **1 feature**: #11 `calculators` (última).
-- `bash ./init.sh` verde: lint, typecheck, **266 tests** en 28 archivos (el smoke queda skipped
+- **#1-#11 cerradas** + arquitectura de la capa de schema + smoke real contra Neon (ver `history.md`).
+  **No quedan features pendientes**: el PRD-01 (estructura funcional) está completo.
+- `bash ./init.sh` verde: lint, typecheck, **281 tests** en 30 archivos (el smoke queda skipped
   sin el flag). `pnpm build` OK.
 - **La migración YA está aplicada a Neon** (`drizzle/0000_cold_ben_urich.sql`, PostgreSQL 17.10):
   8 tablas + 12 FKs verificadas contra la DB real.
@@ -40,18 +45,15 @@ _Describe en 3-5 bullets qué vas a hacer antes de tocar código._
    500 en vez de 409). Lección: para lógica que depende de la **forma del error del driver**, un
    test hermético que imite la forma REAL (anidada) + el smoke real. Vale para futuros stores.
 
-## Próximo paso — #11 `calculators` (última feature)
+## Próximo paso — fin del PRD-01 (decisión del usuario)
 
-- Lógica **pura sin DB** (PRD §7), resultados efímeros (se ejecuta en cliente, no se persiste).
-  `features/calculators`, sin endpoints ni acceso a DB.
-- **Aumentos:** entrada `P` (currentStitches) y `A` (stitchesToAdd) → instrucción legible en español.
-  `A<=0` o `P<=0` → error de validación. `base = floor(P/A)`, `remainder = P mod A`. Salida:
-  `remainder` tramos de `(base+1)` p + aumento, luego `(A - remainder)` tramos de `base` p + aumento.
-  Caso canónico `P=40, A=6` → `"Teje 7 p, aumenta 1 (×4); luego teje 6 p, aumenta 1 (×2). Total: 46 p."`
-- **Regla de 3:** `skeinsB = ceil(skeinsA × lengthB / lengthA)` (redondeo hacia arriba).
-- **Costura:** feature autocontenida, sin store ni schema. Ojo con la redacción EXACTA del string de
-  aumentos (el test canónico del acceptance la fija) y con el redondeo `ceil` de la regla de 3.
-- Al cerrar: informe de síntesis → `progress/informs/2.informe-calculators.md`.
+- **No hay más features en `feature_list.json`.** El alcance funcional (datos, BFF, lógica) está
+  completo y verificado: 281 tests + smoke real contra Neon (6/6).
+- **Pendiente operativo:** hay bastante trabajo sin commitear en el árbol (features #8 bugfix, #9,
+  #10, #11 + el nuevo proceso de `informs/` + edición del arnés). Conviene un/varios commits limpios.
+- **Siguiente fase (fuera del PRD-01):** UI / estilos / Three.js. Ver `visual.md` cuando se arranque.
+  Antes de tocar UI, cablear Cloudinary como endpoint único (`POST /api/uploads/image`, deuda 3) y
+  decidir la deuda 5 (lanas enlazadas en `GET /api/projects/:id`).
 
 ## Deuda técnica acumulada
 

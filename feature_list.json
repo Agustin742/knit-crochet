@@ -174,7 +174,7 @@
         "Sin endpoints ni acceso a DB",
         "Tests: caso P=40,A=6 → '7 p... (×4); 6 p... (×2). Total 46 p'; regla de 3 con redondeo hacia arriba; validaciones"
       ],
-      "status": "pending"
+      "status": "done"
     }
   ]
 }

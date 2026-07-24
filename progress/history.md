@@ -453,3 +453,28 @@
 - **Informes:** `progress/reports/impl_dashboard_metrics.md`, `review_dashboard_metrics.md`.
 - **Informe de síntesis (nuevo):** `progress/informs/1.informe-dashboard_metrics.md`.
 - **Próximo:** feature #11 `calculators` (última; lógica pura sin DB).
+
+## 2026-07-23 — Feature #11 `calculators` (DONE) — última feature del PRD
+- **Agente:** leader (brief con el string canónico y los casos borde nombrados) → implementer →
+  reviewer (APROBADO a la primera, sin cambios requeridos).
+- **Cambios:** feature `src/features/calculators/**` de **lógica pura** — sin DB, sin endpoints, sin
+  `api/` ni `schema.ts`. `errors.ts` (`InvalidCalculatorInputError`, error nombrado), `types.ts`,
+  `increases.ts` (`calculateIncreases → string`), `rule-of-three.ts` (`calculateRuleOfThree → number`),
+  `index.ts` (barrel) + tests co-ubicados.
+- **Aumentos (§7.1):** `base = floor(P/A)`, `remainder = P mod A`, `total = P + A`. Caso canónico
+  `P=40, A=6` → `"Teje 7 p, aumenta 1 (×4); luego teje 6 p, aumenta 1 (×2). Total: 46 p."` fijado al
+  carácter por un test (símbolo `×` = U+00D7, no la letra `x`). Casos borde con fraseo decidido y
+  cubierto: `remainder=0` (un solo tramo, sin `×0`), `P<A`/`base=0` (omite "teje 0 p"), `(×1)` siempre
+  explícito. Enteros positivos obligatorios; violación → error nombrado.
+- **Regla de 3 (§7.2):** `skeinsB = Math.ceil(skeinsA × lengthB / lengthA)` (redondeo hacia arriba,
+  test donde es decisivo). Validación de entradas `<=0` (incl. `lengthA=0` = división por cero) → error nombrado.
+- **Verificación:** `bash ./init.sh` VERDE — **281 tests en 30 archivos** (antes 266 en 28, +15,
+  0 rotos). `pnpm build` OK, sin rutas nuevas (feature pura). Sin imports de `@/shared/db`/Drizzle
+  (confirmado por el reviewer con grep).
+- **Informes:** `progress/reports/impl_calculators.md`, `review_calculators.md`.
+- **Informe de síntesis:** `progress/informs/2.informe-calculators.md`.
+- **Hito:** ✅ **Las 11 features del PRD-01 (estructura funcional) están DONE.** El alcance funcional
+  del proyecto (datos, BFF, lógica) queda completo y verificado (281 tests + smoke real contra Neon).
+  Lo que sigue está **fuera del PRD-01**: fase de UI/estilos/Three.js.
+- **Próximo:** no hay más features en `feature_list.json`. Decisión del usuario sobre siguiente fase
+  (commit del trabajo acumulado + arranque de la fase visual).
