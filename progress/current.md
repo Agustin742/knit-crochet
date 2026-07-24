@@ -3,70 +3,47 @@
 > Este archivo se vacía al cerrar cada sesión y se mueve a `history.md`.
 > Mientras trabajas, **mantenlo actualizado en tiempo real**, no al final.
 
-- **Feature en curso:** _ninguna_ — ✅ **las 11 features del PRD-01 están DONE**
-- **Última tarea:** #11 `calculators` cerrada (APROBADA a la primera) → alcance funcional completo
-- **Inicio:** _—_
-- **Agente:** _—_
+- **Feature en curso:** _ninguna_ — #12 `ui_foundation` **CERRADA (done)**.
+- **Última tarea:** #12 `ui_foundation` → base del design system portada (tokens `@theme`, fuentes
+  `next/font`, `cn()`, primitivos Button/Field·Input/Card). APROBADA a la primera.
+- **Agente:** leader → implementer → reviewer.
 
-## Plan
+## Estado del proyecto
 
-- Crear `src/features/calculators/` autocontenida SIN `api/`, `schema.ts` ni rutas.
-- `errors.ts`: `InvalidCalculatorInputError` (clase nombrada, estilo del repo).
-- `increases.ts`: valida enteros positivos (P>0, A>0); `base=floor(P/A)`, `remainder=P%A`;
-  string en español. Casos borde: `remainder=0` (solo tramo base, sin ×0), `P<A` (base=0 → fraseo alternativo), singular/plural de (×1).
-- `rule-of-three.ts`: `ceil(skeinsA*lengthB/lengthA)`, valida entradas >0.
-- `types.ts` + `index.ts` (barrel). Tests co-ubicados. Verificar `bash ./init.sh` + `pnpm build`.
+- **Fase 1 (PRD-01, features 1-11):** completa (`done`).
+- **Fase 2 (UI, features 12-30):** arrancada. **#12 done**; siguiente pendiente por id = **#13 `ui_shell_nav`**.
+- `bash ./init.sh` VERDE: **312 passed | 6 skipped** (281 backend + 31 UI). `pnpm build` OK.
 
-## Bitácora
+## Próximo paso — feature #13 `ui_shell_nav`
 
-- **#1-#11 cerradas** + arquitectura de la capa de schema + smoke real contra Neon (ver `history.md`).
-  **No quedan features pendientes**: el PRD-01 (estructura funcional) está completo.
-- `bash ./init.sh` verde: lint, typecheck, **281 tests** en 30 archivos (el smoke queda skipped
-  sin el flag). `pnpm build` OK.
-- **La migración YA está aplicada a Neon** (`drizzle/0000_cold_ben_urich.sql`, PostgreSQL 17.10):
-  8 tablas + 12 FKs verificadas contra la DB real.
-- Smoke real disponible: `SMOKE_NEON=1 pnpm vitest run src/__smoke__/neon.smoke.test.ts` (6/6).
-  Es la guardia viva para re-verificar la capa de datos tras cambios de store.
-- Confirmado por el usuario: el cloud name de Cloudinary (`dd1zea1lo`) es correcto.
-- Nota del entorno: **context7 no está disponible**; research = código en `node_modules/` + doc
-  oficial + verificación empírica.
+AppShell + ArchiveNav (6 rutas, activa por ruta, `aria-current`) + BottomNav mobile + route groups
+`(app)`/`(auth)` + consumo de `GET /api/auth/me` y `POST /api/auth/logout`. Sin cambios de backend.
+Fuente: RFC-01 §3/§8, SDD §6 (`ArchiveNav`), `template/template-src.html` (`.kc-nav`/`.kc-folder`).
 
-## Reglas de arquitectura vigentes
+**Antes de arrancar #13:** exponer los breakpoints también en el namespace `--breakpoint-*` (además de
+`--bp-*`) para poder usar prefijos responsive de Tailwind en el nav (deuda anotada por #12).
 
-`docs/harness/architecture.md` §"Capa de schema" (S1/S2). Decisiones de producto asentadas en
-**PRD §11** (§11.7 Cloudinary diferido, §11.8 borrado de catálogos = 409 bloqueante).
+## Notas de #12 (para consumidores del design system)
 
-## Aprendizaje de proceso (confirmado hasta #9 + smoke)
+- Utilidades de color disponibles vía alias `--color-<rol>` (`bg-accent`, `text-fg`, `border-border`…);
+  o consumir el token directo con `var(--<rol>)`. Nombres del SDD §5 presentes verbatim.
+- **Cero hardcode** enforced por `src/shared/ui/primitives/no-hardcode.test.ts` — cualquier primitivo
+  nuevo debe pasar por token (usar `calc()`/`color-mix()` sobre tokens si hace falta un valor derivado).
+- Tests de UI: declarar `// @vitest-environment happy-dom` arriba del archivo (el default sigue `node`).
+- Gotcha: no usar la secuencia `*/` dentro de comentarios en `globals.css` (cierra el comentario CSS).
 
-1. Identificar la costura **ANTES** y asignarla por escrito en el brief → #7/#8/#9 aprobadas a la
-   primera. Repetir en #10.
-2. **Los dobles en memoria pueden mentir:** el smoke real destapó que `isDuplicateColorCode` no
-   desenvolvía `error.cause` (el doble imitaba la forma plana → verde en falso; Postgres real da
-   500 en vez de 409). Lección: para lógica que depende de la **forma del error del driver**, un
-   test hermético que imite la forma REAL (anidada) + el smoke real. Vale para futuros stores.
+## Pendiente operativo (no bloquea)
 
-## Próximo paso — fin del PRD-01 (decisión del usuario)
+- Hay bastante trabajo sin commitear en el árbol (features #8-#11 + proceso `informs/` + toda la Fase 2 #12
+  + docs/design/rfc + template/). Conviene commit(s) limpios cuando el usuario lo indique.
 
-- **No hay más features en `feature_list.json`.** El alcance funcional (datos, BFF, lógica) está
-  completo y verificado: 281 tests + smoke real contra Neon (6/6).
-- **Pendiente operativo:** hay bastante trabajo sin commitear en el árbol (features #8 bugfix, #9,
-  #10, #11 + el nuevo proceso de `informs/` + edición del arnés). Conviene un/varios commits limpios.
-- **Siguiente fase (fuera del PRD-01):** UI / estilos / Three.js. Ver `visual.md` cuando se arranque.
-  Antes de tocar UI, cablear Cloudinary como endpoint único (`POST /api/uploads/image`, deuda 3) y
-  decidir la deuda 5 (lanas enlazadas en `GET /api/projects/:id`).
+## Deuda técnica acumulada (heredada, vigente)
 
-## Deuda técnica acumulada
-
-1. ~~**Boilerplate de sesión** (#4)~~ → saldada en #6.
-2. **Orden de firma de Cloudinary** (#5): `upload.ts` usa `localeCompare` (sensible a locale/ICU).
-   Migrar a comparador binario si se añaden más params firmables.
-3. **Sanitización al cablear Cloudinary** (#5, decisión PRD §11.7): `folder`/`publicId` desde el
-   `userId` del JWT validados con zod, nunca del body crudo. Aplica en la fase de UI (no cableado aún).
-4. **`tsconfig.tsbuildinfo` trackeado en git** (pre-existente): añadir a `.gitignore`.
-5. **`GET /api/projects/:id` no devuelve las lanas enlazadas** (#6): decidir al cablear la UI.
-6. ~~**La app nunca ha hablado con una DB real**~~ → **SALDADA** (2026-07-23): migración aplicada a
-   Neon, esquema verificado, 6/6 comportamientos de la capa de datos confirmados, y un bug real de
-   traducción de error corregido. Smoke guardado por flag como guardia viva.
-7. **Borrado de sesión individual** (futuro): si se añade, deberá recalcular `Project.time`.
-8. **`sum()`/agregados → `numeric` (string por el driver):** aplicar `Number(...)` en cualquier
-   agregado nuevo (aplica directo a #10 `dashboard_metrics`).
+1. **Orden de firma de Cloudinary** (#5): `localeCompare` sensible a locale; migrar a comparador binario si
+   se añaden más params firmables.
+2. **Sanitización al cablear Cloudinary** (#5, PRD §11.7): `folder`/`publicId` desde el `userId` del JWT
+   validados con zod, nunca del body crudo. **Aplica en #15 `uploads_image`** (aún no cableado).
+3. **`tsconfig.tsbuildinfo` trackeado en git** (pre-existente): añadir a `.gitignore`.
+4. **`GET /api/projects/:id` no devuelve las lanas enlazadas** (#6): **la salda #17 `projects_detail_yarns`**.
+5. **`sum()`/agregados → `numeric` (string por el driver):** aplicar `Number(...)` en cualquier agregado nuevo.
+6. **Breakpoints `--breakpoint-*`** (nuevo, #12): exponerlos para variantes responsive de Tailwind (→ #13).

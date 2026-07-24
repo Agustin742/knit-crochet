@@ -22,8 +22,10 @@
 | `progress/current.md`        | Estado de la sesión actual                                | Siempre, al empezar |
 | `progress/history.md`        | Bitácora append-only de sesiones anteriores               | Si necesitas contexto histórico |
 | `progress/reports/`          | Informes de subagentes (`impl_*`, `review_*`, `explore_*`) | Si orquestas o auditas una feature |
-| `docs/product/PRD-01-estructura-funcional.md` | **Fuente única de verdad**: qué debe hacer el producto | Antes de planear una feature |
-| `visual.md`                  | Dirección estética, paleta, referencias, uso de 3D (fase visual) | Antes de tocar UI |
+| `docs/product/PRD-01-estructura-funcional.md` | **Fuente de verdad funcional** (datos, BFF, lógica): features 1-11 | Antes de planear una feature de backend |
+| `docs/design/rfc/RFC-00-proceso.md` | **Índice y proceso de la fase de UI/diseño**: jerarquía de verdad + mapeo RFC → `feature_list.json` | Antes de planear una feature de UI (id ≥ 12) |
+| `docs/design/rfc/RFC-01…07-*.md` | RFC de cada página/área: wiring del template a la app (rutas, datos, decisiones de página) | Antes de implementar esa página |
+| `docs/design/SDD-01-design-system.md` | **Contrato del design system portable**: tokens, componentes, capa 3D, verificación | Antes de tocar UI o el template |
 | `docs/harness/architecture.md` | Cómo construir: stack, feature-first, reglas de capas   | Antes de implementar |
 | `docs/harness/conventions.md`  | Reglas de estilo, nombres, dónde va cada cosa            | Antes de escribir código |
 | `docs/harness/verification.md` | Cómo verificar que tu trabajo funciona                   | Antes de declarar una tarea como `done` |

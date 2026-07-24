@@ -1,0 +1,120 @@
+/* ============================================================
+   Knit&Crochet — Design Tokens (SDD-01 §5)
+   Fuente única de verdad. Los componentes NO hardcodean valores.
+   ------------------------------------------------------------
+   FUENTES (no embebidas — self-hosted o Google Fonts):
+   · Instrument Serif  → --font-display y --font-emphasis (itálica)
+     https://fonts.google.com/specimen/Instrument+Serif
+   · Archivo           → --font-body
+     https://fonts.google.com/specimen/Archivo
+   · IBM Plex Mono     → --font-mono (ASCII, datos, etiquetas)
+     https://fonts.google.com/specimen/IBM+Plex+Mono
+   ============================================================ */
+:root {
+  /* ---- Color: escala cruda de marca ---- */
+  --brand-pink:     #E4649B;
+  --brand-green:    #3F7D54;
+  --brand-yellow:   #E9B23F;
+  --brand-brown:    #5A4231;
+  --brand-cream:    #F5EDDF;
+  --brand-espresso: #33241A;
+
+  /* ---- Color: roles (apuntan a la escala) ---- */
+  --bg:             var(--brand-espresso); /* fondo de app: espresso oscuro */
+  --surface:        #FBF6EB;               /* superficies claras de contenido */
+  --surface-raised: #FFFDF6;               /* cards elevadas */
+  --surface-sunken: #EADFCB;               /* skeleton base / disabled */
+  --fg:             var(--brand-espresso); /* texto sobre claro */
+  --fg-muted:       #7A6753;
+  --fg-inverse:     var(--brand-cream);    /* texto sobre oscuro */
+  --fg-inverse-muted: #C9B49B;
+  --accent:         var(--brand-pink);
+  --accent-fg:      #FFF8EE;
+  --border:         var(--brand-espresso);
+  --danger:         #C6432F;
+  --success:        var(--brand-green);
+  --focus:          var(--brand-pink);
+
+  /* ---- Navbar archivero (dark-on-dark, micro-escalones tonales) ---- */
+  --folder-tone-1: #382A1E;
+  --folder-tone-2: #3A2C20;
+  --folder-tone-3: #3C2E21;
+  --folder-tone-4: #3E3023;
+  --folder-tone-5: #403225;
+  --folder-emboss-light: rgba(245, 237, 223, 0.12);
+  --folder-emboss-dark:  rgba(0, 0, 0, 0.30);
+
+  /* ---- Tipografía ---- */
+  --font-display:  'Instrument Serif', Georgia, serif;
+  --font-body:     'Archivo', 'Helvetica Neue', sans-serif;
+  --font-mono:     'IBM Plex Mono', 'Courier New', monospace;
+  --font-emphasis: 'Instrument Serif', Georgia, serif; /* + font-style: italic (Byline) */
+
+  --text-xs:   11px;
+  --text-sm:   13px;
+  --text-base: 16px;
+  --text-lg:   18px;
+  --text-xl:   24px;
+  --text-2xl:  32px;
+  --text-3xl:  48px;
+  --text-hero: 76px;
+
+  --leading-tight: 1.1;
+  --leading-base:  1.55;
+  --leading-ascii: 1;      /* obligatorio en motivos ASCII */
+  --tracking-wide: 2px;
+  --tracking-label: 1px;
+
+  /* ---- Espaciado (base 4px) ---- */
+  --space-1: 4px;   --space-2: 8px;   --space-3: 12px;
+  --space-4: 16px;  --space-5: 20px;  --space-6: 24px;
+  --space-8: 32px;  --space-10: 40px; --space-12: 48px;
+
+  /* ---- Radios (brutalismo: chicos o 0) ---- */
+  --radius-none: 0;
+  --radius-sm:   2px;
+  --radius-md:   6px;
+  --radius-tab:  6px 6px 0 0; /* pestañas de carpeta */
+
+  /* ---- Bordes ---- */
+  --border-width:       2px;
+  --border-width-heavy: 3px;
+  --border-color:       var(--border);
+
+  /* ---- Sombras ---- */
+  --shadow-hard:    4px 4px 0 var(--border);            /* brutalista, sin blur */
+  --shadow-hard-lg: 6px 6px 0 var(--border);
+  --shadow-glow:    0 0 18px rgba(228, 100, 155, 0.60); /* neón, solo acentos */
+  --shadow-glow-lg: 0 0 26px rgba(228, 100, 155, 0.50);
+  --shadow-paper:   4px 2px 4px rgba(0, 0, 0, 0.35);    /* papel apilado (carpetas) */
+
+  /* ---- Texturas (retro Hill House) ---- */
+  --texture-paper: repeating-linear-gradient(0deg, rgba(90,66,49,0.03) 0 1px, transparent 1px 4px),
+                   repeating-linear-gradient(90deg, rgba(90,66,49,0.018) 0 1px, transparent 1px 7px);
+  --texture-lace:  radial-gradient(circle, rgba(90,66,49,0.07) 1.5px, transparent 2.2px); /* size 18px 18px */
+  --texture-dots-dark: radial-gradient(circle, rgba(245,237,223,0.08) 1.4px, transparent 2px); /* size 16px 16px */
+
+  /* ---- Movimiento (respetar prefers-reduced-motion) ---- */
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+  --ease-standard: ease;
+  --ease-entrance: ease-out;
+  --ease-exit:     ease-in;
+
+  /* ---- Z-index (el 3D SIEMPRE detrás del contenido) ---- */
+  --z-bg-3d:   0;
+  --z-base:    1;
+  --z-nav:     100;
+  --z-overlay: 200;
+  --z-modal:   300;
+  --z-toast:   400;
+
+  /* ---- Breakpoints (tablet + desktop co-primarios) ---- */
+  --bp-mobile:  640px;
+  --bp-tablet:  768px;
+  --bp-desktop: 1180px;
+
+  /* ---- Táctil ---- */
+  --touch-target: 44px;
+}

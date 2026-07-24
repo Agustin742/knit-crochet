@@ -1,13 +1,17 @@
 {
   "project": "knit-crochet",
-  "description": "App web para gestionar tejido (dos agujas / crochet). Alcance del PRD-01: estructura funcional (datos, BFF, lógica). UI/estilos y Three.js quedan FUERA de este PRD.",
-  "source_of_truth": "docs/product/PRD-01-estructura-funcional.md",
+  "description": "App web para gestionar tejido (dos agujas / crochet). Fase 1 (features 1-11): estructura funcional del PRD-01 (datos, BFF, lógica). Fase 2 (features 12+): UI/diseño de los RFC (shell, páginas, capa 3D) + los enablers de backend que la UI necesita.",
+  "sources_of_truth": {
+    "backend_functional": "docs/product/PRD-01-estructura-funcional.md",
+    "ui_design_process": "docs/design/rfc/RFC-00-proceso.md",
+    "design_system_contract": "docs/design/SDD-01-design-system.md"
+  },
   "rules": {
     "one_feature_at_a_time": true,
     "require_tests_to_close": true,
     "valid_status": ["pending", "in_progress", "done", "blocked"]
   },
-  "_instructions": "Cada feature deriva del checklist §12 del PRD y respeta la arquitectura feature-first (docs/harness/architecture.md). El acceptance es verificable con tests. Trabajar una a la vez, en orden de id salvo que se justifique.",
+  "_instructions": "Features 1-11 derivan del checklist §12 del PRD (prd_ref). Features 12+ derivan de las slices de los RFC (rfc_ref) — ver el mapeo en docs/design/rfc/RFC-00-proceso.md §4. Ambas respetan la arquitectura feature-first (docs/harness/architecture.md) y el acceptance es verificable con tests. Trabajar una a la vez, en orden de id salvo que se justifique. La definición de 'done' de una slice de UI es SDD §9 (RTL + smoke + axe + init.sh + build + cero hardcode). Una feature con RFC en borrador y decisiones abiertas no sale de 'pending' hasta resolverlas (RFC-00 §6).",
   "features": [
     {
       "id": 1,
@@ -175,6 +179,280 @@
         "Tests: caso P=40,A=6 → '7 p... (×4); 6 p... (×2). Total 46 p'; regla de 3 con redondeo hacia arriba; validaciones"
       ],
       "status": "done"
+    },
+    {
+      "id": 12,
+      "name": "ui_foundation",
+      "title": "Base del design system: tokens → @theme, fuentes, primitivos base",
+      "rfc_ref": "RFC-01 §3, §9",
+      "description": "Portar el contrato de tokens del template a Tailwind v4 (@theme), fuentes self-hosted, globals.css, layout raíz, helper cn() y los primitivos base (Button, Field/Input, Card) del SDD. Es la base sobre la que montan el shell y todas las páginas.",
+      "acceptance": [
+        "tokens del template portados a src/app/globals.css vía @theme; ningún componente hardcodea color/tamaño/borde/sombra (todo por token)",
+        "fuentes self-hosted con next/font: display, body, mono y emphasis (nombres de token del SDD §5)",
+        "helper cn() = twMerge(clsx(...)) en src/shared/ui/lib/cn.ts",
+        "primitivos base portados a src/shared/ui/primitives/ (Button, Field/Input, Card) con variantes cva y estados focus-visible/disabled",
+        "Verificación SDD §9: RTL + smoke + axe en primitivos + init.sh verde + build OK"
+      ],
+      "status": "done"
+    },
+    {
+      "id": 13,
+      "name": "ui_shell_nav",
+      "title": "AppShell + ArchiveNav + BottomNav + route groups",
+      "rfc_ref": "RFC-01 §3, §9",
+      "description": "El caparazón de la app: AppShell (header + main + slot 3D), ArchiveNav (6 rutas, activa por ruta) en tablet/desktop, BottomNav en mobile, y los route groups (app)/(auth). Consume /auth/me para el usuario del nav y hace logout.",
+      "acceptance": [
+        "src/shared/ui/layout/ con AppShell, ArchiveNav (≥ --bp-tablet) y BottomNav (< --bp-tablet); la carpeta/ítem activo se determina por la RUTA (aria-current=page)",
+        "route groups en src/app/: (app)/** privado envuelto por AppShell, (auth)/** limpio sin nav; protección por src/proxy.ts existente",
+        "nav = 6 páginas en orden: Dashboard · Proyectos · Lanas · Patrones · Calculadoras · Stash",
+        "consume GET /api/auth/me (usuario) y POST /api/auth/logout; sin otros datos ni cambios de backend",
+        "Verificación SDD §9: RTL (activa por ruta, logout) + axe + smoke + init.sh + build; hover y foco respetan prefers-reduced-motion"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 14,
+      "name": "ascii_yarn",
+      "title": "Web component <ascii-yarn> (three.js AsciiEffect, client-only)",
+      "rfc_ref": "RFC-01 §3, SDD §7",
+      "description": "La escena signature: ovillo de lana con agujas renderizado en ASCII (AsciiEffect), auto-rotación + arrastre, montado client-only sin SSR, detrás del contenido (--z-bg-3d). Se usa como hero (Dashboard) y como loader global.",
+      "acceptance": [
+        "web component client-only en src/shared/ui/three/; montaje diferido dynamic ssr:false (three.js no corre en server)",
+        "ovillo + agujas con AsciiEffect: auto-rota y se arrastra; vive en --z-bg-3d, pointer-events:none salvo como hero interactivo",
+        "congela / cae a estático con prefers-reduced-motion; no bloquea el primer render del contenido",
+        "Verificación SDD §9: smoke de montaje + reduced-motion + init.sh + build (no se testean píxeles)"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 15,
+      "name": "uploads_image",
+      "title": "Endpoint único de subida de imagen (POST /api/uploads/image)",
+      "rfc_ref": "RFC-03/04/05 §8",
+      "prd_ref": "§11.7",
+      "description": "Cablear el helper Cloudinary existente (feature 5) a un endpoint único compartido que recibe un archivo, lo sube y devuelve la URL. Lo usan los forms de Project, Yarn y Pattern. NO es un endpoint por entidad.",
+      "acceptance": [
+        "POST /api/uploads/image recibe un archivo (multipart/Blob), sube vía shared/lib/cloudinary y devuelve { url }",
+        "folder/publicId derivados del userId del JWT validado con zod, NUNCA del body crudo (deuda técnica 3 del harness)",
+        "manejo de error de upload explícito (no rompe el endpoint); scoping por userId",
+        "Tests: subida OK (cliente Cloudinary mockeado en el borde), rechazo sin sesión (401), input inválido (zod)"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 16,
+      "name": "dashboard_comparison_3metrics",
+      "title": "Comparativas del dashboard para las 3 métricas",
+      "rfc_ref": "RFC-02 §3, §8",
+      "prd_ref": "§8",
+      "description": "Extender comparison para dar comparativas graciosas de horas y proyectos, no solo metros (hoy pickComparison solo cubre yarnMeters). Añadir listas de referencia en shared/config para las 3 métricas.",
+      "acceptance": [
+        "GET /api/dashboard/metrics devuelve comparison para las 3 métricas (hours, projects, yarnMeters)",
+        "listas de referencia de las 3 métricas en shared/config (lista fija, no hardcode en el servicio)",
+        "Tests: selección de comparativa por cada métrica y por año/tipo"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 17,
+      "name": "projects_detail_yarns",
+      "title": "GET /api/projects/:id incluye las lanas enlazadas",
+      "rfc_ref": "RFC-03 §3, §8",
+      "prd_ref": "§9(Projects)",
+      "description": "Saldar la deuda 5: hoy GET /:id no devuelve las lanas enlazadas al proyecto. El detalle (tab Lanas) las necesita con su color + marca + tipo.",
+      "acceptance": [
+        "GET /api/projects/:id incluye las lanas enlazadas (con datos suficientes para el swatch: color, marca, tipo, colorName)",
+        "scoping por userId; sin romper el contrato existente del resto del payload",
+        "Tests: :id con lanas enlazadas las devuelve; sin lanas devuelve lista vacía; acceso ajeno 404/401"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 18,
+      "name": "patterns_used_by",
+      "title": "Patrón: en qué proyectos se usa",
+      "rfc_ref": "RFC-05 §3, §8",
+      "prd_ref": "§9(Patterns)",
+      "description": "Exponer los proyectos que usan un patrón (patternId = :id) para el 'usado en' del detalle. Vía filtro ?patternId= en GET /api/projects o usedBy en GET /api/patterns/:id (decidir en el slice).",
+      "acceptance": [
+        "se puede obtener los proyectos con patternId = :id (filtro ?patternId= en /api/projects o usedBy en /api/patterns/:id)",
+        "scoping por userId",
+        "Tests: patrón usado en N proyectos los lista; patrón sin uso devuelve vacío"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 19,
+      "name": "dashboard_ui",
+      "title": "Página Dashboard (métricas conmutables + comparativas + activos + hero)",
+      "rfc_ref": "RFC-02",
+      "description": "La página de inicio post-login: hero con <ascii-yarn>, selector de métrica conmutable y superponible (default horas), panel de métricas con comparativas, filtros año (rango libre) y tipo (combinables), lista de activos (~15, orden cambiable, ver-todos) y dos botones de creación que abren el modal con el type.",
+      "acceptance": [
+        "página en src/app/(app)/page.tsx; UI en src/features/dashboard/ui/; reusa la card de proyecto de RFC-03",
+        "selector de métrica conmutable Y superponible (horas/proyectos/metros), default horas; comparativas siempre visibles para las 3",
+        "filtros: año rango libre (abre en el actual) + botones tipo agujas/crochet combinables; orden de activos 'último tejido' según decisión RFC-02 §6",
+        "estados: loading (ovillo + skeleton), vacío ('Todavía no tejiste nada en {año}'), error ('Se enredó la madeja')",
+        "Verificación SDD §9: RTL (conmutar/superponer métrica, filtros, orden, abrir modal) + axe + smoke + init.sh + build"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 20,
+      "name": "projects_list_ui",
+      "title": "Proyectos: lista + filtros (toolbar + grilla de cards + quick-start)",
+      "rfc_ref": "RFC-03",
+      "description": "La lista de proyectos: toolbar con segmentado activo/inactivo (default activos), botones de tipo, 'más filtros' (aguja, lana usada) y buscar; grilla de cards (foto, nombre, progress, tiempo) con quick-start de cronómetro. Tap abre el drawer de detalle.",
+      "acceptance": [
+        "página en src/app/(app)/proyectos/; UI en src/features/projects/ui/",
+        "toolbar: segmentado activo/inactivo (default activos), botones de tipo, 'más filtros', buscar; consume GET /api/projects con sus filtros",
+        "card = foto + nombre + progress + tiempo + quick-start; tap abre el drawer (feature 21)",
+        "estados: loading (skeleton), vacío ('Tu cesto está vacío'), error ('Se soltó un punto')",
+        "Verificación SDD §9: RTL (filtros, quick-start) + axe + smoke + init.sh + build"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 21,
+      "name": "projects_detail_ui",
+      "title": "Proyectos: detalle en drawer con tabs (General/Progreso/Lanas/Sesiones)",
+      "rfc_ref": "RFC-03",
+      "description": "Drawer lateral de detalle en modo ver, con tabs: General (datos + 'Editar' → modal), Progreso (rounds +/− y targetRounds → progress; pasos checklist si hay patrón, si no 'crear patrón'), Lanas (enlazadas con swatch + buscador enlazar/desenlazar) y Sesiones (cronómetro start/stop en vivo + histórico).",
+      "acceptance": [
+        "drawer con foco atrapado y aria-modal; tabs General/Progreso/Lanas/Sesiones",
+        "Progreso: rounds +/− y targetRounds editable recalculan progress; pasos = checklist si hay patrón, si no oferta 'crear patrón'",
+        "Lanas: usa GET /api/projects/:id con lanas enlazadas (feature 17) + POST/DELETE /:id/yarns; Sesiones: start/stop con tiempo en vivo (aria-live) + histórico",
+        "Verificación SDD §9: RTL (rounds, enlazar lana, cronómetro start/stop) + axe + smoke + init.sh + build"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 22,
+      "name": "projects_form_ui",
+      "title": "Proyectos: crear/editar en modal (form + foto + patrón)",
+      "rfc_ref": "RFC-03",
+      "description": "Modal de crear/editar proyecto (separado del ver): form con nombre, foto (upload vía feature 15), tipo, targetRounds, needles, y patrón elegible de biblioteca o embebido. Los dos botones de creación rápida preseleccionan el type.",
+      "acceptance": [
+        "modal con form (Field/Input) para nombre, tipo, targetRounds, needles, notas; foto vía POST /api/uploads/image (feature 15)",
+        "patrón: elegir de biblioteca o crear embebido (ambas opciones)",
+        "crear preselecciona el type según el botón de origen; borrado con confirmación (dialog)",
+        "Verificación SDD §9: RTL (crear con type, editar, subir foto, elegir/embeber patrón) + axe + smoke + init.sh + build"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 23,
+      "name": "yarns_list_ui",
+      "title": "Lanas: lista + filtro jerárquico (árbol marca→tipo + swatches)",
+      "rfc_ref": "RFC-04",
+      "description": "La lista de lanas: sidebar/acordeón con árbol marca→tipo + fila de swatches de familia de color; grilla de cards (ícono coloreado con el color de la lana + marca·tipo·colorName + stock). Tap abre el drawer.",
+      "acceptance": [
+        "página en src/app/(app)/lanas/; UI en src/features/yarns/ui/",
+        "filtro = árbol marca→tipo (navegable por teclado) + swatches de colorFamily (aria-label del color); consume GET /api/yarns con ?brandId=&typeId=&colorFamily=",
+        "card = ícono con el color de la lana + marca·tipo·colorName + stock (quantity); tap abre el drawer (feature 24)",
+        "estados: vacío ('Sin lanas en el stash todavía'), error, loading (skeleton)",
+        "Verificación SDD §9: RTL (filtro árbol, swatches) + axe + smoke + init.sh + build"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 24,
+      "name": "yarns_detail_catalogs_ui",
+      "title": "Lanas: detalle (drawer + stepper usedQuantity) + gestión de catálogos",
+      "rfc_ref": "RFC-04",
+      "description": "Drawer de detalle con los datos de la lana y el stepper +/− de usedQuantity (consumido, no va en el form de crear), y el panel de gestión de catálogos (crear/borrar marca y tipo) en la misma página, con el 409 bloqueante al borrar marca/tipo con hijos.",
+      "acceptance": [
+        "drawer con datos + stepper usedQuantity (+/−, con label) + 'Editar' → modal (feature 25)",
+        "panel de catálogos: crear/borrar marca y tipo; borrar marca/tipo con hijos muestra 409 bloqueante (sin force) con dialog de aviso",
+        "consume DELETE /api/brands/:id y /:id/types/:typeId; PATCH usedQuantity de la lana",
+        "Verificación SDD §9: RTL (stepper usedQuantity, 409 bloqueante) + axe + smoke + init.sh + build"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 25,
+      "name": "yarns_form_ui",
+      "title": "Lanas: crear/editar en modal con tabs (identidad + ficha técnica)",
+      "rfc_ref": "RFC-04",
+      "description": "Modal de crear/editar lana en tabs (son muchos campos): Identidad (marca elegir/crear, tipo dependiente elegir/crear, colorName, colorCode, colorFamily por swatches, foto) y Ficha técnica (length, fiber, recommendedNeedle {min,max}, thickness, lot, quantity). Maneja el 409 de colorCode único por marca.",
+      "acceptance": [
+        "modal en tabs: Identidad + Ficha técnica; foto vía POST /api/uploads/image (feature 15)",
+        "marca/tipo se pueden crear o elegir inline (tipo dependiente de la marca); usedQuantity NO está en este form",
+        "colorCode único por marca → 409 mostrado en el campo (Field.has-error)",
+        "Verificación SDD §9: RTL (crear/elegir marca-tipo inline, 409 colorCode) + axe + smoke + init.sh + build"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 26,
+      "name": "patterns_list_ui",
+      "title": "Patrones: lista + filtros (toggle Biblioteca/Embebidos + tipo)",
+      "rfc_ref": "RFC-05",
+      "description": "La lista de patrones: toolbar con toggle Biblioteca/Embebidos (inLibrary) + botones de tipo + buscar; grilla de cards con solo foto + nombre. Tap abre el drawer.",
+      "acceptance": [
+        "página en src/app/(app)/patrones/; UI en src/features/patterns/ui/",
+        "toolbar: toggle Biblioteca/Embebidos (aria-pressed) + tipo + buscar; consume GET /api/patterns con ?type=&inLibrary=",
+        "card = foto + nombre (sin más); tap abre el drawer (feature 27)",
+        "estados: vacío ('Todavía no hay patrones'), error, loading (skeleton)",
+        "Verificación SDD §9: RTL (toggle, filtros) + axe + smoke + init.sh + build"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 27,
+      "name": "patterns_detail_ui",
+      "title": "Patrones: detalle en drawer (instrucciones/metadata + usado-en + publicar)",
+      "rfc_ref": "RFC-05",
+      "description": "Drawer de detalle: nombre, foto, tipo, inLibrary; instrucciones (lista ordenada clave-valor, solo lectura) + metadata; 'usado en' (proyectos, vía feature 18); acciones Editar (modal) y Publicar a biblioteca (PATCH inLibrary:true).",
+      "acceptance": [
+        "drawer con instrucciones/metadata en solo lectura + sección 'usado en' que consume la query de feature 18",
+        "acción Publicar a biblioteca = PATCH /api/patterns/:id { inLibrary: true }",
+        "borrado con confirmación + aviso de que los proyectos que lo usan quedan sin patrón enlazado (FK set null)",
+        "Verificación SDD §9: RTL (usado-en, publicar) + axe + smoke + init.sh + build"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 28,
+      "name": "patterns_form_ui",
+      "title": "Patrones: crear/editar en modal (editor de instrucciones + metadata + foto)",
+      "rfc_ref": "RFC-05",
+      "description": "Modal de crear/editar patrón: form + foto (upload) + tipo + editor de instrucciones (filas ordenadas clave-valor, agregar/reordenar por drag Y teclado/borrar) + editor de metadata (tabla clave-valor libre).",
+      "acceptance": [
+        "modal con form + foto vía POST /api/uploads/image (feature 15) + tipo",
+        "editor de instrucciones: filas clave-valor, agregar/borrar y reordenar por drag Y por teclado (operable sin ratón)",
+        "editor de metadata como tabla clave-valor libre",
+        "Verificación SDD §9: RTL (editor drag/teclado, metadata) + axe + smoke + init.sh + build"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 29,
+      "name": "calculators_ui",
+      "title": "Página Calculadoras (aumentos + regla de 3, sin backend)",
+      "rfc_ref": "RFC-06",
+      "description": "Una página con las dos herramientas en tabs (Aumentos · Regla de 3), reusando la lógica pura ya implementada (feature 11). Aumentos: resultado en card destacada con focusframe (frase + desglose). Regla de 3: historial efímero en la sesión.",
+      "acceptance": [
+        "página en src/app/(app)/calculadoras/; UI en src/features/calculators/ui/ reusando calculateIncreases/calculateRuleOfThree (feature 11); sin backend",
+        "Aumentos: inputs P y A → card con focusframe (instrucción legible + desglose base/remainder); Regla de 3: inputs → skeinsB + historial efímero de la sesión",
+        "validación: inputs inválidos → Field.has-error con el mensaje del error nombrado; resultado en aria-live; inputmode=numeric",
+        "Verificación SDD §9: RTL (caso P=40/A=6, validaciones, regla de 3 con redondeo, historial efímero) + axe + smoke + init.sh + build"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 30,
+      "name": "stash_ui",
+      "title": "Página Stash (hub de navegación + accesos de creación)",
+      "rfc_ref": "RFC-07",
+      "description": "Página-hub con grilla de cards grandes (2-3 por fila): secciones que navegan a su página y accesos directos de creación que abren el modal correspondiente. La lista exacta de cards está pendiente de confirmar (RFC-07 §9).",
+      "acceptance": [
+        "página en src/app/(app)/stash/; grilla de cards grandes (2-3 por fila, responsive) con ícono + título + badge de tipo",
+        "las secciones navegan a su página; los accesos de creación abren el modal correspondiente (reusan el de cada página)",
+        "cards como enlaces/botones con aria-label claro; targets ≥ 44px; navegable por teclado",
+        "BLOQUEADA hasta confirmar la lista exacta de cards con el usuario (RFC-07 §9)",
+        "Verificación SDD §9: RTL (navegar / abrir el modal correcto) + axe + smoke + init.sh + build"
+      ],
+      "status": "pending"
     }
   ]
 }

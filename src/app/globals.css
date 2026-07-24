@@ -1,0 +1,194 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Knit&Crochet — Design tokens (SDD-01 §5, portados de template/tokens.css)
+   Fuente única de verdad. Los componentes NO hardcodean valores: todo por token.
+   Las familias tipográficas reales llegan por next/font (variables generadas en
+   layout.tsx: --font-instrument-serif / --font-archivo / --font-ibm-plex-mono);
+   el fallback genérico queda al final de cada --font-*.
+   ============================================================ */
+@theme {
+  /* ---- Color: escala cruda de marca ---- */
+  --brand-pink: #e4649b;
+  --brand-green: #3f7d54;
+  --brand-yellow: #e9b23f;
+  --brand-brown: #5a4231;
+  --brand-cream: #f5eddf;
+  --brand-espresso: #33241a;
+
+  /* ---- Color: roles (apuntan a la escala) ---- */
+  --bg: var(--brand-espresso);
+  --surface: #fbf6eb;
+  --surface-raised: #fffdf6;
+  --surface-sunken: #eadfcb;
+  --fg: var(--brand-espresso);
+  --fg-muted: #7a6753;
+  --fg-inverse: var(--brand-cream);
+  --fg-inverse-muted: #c9b49b;
+  --accent: var(--brand-pink);
+  --accent-fg: #fff8ee;
+  --border: var(--brand-espresso);
+  --danger: #c6432f;
+  --success: var(--brand-green);
+  --focus: var(--brand-pink);
+
+  /* ---- Navbar archivero (dark-on-dark, micro-escalones tonales) ---- */
+  --folder-tone-1: #382a1e;
+  --folder-tone-2: #3a2c20;
+  --folder-tone-3: #3c2e21;
+  --folder-tone-4: #3e3023;
+  --folder-tone-5: #403225;
+  --folder-emboss-light: rgba(245, 237, 223, 0.12);
+  --folder-emboss-dark: rgba(0, 0, 0, 0.3);
+
+  /* ---- Alias al namespace de color de Tailwind v4 (generan utilidades bg / text / border) ----
+     Referencian los tokens de rol/marca de arriba; no introducen valores nuevos. */
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-inverse: var(--fg-inverse);
+  --color-fg-inverse-muted: var(--fg-inverse-muted);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-border: var(--border);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-focus: var(--focus);
+  --color-brand-pink: var(--brand-pink);
+  --color-brand-green: var(--brand-green);
+  --color-brand-yellow: var(--brand-yellow);
+  --color-brand-brown: var(--brand-brown);
+  --color-brand-cream: var(--brand-cream);
+  --color-brand-espresso: var(--brand-espresso);
+
+  /* ---- Tipografía (familia real vía next/font; fallback genérico al final) ---- */
+  --font-display: var(--font-instrument-serif), Georgia, serif;
+  --font-body: var(--font-archivo), "Helvetica Neue", sans-serif;
+  --font-mono: var(--font-ibm-plex-mono), "Courier New", monospace;
+  --font-emphasis: var(--font-instrument-serif), Georgia, serif;
+
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 16px;
+  --text-lg: 18px;
+  --text-xl: 24px;
+  --text-2xl: 32px;
+  --text-3xl: 48px;
+  --text-hero: 76px;
+
+  --leading-tight: 1.1;
+  --leading-base: 1.55;
+  --leading-ascii: 1;
+  --tracking-wide: 2px;
+  --tracking-label: 1px;
+
+  /* ---- Espaciado (base 4px) ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ---- Radios (brutalismo: chicos o 0) ---- */
+  --radius-none: 0;
+  --radius-sm: 2px;
+  --radius-md: 6px;
+  --radius-tab: 6px 6px 0 0;
+
+  /* ---- Bordes ---- */
+  --border-width: 2px;
+  --border-width-heavy: 3px;
+  --border-color: var(--border);
+
+  /* ---- Sombras ---- */
+  --shadow-hard: 4px 4px 0 var(--border);
+  --shadow-hard-lg: 6px 6px 0 var(--border);
+  --shadow-glow: 0 0 18px rgba(228, 100, 155, 0.6);
+  --shadow-glow-lg: 0 0 26px rgba(228, 100, 155, 0.5);
+  --shadow-paper: 4px 2px 4px rgba(0, 0, 0, 0.35);
+
+  /* ---- Texturas (retro Hill House) ---- */
+  --texture-paper: repeating-linear-gradient(
+      0deg,
+      rgba(90, 66, 49, 0.03) 0 1px,
+      transparent 1px 4px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(90, 66, 49, 0.018) 0 1px,
+      transparent 1px 7px
+    );
+  --texture-lace: radial-gradient(
+    circle,
+    rgba(90, 66, 49, 0.07) 1.5px,
+    transparent 2.2px
+  );
+  --texture-dots-dark: radial-gradient(
+    circle,
+    rgba(245, 237, 223, 0.08) 1.4px,
+    transparent 2px
+  );
+
+  /* ---- Movimiento (respetar prefers-reduced-motion) ---- */
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+  --ease-standard: ease;
+  --ease-entrance: ease-out;
+  --ease-exit: ease-in;
+
+  /* ---- Z-index (el 3D SIEMPRE detrás del contenido) ---- */
+  --z-bg-3d: 0;
+  --z-base: 1;
+  --z-nav: 100;
+  --z-overlay: 200;
+  --z-modal: 300;
+  --z-toast: 400;
+
+  /* ---- Breakpoints (tablet + desktop co-primarios) ---- */
+  --bp-mobile: 640px;
+  --bp-tablet: 768px;
+  --bp-desktop: 1180px;
+
+  /* ---- Táctil ---- */
+  --touch-target: 44px;
+}
+
+/* ============================================================
+   Estilos base (portados del template): fondo de app con textura,
+   selección y respeto global de prefers-reduced-motion.
+   ============================================================ */
+@layer base {
+  body {
+    background-color: var(--bg);
+    background-image: var(--texture-dots-dark);
+    background-size: var(--space-4) var(--space-4);
+    color: var(--fg-inverse);
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    line-height: var(--leading-base);
+  }
+
+  ::selection {
+    background: var(--accent);
+    color: var(--accent-fg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

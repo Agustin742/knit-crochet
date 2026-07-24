@@ -38,6 +38,9 @@
 | Route Handlers              | `route.ts`        | `app/api/projects/route.ts` |
 | Tablas / columnas Drizzle   | `snake_case`      | `used_quantity`          |
 | Features (carpeta)          | `kebab-case`      | `time-tracking`          |
+| Variantes `cva` (archivo)   | `<name>.variants.ts` | `button.variants.ts`  |
+| Tokens CSS                  | `--kebab-case`    | `--font-emphasis`, `--z-bg-3d` |
+| Componente (carpeta)        | `kebab-case/`     | `primitives/button/`     |
 
 ## Dónde va cada cosa (feature-first)
 
@@ -48,6 +51,49 @@
 - Utilidades compartidas (jwt, hashing, cloudinary, fetch) → `shared/lib`.
 - Enums y constantes (`CraftType`, `ColorFamily`, comparativas) → `shared/config`.
 - Cliente Drizzle + conexión Neon → `shared/db`.
+- **UI (fase 12+):** design system **portable** (primitivos, layout, feedback, form,
+  motifs, three, `lib/cn.ts`) → `shared/ui/`; UI y estado de una feature →
+  `features/<x>/ui/`; página (fina: rutea + compone) → `app/**`. Ver SDD-01 §4 y
+  [RFC-00](../design/rfc/RFC-00-proceso.md).
+
+## UI / Design system (fase 12+)
+
+> Detalle completo en `docs/design/SDD-01-design-system.md` y los RFC. Acá, las
+> reglas duras que aplican a **todo** componente. Fuente de verdad de proceso:
+> [RFC-00](../design/rfc/RFC-00-proceso.md).
+
+- **Token-first (regla dura).** Ningún componente hardcodea color, tamaño, borde,
+  radio, sombra ni z-index: **todo referencia un token**. Los tokens se declaran una
+  vez (`@theme` en `src/app/globals.css`, nombres del SDD §5) y se consumen vía
+  Tailwind. Cambiar la identidad = cambiar tokens, no componentes.
+- **Presentación pura.** El design system (`shared/ui/`) es **solo presentación**:
+  props + estado local de UI. **No** hace fetch, **no** decide rutas, **no** conoce
+  el backend. Quien lo consume (`features/<x>/ui/`, páginas) le pasa datos y callbacks.
+- **`cn()` obligatorio.** Todo componente que acepte `className` lo fusiona con
+  `cn(...)` = `twMerge(clsx(...))` (`shared/ui/lib/cn.ts`) para permitir override sin
+  choques de clases.
+- **Variantes con `cva`.** `variant`/`size` tipadas en un archivo `<name>.variants.ts`
+  aparte del componente; nada de concatenar strings de clases a mano.
+- **Énfasis por tipografía.** Resaltar = **cambiar familia** (`--font-emphasis`,
+  componente `Emphasis`), no solo peso/color.
+- **Fuentes** self-hosted con `next/font` (`display`, `body`, `mono`, `emphasis`).
+  Sin `@import` ni requests a fuentes externas.
+- **Capa 3D aislada.** Solo `shared/ui/three/**` importa `three`/R3F, siempre
+  client-only (`dynamic`, `ssr:false`). Vive detrás del contenido (`--z-bg-3d`),
+  `pointer-events:none` salvo escena interactiva explícita, y **congela** con
+  `prefers-reduced-motion`. Nunca bloquea el primer render.
+- **Nada del template importa de una app**: ni de `features/`, ni de una capa de
+  datos, ni del backend. Es portable por contrato (SDD §2).
+
+## Accesibilidad (baseline no negociable, parte de "done")
+
+- HTML semántico + roles/aria correctos (`Dialog`, `Tabs`, `Toast`, `Tooltip`,
+  `aria-current` en el nav activo, `aria-pressed` en toggles, `aria-live` en
+  resultados/cronómetro).
+- **Foco visible** en todo interactivo (token `--focus`); navegación por teclado
+  completa (incl. reordenar sin ratón donde haya drag).
+- `prefers-reduced-motion` respetado por animación 2D **y** por la capa 3D.
+- Targets táctiles ≥ **44×44 px** (token `--touch-target`).
 
 ## Manejo de errores
 
@@ -74,3 +120,9 @@ Por defecto **no** se escriben. Solo cuando explican un *por qué* no obvio
 - Colócalos junto al feature (`features/<x>/**/*.test.ts`) o en `__tests__/`,
   de forma consistente en todo el repo.
 - Nada de mocks de DB/fs donde puedas usar un doble real acotado (DB de test).
+- **UI (fase 12+), definición de "done" del SDD §9:** test de comportamiento y
+  accesibilidad con **React Testing Library + `user-event`** sobre `happy-dom`
+  (roles, foco, estados, callbacks — **no** píxeles) + smoke de render + `axe` en
+  los primitivos. Se verifica además que **cero valores estén hardcodeados** (todo
+  por token). La **fidelidad visual** contra el mockup es **revisión humana**, no
+  test automático.

@@ -478,3 +478,29 @@
   Lo que sigue está **fuera del PRD-01**: fase de UI/estilos/Three.js.
 - **Próximo:** no hay más features en `feature_list.json`. Decisión del usuario sobre siguiente fase
   (commit del trabajo acumulado + arranque de la fase visual).
+
+## 2026-07-24 — Feature #12 `ui_foundation` (DONE) — arranca la Fase 2 (UI)
+- **Agente:** leader (exploración propia de tokens/template/RFC/estado + brief con costuras fijadas) →
+  implementer → reviewer (**APROBADO** a la primera, sin cambios requeridos).
+- **Qué:** base del design system. Tokens de `template/tokens.css` portados a `src/app/globals.css` vía
+  **`@theme`** (Tailwind v4, sin `tailwind.config`); fuentes self-hosted con `next/font/google`
+  (Instrument Serif display/emphasis, Archivo body, IBM Plex Mono mono) mapeadas a `--font-*`; helper
+  `cn()` = `twMerge(clsx())`; y los 3 primitivos base del acceptance — **Button, Field/Input, Card** — en
+  `src/shared/ui/primitives/` con variantes `cva` y estados focus-visible/disabled.
+- **Costuras clave (fijadas en el brief, sin sorpresas):** (1) vitest default sigue `environment: "node"`
+  → los 281 tests de backend intactos; los tests de UI usan pragma `// @vitest-environment happy-dom`.
+  (2) Alias `--color-*: var(--<rol>)` para habilitar utilidades `bg-*/text-*` sin inventar valores.
+  (3) Valores crudos del template snapeados a la escala de tokens (template = insumo adaptable, RFC-01).
+- **Cero hardcode:** enforced por `no-hardcode.test.ts` (escanea los 6 archivos de componente/variantes,
+  falla ante hex/`rgb()`/`px` crudos). Diferencias con `calc()`/`color-mix()` sobre tokens = aceptable.
+- **Stack nuevo (pnpm):** `tailwindcss@4.3.3` + `@tailwindcss/postcss`, `class-variance-authority`,
+  `tailwind-merge`, `clsx`; dev: `@testing-library/react` + `user-event` + `jest-dom`, `happy-dom`,
+  `vitest-axe` (+ `axe-core`). `postcss.config.mjs` nuevo.
+- **Verificación:** `bash ./init.sh` VERDE — **312 passed | 6 skipped** (35 archivos; antes 281 → +31,
+  0 rotos). `pnpm build` OK (ejercita next/font + `@theme`). `axe` sin violaciones en los 3 primitivos.
+- **Gotcha:** comentario con `bg-*/text-*` en `globals.css` cerraba el comentario CSS (`*/`) y rompía el
+  build → reescrito. Registrado para no repetir.
+- **Informes:** `progress/reports/impl_ui_foundation.md`, `review_ui_foundation.md`.
+- **Informe de síntesis:** `progress/informs/3.informe-ui_foundation.md`.
+- **Próximo:** feature #13 `ui_shell_nav` (AppShell + ArchiveNav + BottomNav + route groups (app)/(auth)).
+  Nota: exponer breakpoints en namespace `--breakpoint-*` para variantes responsive de Tailwind.

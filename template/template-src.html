@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Knit&amp;Crochet — Template source (SDD-01)</title>
+<!-- ============================================================
+  FUENTES (no embebidas). Tokens ↔ familia ↔ origen:
+  · --font-display  → Instrument Serif (400, 400 italic) — Google Fonts
+  · --font-emphasis → Instrument Serif Italic (misma familia, font-style:italic)
+  · --font-body     → Archivo (400–800) — Google Fonts
+  · --font-mono     → IBM Plex Mono (400–600) — Google Fonts
+  En producción: self-hosted vía mecanismo del anfitrión (p. ej. next/font).
+============================================================ -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./tokens.css">
+<style>
+/* ==================== BASE ==================== */
+body { margin: 0; background: var(--brand-cream); color: var(--fg); font-family: var(--font-body); font-size: var(--text-base); line-height: var(--leading-base); }
+a { color: var(--fg); }
+a:hover { color: var(--accent); }
+::selection { background: var(--accent); color: var(--accent-fg); }
+
+@keyframes kc-shimmer { 0% { background-position: -200px 0 } 100% { background-position: 200px 0 } }
+@keyframes kc-spin { to { transform: rotate(360deg) } }
+@keyframes kc-blink { 0%, 60% { opacity: 1 } 61%, 100% { opacity: 0.2 } }
+@keyframes kc-glow { 0%, 100% { box-shadow: 0 0 8px rgba(228,100,155,0.3) } 50% { box-shadow: 0 0 24px rgba(228,100,155,0.7) } }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+
+/* ==================== EMPHASIS (Byline: énfasis = cambio de familia) ==================== */
+.kc-emphasis { font-family: var(--font-emphasis); font-style: italic; font-size: 1.15em; }
+.kc-emphasis--accent { color: var(--accent); }
+
+/* ==================== ARCHIVE NAV (archivero dark-on-dark) ====================
+   Carpetas del MISMO oscuro que el fondo; se leen por relieve:
+   emboss (luz arriba/izq + sombra abajo/der), pliegue pestaña↔cuerpo,
+   micro-escalones tonales y sombra de papel apilado. Activa = tono exacto
+   de página, sin borde inferior → se funde con el contenido. */
+.kc-nav { position: relative; display: flex; align-items: flex-end; gap: 12px; height: 104px; padding: 0 24px 0 28px; background: var(--bg); background-image: var(--texture-dots-dark); background-size: 16px 16px; overflow: hidden; z-index: var(--z-nav); }
+.kc-nav__brand { align-self: center; display: flex; flex-direction: column; flex-shrink: 0; padding-right: 12px; }
+.kc-nav__wordmark { font-family: var(--font-display); font-size: 26px; color: var(--fg-inverse); line-height: 1; text-decoration: none; }
+.kc-nav__wordmark em { font-style: italic; color: var(--accent); }
+.kc-nav__sub { font-family: var(--font-mono); font-size: 10px; letter-spacing: var(--tracking-wide); color: var(--fg-inverse-muted); margin-top: 5px; }
+.kc-nav__folders { display: flex; align-items: flex-end; flex: 1; min-width: 0; }
+.kc-nav__utils { display: flex; gap: 16px; align-self: center; flex-shrink: 0; font-family: var(--font-mono); font-size: 12px; letter-spacing: 1.5px; }
+.kc-nav__utils a { color: var(--fg-inverse-muted); text-decoration: none; }
+.kc-nav__utils a:hover { color: var(--accent); }
+
+.kc-folder { position: relative; display: flex; flex-direction: column; justify-content: flex-end; min-width: 0; text-decoration: none; transition: transform 150ms var(--ease-entrance), filter 150ms var(--ease-entrance); filter: drop-shadow(var(--shadow-paper)); }
+.kc-folder + .kc-folder { margin-left: -16px; } /* solape izquierda → derecha */
+.kc-folder:hover:not(.is-active) { transform: translateY(-6px); filter: drop-shadow(6px 7px 9px rgba(0,0,0,0.5)); }
+/* micro-escalones tonales por posición */
+.kc-folder:nth-child(1) { z-index: 11; } .kc-folder:nth-child(1) .kc-folder__tab, .kc-folder:nth-child(1) .kc-folder__body { background: var(--folder-tone-1); }
+.kc-folder:nth-child(2) { z-index: 12; } .kc-folder:nth-child(2) .kc-folder__tab, .kc-folder:nth-child(2) .kc-folder__body { background: var(--folder-tone-2); }
+.kc-folder:nth-child(3) { z-index: 13; } .kc-folder:nth-child(3) .kc-folder__tab, .kc-folder:nth-child(3) .kc-folder__body { background: var(--folder-tone-3); }
+.kc-folder:nth-child(4) { z-index: 14; } .kc-folder:nth-child(4) .kc-folder__tab, .kc-folder:nth-child(4) .kc-folder__body { background: var(--folder-tone-4); }
+.kc-folder:nth-child(5) { z-index: 15; } .kc-folder:nth-child(5) .kc-folder__tab, .kc-folder:nth-child(5) .kc-folder__body { background: var(--folder-tone-5); }
+
+.kc-folder__tab { display: flex; align-items: baseline; gap: 6px; width: fit-content; margin: 0 26px -1px 16px; padding: 10px 16px 8px; border-radius: var(--radius-tab); position: relative; z-index: 1; box-shadow: inset 1px 1px 0 var(--folder-emboss-light), inset -1px 0 0 var(--folder-emboss-dark); }
+.kc-folder__prefix { font-family: var(--font-emphasis); font-style: italic; font-size: 16px; color: #A8937B; }
+.kc-folder__word { font-weight: 700; letter-spacing: var(--tracking-wide); font-size: var(--text-sm); white-space: nowrap; color: var(--fg-inverse); }
+.kc-folder__body { align-self: stretch; height: 22px; border-radius: var(--radius-tab); border-bottom: 1px solid rgba(0,0,0,0.5); box-shadow: inset 0 2px 2px rgba(0,0,0,0.25), inset 1px 1px 0 rgba(245,237,223,0.08), inset -1px 0 0 var(--folder-emboss-dark); } /* pliegue pestaña↔cuerpo */
+
+.kc-folder.is-active { z-index: 40; filter: drop-shadow(4px 0 4px rgba(0,0,0,0.35)); }
+.kc-folder.is-active .kc-folder__tab, .kc-folder.is-active .kc-folder__body { background: var(--bg); } /* tono exacto de página */
+.kc-folder.is-active .kc-folder__word { color: var(--accent); }
+.kc-folder.is-active .kc-folder__body { height: 34px; border-bottom: none; } /* se funde sin costura */
+
+@media (max-width: 1180px) { .kc-folder__prefix { display: none; } }
+
+/* ==================== BUTTONS ==================== */
+.kc-btn { min-height: var(--touch-target); padding: 10px 24px; font-family: var(--font-body); font-weight: 700; font-size: 15px; border: var(--border-width) solid var(--border-color); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--fg); box-shadow: var(--shadow-hard); cursor: pointer; transition: transform var(--dur-fast) var(--ease-standard), box-shadow var(--dur-fast) var(--ease-standard); }
+.kc-btn:hover { transform: translate(-2px, -2px); box-shadow: var(--shadow-hard-lg); }
+.kc-btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--border-color); }
+.kc-btn:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.kc-btn--primary { background: var(--accent); color: var(--accent-fg); }
+.kc-btn--danger { background: var(--danger); color: var(--accent-fg); }
+.kc-btn--ghost { border-color: transparent; background: transparent; box-shadow: none; }
+.kc-btn--ghost:hover { border-color: var(--border-color); transform: none; box-shadow: none; }
+.kc-btn:disabled { border-color: var(--fg-inverse-muted); background: var(--surface-sunken); color: #A8937B; box-shadow: none; cursor: not-allowed; transform: none; }
+.kc-btn--icon { min-width: var(--touch-target); padding: 0; font-size: 18px; }
+
+/* ==================== FORM / FIELD ==================== */
+.kc-field { display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 14px; }
+.kc-input { min-height: var(--touch-target); padding: 8px 14px; font-family: var(--font-body); font-size: 15px; border: var(--border-width) solid var(--border-color); border-radius: var(--radius-sm); background: var(--surface-raised); color: var(--fg); box-sizing: border-box; }
+.kc-input:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.kc-field__hint { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--fg-muted); font-weight: 400; }
+.kc-field.has-error .kc-input { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(198,67,47,0.15); }
+.kc-field.has-error .kc-field__hint { color: var(--danger); }
+
+.kc-toggle { position: relative; width: 64px; height: 32px; border: var(--border-width) solid var(--border-color); border-radius: 16px; cursor: pointer; padding: 0; background: var(--surface-sunken); transition: background var(--dur-base) var(--ease-standard); }
+.kc-toggle[aria-checked="true"] { background: var(--success); }
+.kc-toggle__knob { position: absolute; top: 2px; left: 2px; width: 24px; height: 24px; border-radius: 50%; background: var(--surface-raised); border: var(--border-width) solid var(--border-color); box-sizing: border-box; transition: left var(--dur-base) var(--ease-standard); }
+.kc-toggle[aria-checked="true"] .kc-toggle__knob { left: 34px; }
+
+/* ==================== CARD / BADGE / AVATAR / PROGRESS ==================== */
+.kc-card { background: var(--surface-raised); border: var(--border-width) solid var(--border-color); border-radius: var(--radius-md); box-shadow: var(--shadow-hard-lg); padding: 22px; }
+.kc-card--flat { background: var(--surface); box-shadow: none; }
+.kc-badge { font-family: var(--font-mono); font-size: 10px; background: var(--brand-yellow); border: var(--border-width) solid var(--border-color); border-radius: var(--radius-sm); padding: 2px 8px; }
+.kc-avatar { width: var(--touch-target); height: var(--touch-target); border-radius: 50%; border: var(--border-width) solid var(--border-color); background: var(--accent); color: var(--accent-fg); display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; }
+.kc-progress { height: 16px; border: var(--border-width) solid var(--border-color); border-radius: var(--radius-sm); background: var(--brand-cream); overflow: hidden; }
+.kc-progress__fill { height: 100%; background: repeating-linear-gradient(45deg, var(--accent) 0 8px, #D95590 8px 16px); }
+
+/* ==================== TABS ==================== */
+.kc-tabs__list { display: flex; gap: 8px; padding: 14px 16px 0; border-bottom: var(--border-width) solid var(--border-color); }
+.kc-tab { min-height: var(--touch-target); padding: 10px 20px; font-family: var(--font-body); font-weight: 700; font-size: 14px; letter-spacing: 0.5px; border: var(--border-width) solid var(--border-color); border-bottom: none; border-radius: var(--radius-md) var(--radius-md) 0 0; cursor: pointer; background: var(--surface-raised); color: var(--fg-muted); }
+.kc-tab[aria-selected="true"] { background: var(--accent); color: var(--accent-fg); }
+
+/* ==================== DIALOG / TOAST / TOOLTIP ==================== */
+.kc-scrim { position: fixed; inset: 0; background: rgba(51,36,26,0.5); display: flex; align-items: center; justify-content: center; z-index: var(--z-overlay); }
+.kc-dialog { width: 320px; background: var(--surface-raised); border: var(--border-width-heavy) solid var(--border-color); border-radius: var(--radius-md); box-shadow: 8px 8px 0 var(--border-color); padding: 22px; display: flex; flex-direction: column; gap: 12px; z-index: var(--z-modal); }
+.kc-dialog__title { margin: 0; font-family: var(--font-display); font-size: 26px; line-height: var(--leading-tight); }
+.kc-toast { position: fixed; bottom: 16px; right: 16px; background: var(--fg); color: var(--brand-cream); border: var(--border-width) solid var(--border-color); border-radius: var(--radius-md); padding: 12px 18px; font-size: 14px; display: flex; gap: 10px; align-items: center; box-shadow: var(--shadow-glow); z-index: var(--z-toast); }
+.kc-tooltip { position: absolute; top: 24px; left: 0; white-space: nowrap; background: var(--fg); color: var(--brand-cream); font-family: var(--font-mono); font-size: var(--text-xs); padding: 6px 10px; border-radius: var(--radius-sm); box-shadow: 3px 3px 0 rgba(228,100,155,0.6); }
+
+/* ==================== LISTVIEW EDITORIAL (Byline) ==================== */
+.kc-list__cat { padding: 10px 22px 6px; font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: var(--tracking-wide); color: var(--accent); }
+.kc-list__item { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 14px 22px; border-top: 1px solid var(--surface-sunken); text-decoration: none; }
+.kc-list__item:hover { background: var(--surface); }
+.kc-list__title { font-family: var(--font-display); font-size: 22px; }
+.kc-list__meta { font-family: var(--font-mono); font-size: 10px; color: var(--fg-muted); white-space: nowrap; }
+
+/* ==================== FOCUS FRAME (encuadre luminoso) ==================== */
+.kc-focusframe { position: relative; }
+.kc-focusframe__corner { position: absolute; width: 26px; height: 26px; animation: kc-glow 2.6s ease-in-out infinite; }
+.kc-focusframe__corner--tl { top: 10px; left: 10px; border-top: 3px solid var(--accent); border-left: 3px solid var(--accent); }
+.kc-focusframe__corner--tr { top: 10px; right: 10px; border-top: 3px solid var(--accent); border-right: 3px solid var(--accent); }
+.kc-focusframe__corner--bl { bottom: 10px; left: 10px; border-bottom: 3px solid var(--accent); border-left: 3px solid var(--accent); }
+.kc-focusframe__corner--br { bottom: 10px; right: 10px; border-bottom: 3px solid var(--accent); border-right: 3px solid var(--accent); }
+
+/* ==================== ASCII / STICKERS ==================== */
+.kc-ascii { margin: 0; font-family: var(--font-mono); line-height: var(--leading-ascii); white-space: pre; } /* reglas duras del ASCII */
+.kc-sticker { display: inline-flex; align-items: center; justify-content: center; width: 88px; height: 31px; font-family: var(--font-mono); font-size: 9px; letter-spacing: var(--tracking-label); border: var(--border-width) solid var(--border-color); }
+
+/* ==================== FEEDBACK ==================== */
+.kc-skeleton { background: linear-gradient(90deg, var(--surface-sunken) 25%, var(--brand-cream) 50%, var(--surface-sunken) 75%); background-size: 200px 100%; animation: kc-shimmer 1.4s linear infinite; border-radius: var(--radius-sm); }
+.kc-spinner { display: inline-block; font-family: var(--font-mono); animation: kc-spin 1s linear infinite; }
+.kc-empty, .kc-error { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; padding: 28px; }
+.kc-error { border: var(--border-width) solid var(--danger); border-radius: var(--radius-md); box-shadow: 4px 4px 0 rgba(198,67,47,0.35); }
+</style>
+</head>
+<body>
+
+<!-- ==================== ARCHIVE NAV ==================== -->
+<header class="kc-nav">
+  <div class="kc-nav__brand">
+    <a class="kc-nav__wordmark" href="#">Knit<em>&amp;</em>Crochet</a>
+    <span class="kc-nav__sub">SDD-01 · TEMPLATE PORTABLE</span>
+  </div>
+  <nav class="kc-nav__folders" data-scrollspy>
+    <a class="kc-folder is-active" href="#tokens"><span class="kc-folder__tab"><span class="kc-folder__prefix">.knit</span><span class="kc-folder__word">TOKENS</span></span><span class="kc-folder__body"></span></a>
+    <a class="kc-folder" href="#primitivos"><span class="kc-folder__tab"><span class="kc-folder__prefix">.knit</span><span class="kc-folder__word">PRIMITIVOS</span></span><span class="kc-folder__body"></span></a>
+    <a class="kc-folder" href="#layout"><span class="kc-folder__tab"><span class="kc-folder__prefix">.knit</span><span class="kc-folder__word">LAYOUT</span></span><span class="kc-folder__body"></span></a>
+    <a class="kc-folder" href="#motivos"><span class="kc-folder__tab"><span class="kc-folder__prefix">.knit</span><span class="kc-folder__word">MOTIVOS</span></span><span class="kc-folder__body"></span></a>
+    <a class="kc-folder" href="#feedback"><span class="kc-folder__tab"><span class="kc-folder__prefix">.knit</span><span class="kc-folder__word">FEEDBACK</span></span><span class="kc-folder__body"></span></a>
+  </nav>
+  <div class="kc-nav__utils"><a href="#capa3d">3D</a><a href="#tokens">INFO</a></div>
+</header>
+
+<!-- ==================== EJEMPLOS DE COMPONENTES ==================== -->
+<main style="padding: var(--space-12) var(--space-12); display: grid; gap: var(--space-8); background: var(--brand-cream); background-image: var(--texture-paper);">
+
+  <section id="tokens">
+    <h2 style="font-family: var(--font-display); font-weight: 400; font-size: var(--text-3xl); margin: 0 0 16px;">Emphasis</h2>
+    <p>Resaltar no es negrita: es <span class="kc-emphasis kc-emphasis--accent">cambiar de voz</span> — patrón Byline vía <code>--font-emphasis</code>.</p>
+  </section>
+
+  <section id="primitivos" style="display: flex; gap: 14px; flex-wrap: wrap; align-items: center;">
+    <button class="kc-btn kc-btn--primary">Primary</button>
+    <button class="kc-btn">Secondary</button>
+    <button class="kc-btn kc-btn--ghost">Ghost</button>
+    <button class="kc-btn kc-btn--danger">Danger</button>
+    <button class="kc-btn" disabled>Disabled</button>
+    <button class="kc-btn"><span class="kc-spinner">✳</span> Loading</button>
+    <button class="kc-btn kc-btn--icon" aria-label="favorito">✶</button>
+  </section>
+
+  <section style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-4);">
+    <div class="kc-card" style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span class="kc-avatar">MA</span><span class="kc-badge">EN CURSO</span>
+      </div>
+      <div class="kc-progress"><div class="kc-progress__fill" style="width: 62%;"></div></div>
+    </div>
+    <form class="kc-card kc-card--flat" style="display: flex; flex-direction: column; gap: 16px;">
+      <label class="kc-field">Nombre del patrón
+        <input class="kc-input" value="Cárdigan Estrella Polar">
+        <span class="kc-field__hint">visible en tu perfil público</span>
+      </label>
+      <label class="kc-field has-error">Aguja (mm)
+        <input class="kc-input" value="veintiuno">
+        <span class="kc-field__hint">✕ ingresá un número entre 2 y 12</span>
+      </label>
+      <button type="button" class="kc-toggle" role="switch" aria-checked="true" data-toggle><span class="kc-toggle__knob"></span></button>
+    </form>
+  </section>
+
+  <section id="layout" class="kc-card" style="padding: 0; overflow: hidden;">
+    <div class="kc-list__cat">TÉCNICAS CELESTIALES</div>
+    <a class="kc-list__item" href="#"><span class="kc-list__title">Estrella de ocho puntas en una tarde</span><span class="kc-list__meta">POR MARTA · NIVEL 3</span></a>
+    <a class="kc-list__item" href="#"><span class="kc-list__title">Alas de querubín <span class="kc-emphasis kc-emphasis--accent">(amigurumi)</span></span><span class="kc-list__meta">POR NOA · NIVEL 4</span></a>
+  </section>
+
+  <section id="motivos" class="kc-focusframe kc-card kc-card--flat" style="padding: 32px 40px;">
+    <div class="kc-focusframe__corner kc-focusframe__corner--tl"></div>
+    <div class="kc-focusframe__corner kc-focusframe__corner--tr"></div>
+    <div class="kc-focusframe__corner kc-focusframe__corner--bl"></div>
+    <div class="kc-focusframe__corner kc-focusframe__corner--br"></div>
+    <pre class="kc-ascii" style="font-size: 13px; color: var(--fg-muted); text-align: center;">*--=====[ o8o ]=====--*</pre>
+    <div style="display: flex; gap: 10px; justify-content: center; margin-top: 12px;">
+      <span class="kc-sticker" style="background: var(--fg); color: var(--brand-yellow); box-shadow: 3px 3px 0 var(--accent);">KNIT&amp;CRO™</span>
+      <span class="kc-sticker" style="background: var(--accent); color: var(--accent-fg); animation: kc-blink 1.8s steps(1) infinite;">100% LANA</span>
+      <span class="kc-sticker" style="background: var(--surface); color: var(--success);">RETRO×MOD</span>
+    </div>
+  </section>
+
+  <section id="feedback" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-4);">
+    <div class="kc-empty kc-card kc-card--flat">
+      <p style="margin: 0; font-family: var(--font-display); font-size: var(--text-xl);">Todavía no hay patrones</p>
+      <button class="kc-btn kc-btn--primary">Crear patrón</button>
+    </div>
+    <div class="kc-error">
+      <p style="margin: 0; font-family: var(--font-display); font-size: var(--text-xl);">Se soltó un punto</p>
+      <button class="kc-btn">Reintentar</button>
+    </div>
+    <div class="kc-card kc-card--flat" style="display: flex; flex-direction: column; gap: 12px;">
+      <div class="kc-skeleton" style="height: 14px; width: 70%;"></div>
+      <div class="kc-skeleton" style="height: 14px; width: 45%;"></div>
+      <div class="kc-skeleton" style="height: 80px;"></div>
+    </div>
+  </section>
+
+  <!-- Capa 3D: ovillo ASCII rotable. Componente separado (ascii-yarn.js en la raíz
+       del proyecto): web component <ascii-yarn cols rows font-size color auto glow>.
+       Client-only, detrás del contenido (--z-bg-3d), congela con reduced-motion. -->
+  <section id="capa3d" style="background: var(--bg); color: var(--fg-inverse); border-radius: var(--radius-md); padding: var(--space-8); text-align: center;">
+    <pre class="kc-ascii" style="font-size: 12px; color: var(--accent);">&lt;ascii-yarn cols="100" rows="46" color="#E4649B" auto="true"&gt;&lt;/ascii-yarn&gt;</pre>
+  </section>
+</main>
+
+<script>
+/* ==================== INTERACCIONES ==================== */
+// Scroll-spy: marca la carpeta activa según la sección visible (top <= 170px)
+(function () {
+  const nav = document.querySelector('[data-scrollspy]');
+  if (!nav) return;
+  const links = [...nav.querySelectorAll('.kc-folder')];
+  const ids = links.map(a => a.getAttribute('href').slice(1));
+  function spy() {
+    let current = ids[0];
+    for (const id of ids) {
+      const el = document.getElementById(id);
+      if (el && el.getBoundingClientRect().top <= 170) current = id;
+    }
+    links.forEach(a => a.classList.toggle('is-active', a.getAttribute('href') === '#' + current));
+  }
+  addEventListener('scroll', spy, { passive: true });
+  spy();
+})();
+
+// Toggle (role="switch")
+document.querySelectorAll('[data-toggle]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    btn.setAttribute('aria-checked', btn.getAttribute('aria-checked') !== 'true');
+  });
+});
+
+// Tabs, Dialog y Toast siguen el mismo patrón: estado por atributo ARIA
+// (aria-selected / aria-modal / role="status") + clases .kc-tab, .kc-dialog,
+// .kc-scrim, .kc-toast definidas arriba. En React: componentes controlados
+// por props (el template es presentación pura, SDD-01 §2).
+</script>
+</body>
+</html>
