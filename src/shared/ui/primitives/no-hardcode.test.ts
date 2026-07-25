@@ -16,6 +16,11 @@ const COMPONENT_FILES = [
   "./card/card.variants.ts",
   "./field/Field.tsx",
   "./field/Input.tsx",
+  "../layout/app-shell/AppShell.tsx",
+  "../layout/archive-nav/ArchiveNav.tsx",
+  "../layout/archive-nav/archive-nav.variants.ts",
+  "../layout/bottom-nav/BottomNav.tsx",
+  "../layout/bottom-nav/bottom-nav.variants.ts",
 ];
 
 const HEX_COLOR = /#[0-9a-fA-F]{3,8}\b/;

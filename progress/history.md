@@ -504,3 +504,28 @@
 - **Informe de síntesis:** `progress/informs/3.informe-ui_foundation.md`.
 - **Próximo:** feature #13 `ui_shell_nav` (AppShell + ArchiveNav + BottomNav + route groups (app)/(auth)).
   Nota: exponer breakpoints en namespace `--breakpoint-*` para variantes responsive de Tailwind.
+
+## 2026-07-24 — Feature #13 `ui_shell_nav` (DONE) — el caparazón de la app
+- **Agente:** leader (exploración propia: forma de /auth/me + PublicUser + proxy + rutas; brief con costuras
+  fijadas) → implementer → reviewer (**APROBADO** a la primera, sin cambios requeridos).
+- **Qué:** shell + navegación. `src/shared/ui/layout/` con **AppShell** (header + main + BottomNav + slot 3D
+  `--z-bg-3d` placeholder de #14) + **ArchiveNav** (≥ tablet, 6 carpetas `.kc-folder` dark-on-dark) + **BottomNav**
+  (< tablet, táctil ≥ `--touch-target`), **presentación pura**. Activa por RUTA (`usePathname` → `aria-current`).
+  Route groups `(app)` (envuelto por shell) y `(auth)` (limpio); home movida a `(app)/page.tsx`.
+- **Costura arquitectónica (clave):** el fetch de `/auth/me` y el logout NO viven en `shared/ui` (pureza SDD §2)
+  → nueva capa `src/features/auth/ui/AppShellClient.tsx` (Client) hace `GET /auth/me`, `POST /auth/logout` +
+  `useRouter().push("/login")`, y compone el AppShell pasándole `user`+`onLogout`. `features/` → `shared/ui`, nunca al revés.
+- **Deuda #12 saldada:** namespace `--breakpoint-*` en `@theme` (literales; las media queries no resuelven `var()`;
+  comparten valores con `--bp-*`) → variantes responsive `tablet:` token-first. Sin pisar tokens de #12.
+- **Cero hardcode:** `no-hardcode.test.ts` extendido a los 5 archivos de `layout/`. a11y: 2 navs con
+  `aria-label` distinto (evita `landmark-unique` de axe), `aria-current="page"`, prefijo `.knit` `aria-hidden`.
+- **Respetado:** `src/proxy.ts` y backend **intactos** (verificado por el reviewer con git diff); `<ascii-yarn>`
+  (feature 14) y las 5 páginas de contenido (19-30) + login/register NO se construyeron (fuera de alcance).
+- **Verificación:** `bash ./init.sh` VERDE — **338 passed | 6 skipped** (37 archivos; antes 312 → +26, 0 rotos).
+  `pnpm build` OK (Next 16 valida route groups + límites client/server).
+- **Informes:** `progress/reports/impl_ui_shell_nav.md`, `review_ui_shell_nav.md`.
+- **Informe de síntesis:** `progress/informs/4.informe-ui_shell_nav.md`.
+- **Próximo:** feature #14 `ascii_yarn` (web component `<ascii-yarn>`, three.js AsciiEffect, client-only,
+  reduced-motion; llena el slot 3D del AppShell y es el loader global).
+- **Deuda anotada:** (a) `proxy.ts` `/` público vs. Dashboard privado por RFC — resolver al cablear auth↔dashboard.
+  (b) No hay feature explícita para páginas login/register — decidir si se agrega slice.

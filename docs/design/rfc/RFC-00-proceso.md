@@ -96,6 +96,12 @@ subida es **uno solo** (decisión PRD §11.7), referenciado por RFC-03/04/05.
 | 28 | `patterns_form_ui` | RFC-05 §8 | Página |
 | 29 | `calculators_ui` | RFC-06 §8 | Página (sin backend) |
 | 30 | `stash_ui` | RFC-07 §8 | Página (sin backend) |
+| 31 | `auth_ui` | RFC-01 §2, §3 | Shell (páginas login/register en `(auth)`) |
+
+> **Nota sobre #31 `auth_ui`:** añadida tras cerrar #13 (el grupo `(auth)` quedó con layout pero sin
+> páginas). Su id es el mayor por no renumerar el resto, pero su **orden de build es temprano** (slice
+> fundacional del shell: sin login el flujo real no es usable) — se justifica salir del orden por id
+> (RFC-00 §1 "en orden de id salvo que se justifique").
 
 ## 5. Convención de cada RFC de página
 

@@ -208,7 +208,7 @@
         "consume GET /api/auth/me (usuario) y POST /api/auth/logout; sin otros datos ni cambios de backend",
         "Verificación SDD §9: RTL (activa por ruta, logout) + axe + smoke + init.sh + build; hover y foco respetan prefers-reduced-motion"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 14,
@@ -286,12 +286,13 @@
       "name": "dashboard_ui",
       "title": "Página Dashboard (métricas conmutables + comparativas + activos + hero)",
       "rfc_ref": "RFC-02",
-      "description": "La página de inicio post-login: hero con <ascii-yarn>, selector de métrica conmutable y superponible (default horas), panel de métricas con comparativas, filtros año (rango libre) y tipo (combinables), lista de activos (~15, orden cambiable, ver-todos) y dos botones de creación que abren el modal con el type.",
+      "description": "La página de inicio post-login: hero con <ascii-yarn>, selector de métrica conmutable y superponible (default horas), panel de métricas con comparativas, filtros año (rango libre) y tipo (combinables), lista de activos (~15, orden cambiable, ver-todos) y dos botones de creación que abren el modal con el type. NOTA DE SCOPE (deuda #13): el Dashboard vive en '/' y por RFC es privado, pero src/proxy.ts lista '/' en PUBLIC_PAGES. Resolver acá la protección de '/': decidir Dashboard privado en '/' (quitar '/' de PUBLIC_PAGES + landing pública aparte si se quiere) y ajustar proxy.ts en consecuencia.",
       "acceptance": [
         "página en src/app/(app)/page.tsx; UI en src/features/dashboard/ui/; reusa la card de proyecto de RFC-03",
         "selector de métrica conmutable Y superponible (horas/proyectos/metros), default horas; comparativas siempre visibles para las 3",
         "filtros: año rango libre (abre en el actual) + botones tipo agujas/crochet combinables; orden de activos 'último tejido' según decisión RFC-02 §6",
         "estados: loading (ovillo + skeleton), vacío ('Todavía no tejiste nada en {año}'), error ('Se enredó la madeja')",
+        "resuelve la deuda de proxy #13: '/' deja de ser público en src/proxy.ts (Dashboard privado); acceso sin sesión a '/' redirige a /login. Test del proxy actualizado",
         "Verificación SDD §9: RTL (conmutar/superponer métrica, filtros, orden, abrir modal) + axe + smoke + init.sh + build"
       ],
       "status": "pending"
@@ -451,6 +452,22 @@
         "cards como enlaces/botones con aria-label claro; targets ≥ 44px; navegable por teclado",
         "BLOQUEADA hasta confirmar la lista exacta de cards con el usuario (RFC-07 §9)",
         "Verificación SDD §9: RTL (navegar / abrir el modal correcto) + axe + smoke + init.sh + build"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 31,
+      "name": "auth_ui",
+      "title": "Páginas de autenticación (login + register) en el grupo (auth)",
+      "rfc_ref": "RFC-01 §2, §3",
+      "description": "Las pantallas de acceso: login y register dentro del route group (auth)/ (pantalla limpia, sin archivero) que #13 dejó con layout pero sin páginas. Formularios que consumen POST /api/auth/login y /api/auth/register (ya existen) y, al éxito, redirigen a '/' (Dashboard). ORDEN DE BUILD (justifica salir del orden por id): es una slice fundacional del shell; conviene construirla junto a/antes de las páginas de contenido (19-30), no al final, porque sin login el flujo real de la app no es usable. Deuda registrada en el cierre de #13.",
+      "acceptance": [
+        "páginas en src/app/(auth)/login/page.tsx y src/app/(auth)/register/page.tsx; UI en src/features/auth/ui/",
+        "login: form (Field/Input del design system) email+password → POST /api/auth/login; éxito redirige a '/' (o al ?next= del proxy); credenciales inválidas → 401 mostrado en el form",
+        "register: form nombre+email+password → POST /api/auth/register; éxito inicia sesión y redirige; email duplicado → error en el campo",
+        "presentación pura del design system: el fetch/redirect vive en features/auth/ui/ (no en shared/ui), como AppShellClient (#13)",
+        "ovillo ASCII de fondo SOLO en login (no en register), cuando exista <ascii-yarn> (#14); si #14 aún no está, dejar el slot preparado sin bloquear",
+        "Verificación SDD §9: RTL (login OK/inválido, register OK/duplicado, redirect) + axe + smoke + init.sh + build"
       ],
       "status": "pending"
     }

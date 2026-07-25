@@ -38,8 +38,24 @@
   --folder-tone-3: #3c2e21;
   --folder-tone-4: #3e3023;
   --folder-tone-5: #403225;
+  --folder-tone-6: #423427;
   --folder-emboss-light: rgba(245, 237, 223, 0.12);
   --folder-emboss-dark: rgba(0, 0, 0, 0.3);
+  --folder-prefix: #a8937b;
+
+  /* ---- Navbar: dimensiones y sombras compuestas (token-first; los
+     componentes referencian estos tokens, nunca los valores crudos) ---- */
+  --nav-height: 104px;
+  --folder-overlap: 16px;
+  --folder-lift: 6px;
+  --folder-body-height: 22px;
+  --folder-body-height-active: 34px;
+  --shadow-folder-tab: inset 1px 1px 0 var(--folder-emboss-light),
+    inset -1px 0 0 var(--folder-emboss-dark);
+  --shadow-folder-body: inset 0 2px 2px rgba(0, 0, 0, 0.25),
+    inset 1px 1px 0 var(--folder-emboss-light),
+    inset -1px 0 0 var(--folder-emboss-dark);
+  --shadow-folder-hover: 6px 7px 9px rgba(0, 0, 0, 0.5);
 
   /* ---- Alias al namespace de color de Tailwind v4 (generan utilidades bg / text / border) ----
      Referencian los tokens de rol/marca de arriba; no introducen valores nuevos. */
@@ -156,6 +172,13 @@
   --bp-mobile: 640px;
   --bp-tablet: 768px;
   --bp-desktop: 1180px;
+
+  /* ---- Alias al namespace de breakpoints de Tailwind v4 (generan variantes
+     responsive: mobile:/tablet:/desktop:). Deben ser literales: las media
+     queries no resuelven var(); comparten los mismos valores que --bp-*. ---- */
+  --breakpoint-mobile: 640px;
+  --breakpoint-tablet: 768px;
+  --breakpoint-desktop: 1180px;
 
   /* ---- Táctil ---- */
   --touch-target: 44px;

@@ -3,47 +3,51 @@
 > Este archivo se vacía al cerrar cada sesión y se mueve a `history.md`.
 > Mientras trabajas, **mantenlo actualizado en tiempo real**, no al final.
 
-- **Feature en curso:** _ninguna_ — #12 `ui_foundation` **CERRADA (done)**.
-- **Última tarea:** #12 `ui_foundation` → base del design system portada (tokens `@theme`, fuentes
-  `next/font`, `cn()`, primitivos Button/Field·Input/Card). APROBADA a la primera.
+- **Feature en curso:** _ninguna_ — #13 `ui_shell_nav` **CERRADA (done)**.
+- **Última tarea:** #13 `ui_shell_nav` → shell (AppShell + ArchiveNav + BottomNav + route groups). APROBADA a la primera.
 - **Agente:** leader → implementer → reviewer.
 
 ## Estado del proyecto
 
 - **Fase 1 (PRD-01, features 1-11):** completa (`done`).
-- **Fase 2 (UI, features 12-30):** arrancada. **#12 done**; siguiente pendiente por id = **#13 `ui_shell_nav`**.
-- `bash ./init.sh` VERDE: **312 passed | 6 skipped** (281 backend + 31 UI). `pnpm build` OK.
+- **Fase 2 (UI, features 12-30):** en curso. **#12 y #13 done**; siguiente pendiente por id = **#14 `ascii_yarn`**.
+- `bash ./init.sh` VERDE: **338 passed | 6 skipped**. `pnpm build` OK.
 
-## Próximo paso — feature #13 `ui_shell_nav`
+## Próximo paso — feature #14 `ascii_yarn`
 
-AppShell + ArchiveNav (6 rutas, activa por ruta, `aria-current`) + BottomNav mobile + route groups
-`(app)`/`(auth)` + consumo de `GET /api/auth/me` y `POST /api/auth/logout`. Sin cambios de backend.
-Fuente: RFC-01 §3/§8, SDD §6 (`ArchiveNav`), `template/template-src.html` (`.kc-nav`/`.kc-folder`).
+Web component `<ascii-yarn>` (three.js `AsciiEffect`, client-only, `dynamic` `ssr:false`): ovillo + agujas,
+auto-rota + arrastre, vive en `--z-bg-3d` detrás del contenido, `pointer-events:none` salvo como hero
+interactivo, congela con `prefers-reduced-motion`, no bloquea el primer render. Se usa como **hero**
+(Dashboard) y **loader** global. **Llena el slot 3D que el AppShell (#13) ya dejó reservado.**
+Fuente: RFC-01 §3, SDD §7 y §7.1 (técnica AsciiEffect). Instalar `three` (pnpm). Verificación SDD §9:
+smoke de montaje + reduced-motion + init.sh + build (NO se testean píxeles).
 
-**Antes de arrancar #13:** exponer los breakpoints también en el namespace `--breakpoint-*` (además de
-`--bp-*`) para poder usar prefijos responsive de Tailwind en el nav (deuda anotada por #12).
+## Notas para consumidores del design system (acumulado #12-#13)
 
-## Notas de #12 (para consumidores del design system)
+- **Layout listo:** `src/shared/ui/layout/` (AppShell, ArchiveNav, BottomNav) — presentación pura, se le pasan
+  `user`+`onLogout`. El wiring de auth para el shell está en `src/features/auth/ui/AppShellClient.tsx`.
+- **Activa por ruta:** helper `isRouteActive` + `usePathname` (exacto para `/`, prefijo para subrutas).
+- **Responsive token-first:** usar variantes `tablet:`/`mobile:`/`desktop:` (namespace `--breakpoint-*` en globals.css).
+- **Cero hardcode** enforced por `no-hardcode.test.ts` (cubre primitivos + layout). Tests de UI:
+  `// @vitest-environment happy-dom` + mockear `next/navigation` y `fetch`.
+- Gotcha vigente: no usar la secuencia de cierre de comentario dentro de `bg-*/text-*` en `globals.css`.
 
-- Utilidades de color disponibles vía alias `--color-<rol>` (`bg-accent`, `text-fg`, `border-border`…);
-  o consumir el token directo con `var(--<rol>)`. Nombres del SDD §5 presentes verbatim.
-- **Cero hardcode** enforced por `src/shared/ui/primitives/no-hardcode.test.ts` — cualquier primitivo
-  nuevo debe pasar por token (usar `calc()`/`color-mix()` sobre tokens si hace falta un valor derivado).
-- Tests de UI: declarar `// @vitest-environment happy-dom` arriba del archivo (el default sigue `node`).
-- Gotcha: no usar la secuencia `*/` dentro de comentarios en `globals.css` (cierra el comentario CSS).
+## Deuda técnica acumulada (vigente)
+
+1. ~~**`src/proxy.ts` `/` público vs. Dashboard privado** (#13)~~ → **convertida en trabajo rastreable**:
+   nota de scope + criterio de aceptación en la feature **#19 `dashboard_ui`** (quitar `/` de PUBLIC_PAGES,
+   Dashboard privado en `/`, test del proxy actualizado). Se resuelve al construir el Dashboard.
+2. ~~**Sin feature para páginas login/register** (#13)~~ → **convertida en feature**: nueva **#31 `auth_ui`**
+   (login + register en el grupo `(auth)`, consumen los endpoints existentes; build recomendado junto a/antes
+   de las páginas de contenido, no al final). `rfc_ref` RFC-01 §2/§3.
+3. **Sanitización al cablear Cloudinary** (#5, PRD §11.7): `folder`/`publicId` desde el `userId` del JWT
+   validados con zod. **Aplica en #15 `uploads_image`.**
+4. **`tsconfig.tsbuildinfo` trackeado en git** (pre-existente): añadir a `.gitignore`.
+5. **`GET /api/projects/:id` no devuelve las lanas enlazadas** (#6): **la salda #17 `projects_detail_yarns`**.
+6. **Orden de firma de Cloudinary** (#5): `localeCompare`; migrar a comparador binario si se firman más params.
+7. **`sum()`/agregados → `numeric` (string por el driver):** `Number(...)` en cualquier agregado nuevo.
 
 ## Pendiente operativo (no bloquea)
 
-- Hay bastante trabajo sin commitear en el árbol (features #8-#11 + proceso `informs/` + toda la Fase 2 #12
-  + docs/design/rfc + template/). Conviene commit(s) limpios cuando el usuario lo indique.
-
-## Deuda técnica acumulada (heredada, vigente)
-
-1. **Orden de firma de Cloudinary** (#5): `localeCompare` sensible a locale; migrar a comparador binario si
-   se añaden más params firmables.
-2. **Sanitización al cablear Cloudinary** (#5, PRD §11.7): `folder`/`publicId` desde el `userId` del JWT
-   validados con zod, nunca del body crudo. **Aplica en #15 `uploads_image`** (aún no cableado).
-3. **`tsconfig.tsbuildinfo` trackeado en git** (pre-existente): añadir a `.gitignore`.
-4. **`GET /api/projects/:id` no devuelve las lanas enlazadas** (#6): **la salda #17 `projects_detail_yarns`**.
-5. **`sum()`/agregados → `numeric` (string por el driver):** aplicar `Number(...)` en cualquier agregado nuevo.
-6. **Breakpoints `--breakpoint-*`** (nuevo, #12): exponerlos para variantes responsive de Tailwind (→ #13).
+- Bastante trabajo sin commitear (features #8-#13 + `informs/` + docs/design/rfc + template/). Commit(s) limpios
+  cuando el usuario lo indique.
