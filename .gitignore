@@ -6,6 +6,10 @@ node_modules/
 out/
 build/
 
+# caché incremental de TypeScript (la regenera `tsc`; cambia en cada typecheck)
+tsconfig.tsbuildinfo
+*.tsbuildinfo
+
 # entorno / secretos
 .env
 .env.*

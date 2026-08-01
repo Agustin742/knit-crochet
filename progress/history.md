@@ -708,3 +708,55 @@
   el nombre de usuario. (20) la garantía de ancho cubre las 6 páginas de la app, no listas de ítems
   arbitrarias.
 - **#13 sigue `done`** (no se reabrió), igual que en la corrección de #14.
+
+---
+
+## 2026-08-01 — Lote de higiene: deudas 21, 17, 13 y 4 (NO es una feature)
+
+- **Cadena:** leader → implementer → reviewer (**CAMBIOS REQUERIDOS**, 2 bloqueantes) → implementer (2ª
+  vuelta) → reviewer (**APROBADO**). `feature_list.json` **no se tocó**: esto no es una feature.
+- **Decisión del usuario cerrada en esta sesión:** el tamaño de etiqueta del archivero se queda en **18px**
+  (`--text-nav-tab`), y con él `--bp-archive: 1180px`. Se descartaron 24px (desaparecería de los portátiles
+  de 1280-1366px) y los 36px de la referencia (sólo monitores grandes). **No se reabre.** El usuario también
+  decidió que **#15 `uploads_image` no arranca todavía**.
+- **Criterio de selección de las 4 deudas:** son las que **se multiplican con cada consumidor nuevo**, y
+  #15-#31 van a instanciar botones y páginas en masa.
+- **Saldadas: 21, 17, 13, 4 y 32** (esta última nació dentro del lote y se saldó en la 2ª vuelta).
+  - **21** — el caparazón pedía `GET /api/auth/me` en cada navegación, el nav lo descartaba y el `setUser`
+    re-renderizaba el shell entero; `handleLogout` era código inalcanzable desde E7 y su test se fabricaba su
+    propio sujeto (un botón "Salir" que sólo existía dentro del test). Fuera todo; JSDoc mentiroso corregido;
+    firma pública de `AppShell` intacta (la usa #31); endpoint sin tocar. Gate nuevo: montar el shell no
+    dispara **ningún** fetch.
+  - **17 + 32** — la variante fantasma de `Button` era **invisible** (contraste **1.00**, no "ilegible") sobre
+    el fondo de la app. Pasa a **heredar** el primer plano; y `Card` pasa a **declararlo** junto a su fondo,
+    que es de donde hereda. Las 4 superficies quedan legibles (12.83 / 14.65 / 13.84).
+  - **13** — `twMerge` descartaba el interlineado porque el tamaño de letra llega después y trae el suyo.
+    Medido en CSS compilado: el botón se pintaba a **1.5** (y ~1.556 el de icono) contra el **1.1** declarado.
+    Arreglado uniendo tamaño e interlineado en la misma clase.
+  - **4** — `tsconfig.tsbuildinfo` fuera del índice + `.gitignore`. Deja una **eliminación preparada en el
+    índice**: entra en el próximo commit, el archivo sigue en disco.
+- **Por qué se rechazó la 1ª vuelta (lo instructivo):** (1) el arreglo de la 17 **movió** el defecto de 1
+  superficie a 3 (las claras caían a 1.14 / 1.08 / 1.13) y se archivó como ficha tachada — el reviewer
+  distinguió lo preexistente (párrafo dentro de `Card` = deuda 32) de la **regresión introducida** (el botón
+  fantasma dentro de `Card`, que antes se leía a 14.65); (2) el test escrito para probar el arreglo medía un
+  par de tokens **que ningún camino del código produce** y por eso tapaba en verde el caso roto — el patrón
+  de las deudas 18/22/23 reproducido dentro del lote que venía a limpiarlo.
+- **Cómo se cerró el bloqueante 2 (transferible):** el par de contraste **se deriva del código** —lee la
+  regla `body` de `globals.css` y llama a `cardVariants` de verdad— en vez de elegirse a mano, así que no
+  puede quedar verde por el motivo equivocado. Y se exigió **condición doble** como criterio de aceptación:
+  sin el arreglo de `Card` el test cae en **rojo** (1.1424 / 1.0787); con él, **verde** (14.65 / 13.84).
+  Ejecutada por el implementer y **reproducida por el reviewer**.
+- **Verificación:** `bash ./init.sh` **435 passed | 6 skipped** (baseline 420, **+15, ninguno eliminado sin
+  justificar**), `pnpm build` OK, `globals-css.test.ts` 6 passed. Corrido por el reviewer por su cuenta en
+  las dos vueltas. Validación visual no procede: ni la variante fantasma ni `Card` tienen consumidor montado
+  en ninguna ruta (`/` es la única que existe); la sustituye la medición sobre tokens y clases reales.
+- **Reports:** `impl_deudas_21_17_13_04.md`, `review_deudas_21_17_13_04.md`,
+  `impl_deudas_21_17_13_04_r2.md`, `review_deudas_21_17_13_04_r2.md`.
+  **Informe de cierre:** `progress/informs/9.informe-deudas_21_17_13_04.md`.
+- **Deuda nueva (29-34):** (29) #31 tiene que **reescribir** el gate del shell, no sólo añadir código.
+  (30) `"use client"` sobrante en `AppShellClient`, diferido a #31. (31) anillo de foco por debajo de 3:1 en
+  dos superficies claras (la elevada, por defecto, sí pasa con 3.13). (33) `twMerge` clasifica el tamaño de
+  etiqueta del archivero como color, no como talla — **acoplada con la 13**: esa misma clasificación errónea
+  es hoy lo que *protege* su interlineado. (34) el gate de la 13 no cubre el eje del llamador vía `className`.
+- **Fichas corregidas:** la **17** (decía que el archivero la parcheaba — falso desde E7; y decía "ilegible"
+  cuando era invisible) y la **31** (alcance más alarmista de lo real).

@@ -38,6 +38,31 @@ describe("Card", () => {
     expect(card.className).toContain("shadow-none");
   });
 
+  /**
+   * Deuda 32: la tarjeta declaraba fondo claro y NO primer plano, así que
+   * heredaba el crema que `globals.css` pone en el `body` para la app oscura —
+   * crema sobre crema, 1.14:1. Una superficie que elige su fondo tiene que
+   * elegir también qué se lee encima, porque además es de aquí de donde hereda
+   * la variante fantasma del botón (deuda 17). El contraste real se mide en
+   * `button.variants.test.ts`; esto fija que la clase no se pierda.
+   */
+  it("declares its own foreground next to its surface (deuda 32)", () => {
+    for (const variant of ["raised", "flat"] as const) {
+      render(
+        <Card data-testid={variant} variant={variant}>
+          x
+        </Card>,
+      );
+
+      const classes = screen.getByTestId(variant).className.split(" ");
+      const prefix = ["text", "-"].join("");
+      expect(
+        classes.some((entry) => entry.startsWith(prefix)),
+        `la variante ${variant} no declara primer plano: ${classes.join(" ")}`,
+      ).toBe(true);
+    }
+  });
+
   it("merges a custom className", () => {
     render(
       <Card data-testid="card" className="custom-class">

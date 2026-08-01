@@ -11,11 +11,19 @@ const solidInteraction = [
   "active:shadow-[var(--border-width)_var(--border-width)_0_var(--border)]",
 ].join(" ");
 
+/* El INTERLINEADO viaja pegado al tamaño, en la misma clase (deuda 13). Estuvo
+   declarado aquí abajo, en las clases base, y no llegaba a aplicarse nunca: el
+   tamaño de la variante entra DESPUÉS y en Tailwind cada tamaño de texto trae su
+   propio `line-height`, así que `twMerge` —que resuelve ese conflicto a favor de
+   lo último— descartaba el interlineado declarado y el botón se pintaba con el
+   del tamaño (1.5 en vez de 1.1). La forma con barra fija las dos cosas de una
+   vez y no se puede separar por reordenación. Gate: `button.variants.test.ts`,
+   que asierta sobre la salida real de `cn()`, no sobre el string de `cva`. */
 export const buttonVariants = cva(
   [
     "inline-flex items-center justify-center gap-(--space-2)",
     "min-h-(--touch-target)",
-    "font-body font-bold leading-tight",
+    "font-body font-bold",
     "border-(length:--border-width) border-solid",
     "cursor-pointer select-none",
     "transition-[transform,box-shadow] duration-(--dur-fast) ease-standard",
@@ -30,12 +38,20 @@ export const buttonVariants = cva(
         primary: `bg-accent text-accent-fg border-border ${solidInteraction}`,
         secondary: `bg-surface-raised text-fg border-border ${solidInteraction}`,
         danger: `bg-danger text-accent-fg border-border ${solidInteraction}`,
+        /* La variante fantasma NO fija primer plano: lo HEREDA de la superficie
+           que la contiene (deuda 17). Fijaba el primer plano claro, que es el
+           mismo color que el fondo de la app, así que sobre el espresso del
+           shell el botón era literalmente invisible (contraste 1.0). Heredar lo
+           resuelve en el primitivo y para cualquier superficie futura, en vez de
+           obligar a cada llamador a pasarle el color contrario desde fuera. El
+           borde que aparece al pasar el puntero hereda igual, para no repetir el
+           mismo defecto en el borde. */
         ghost:
-          "bg-transparent text-fg border-transparent shadow-none hover:border-border",
+          "bg-transparent text-current border-transparent shadow-none hover:border-current",
       },
       size: {
-        md: "px-(--space-6) py-(--space-3) text-base rounded-md",
-        icon: "min-w-(--touch-target) p-0 text-lg rounded-md",
+        md: "px-(--space-6) py-(--space-3) text-base/tight rounded-md",
+        icon: "min-w-(--touch-target) p-0 text-lg/tight rounded-md",
       },
     },
     defaultVariants: {

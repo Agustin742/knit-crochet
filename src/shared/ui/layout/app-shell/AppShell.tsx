@@ -16,9 +16,16 @@ export interface AppShellProps {
   background?: ReactNode;
   /** Rutas del nav; por defecto las 6 páginas de la app (RFC-01 §2). */
   items?: readonly NavItem[];
-  /** Usuario mostrado en el archivero (utils). */
+  /**
+   * RESERVADA para la feature #31 `auth_ui`. Se acepta y se propaga tal cual al
+   * `ArchiveNav`, **que hoy la ignora a propósito**: la enmienda E7 de D4 sacó
+   * los utils del nav porque ofrecían "Salir" sin ninguna sesión abierta. O sea:
+   * pasar un usuario aquí **no pinta nada en pantalla** hasta que #31 monte la
+   * pantalla que lo justifica. Está en la firma para no romper el contrato del
+   * design system mientras tanto (`ArchiveNav` fija con un test que la ignora).
+   */
   user?: ArchiveNavUser | null;
-  /** Callback de cierre de sesión (el fetch real lo cablea la capa de feature). */
+  /** RESERVADA para #31 `auth_ui`, propagada e ignorada hoy: ver `user`. */
   onLogout?: () => void;
   className?: string;
 }
