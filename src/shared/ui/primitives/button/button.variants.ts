@@ -13,14 +13,14 @@ const solidInteraction = [
 
 export const buttonVariants = cva(
   [
-    "inline-flex items-center justify-center gap-[var(--space-2)]",
-    "min-h-[var(--touch-target)]",
+    "inline-flex items-center justify-center gap-(--space-2)",
+    "min-h-(--touch-target)",
     "font-body font-bold leading-tight",
-    "border-[length:var(--border-width)] border-solid",
+    "border-(length:--border-width) border-solid",
     "cursor-pointer select-none",
-    "transition-[transform,box-shadow] duration-[var(--dur-fast)] ease-standard",
-    "focus-visible:outline focus-visible:outline-[length:var(--border-width-heavy)]",
-    "focus-visible:outline-[color:var(--focus)] focus-visible:outline-offset-[var(--border-width-heavy)]",
+    "transition-[transform,box-shadow] duration-(--dur-fast) ease-standard",
+    "focus-visible:outline focus-visible:outline-(length:--border-width-heavy)",
+    "focus-visible:outline-(color:--focus) focus-visible:outline-offset-(--border-width-heavy)",
     "disabled:cursor-not-allowed disabled:border-fg-inverse-muted disabled:bg-surface-sunken",
     "disabled:text-fg-muted disabled:shadow-none disabled:[transform:none]",
   ],
@@ -34,8 +34,8 @@ export const buttonVariants = cva(
           "bg-transparent text-fg border-transparent shadow-none hover:border-border",
       },
       size: {
-        md: "px-[var(--space-6)] py-[var(--space-3)] text-base rounded-md",
-        icon: "min-w-[var(--touch-target)] p-0 text-lg rounded-md",
+        md: "px-(--space-6) py-(--space-3) text-base rounded-md",
+        icon: "min-w-(--touch-target) p-0 text-lg rounded-md",
       },
     },
     defaultVariants: {

@@ -66,6 +66,42 @@
   radio, sombra ni z-index: **todo referencia un token**. Los tokens se declaran una
   vez (`@theme` en `src/app/globals.css`, nombres del SDD §5) y se consumen vía
   Tailwind. Cambiar la identidad = cambiar tokens, no componentes.
+- **Sintaxis canónica de variables en Tailwind v4 (regla dura).** Para consumir un
+  token dentro de una utilidad se usa la **forma corta con paréntesis**, no la larga
+  con `var()` entre corchetes:
+
+  | ❌ No canónico | ✅ Canónico |
+  |---|---|
+  | `p-[var(--space-6)]` | `p-(--space-6)` |
+  | `border-[length:var(--border-width)]` | `border-(length:--border-width)` |
+  | `outline-[color:var(--focus)]` | `outline-(color:--focus)` |
+  | `[z-index:var(--z-nav)]` | `z-(--z-nav)` |
+
+  Motivo: son **el mismo CSS**, pero la forma larga dispara el warning
+  `suggestCanonicalClasses` de Tailwind IntelliSense en cada archivo y genera ruido
+  permanente en el editor. Además evita la incoherencia de escribir la misma
+  intención de dos maneras (`z-[var(--z-base)]` junto a `[z-index:var(--z-bg-3d)]`).
+
+  **Excepciones legítimas** (no son convertibles, dejalas como están): valores
+  **compuestos** (`shadow-[var(--a)_var(--a)_0_var(--b)]`), cualquier cosa envuelta en
+  **`calc()`** (`mb-[calc(-1*var(--border-width))]`), y las propiedades arbitrarias
+  para las que **no existe utilidad** en el core de Tailwind.
+
+  **Criterio de corrección al convertir:** el CSS generado tiene que ser
+  **equivalente**. No basta con que compile y con que los tests pasen: comprobalo
+  contra la salida real (ver `src/app/globals-css.test.ts` para la técnica de
+  compilar el CSS y asertar sobre él).
+
+  Vigilado por `src/shared/ui/canonical-tailwind-classes.test.ts`, que barre todo
+  `src/**` por recorrido de directorios (no por lista fija), así que un archivo nuevo
+  queda cubierto solo.
+- **Nunca escribas una clase de Tailwind literal en un archivo que hable de clases**
+  (tests de convenciones, guardrails, informes, comentarios). **Tailwind escanea
+  también los `.test.ts`**: una clase citada como ejemplo se convierte en una utilidad
+  real en el CSS de producción, y una clase con comodines o inválida **rompe el build
+  entero**. Ya pasó dos veces. En tests, armá las muestras por concatenación en
+  runtime; en prosa, describí la utilidad en palabras. Detalle:
+  `progress/informs/6.informe-bugfix-tailwind_source_guardrail.md`.
 - **Presentación pura.** El design system (`shared/ui/`) es **solo presentación**:
   props + estado local de UI. **No** hace fetch, **no** decide rutas, **no** conoce
   el backend. Quien lo consume (`features/<x>/ui/`, páginas) le pasa datos y callbacks.
@@ -78,10 +114,12 @@
   componente `Emphasis`), no solo peso/color.
 - **Fuentes** self-hosted con `next/font` (`display`, `body`, `mono`, `emphasis`).
   Sin `@import` ni requests a fuentes externas.
-- **Capa 3D aislada.** Solo `shared/ui/three/**` importa `three`/R3F, siempre
-  client-only (`dynamic`, `ssr:false`). Vive detrás del contenido (`--z-bg-3d`),
-  `pointer-events:none` salvo escena interactiva explícita, y **congela** con
-  `prefers-reduced-motion`. Nunca bloquea el primer render.
+- **Capa 3D aislada.** Solo `shared/ui/three/**` importa `three` (three **puro**: R3F
+  y `drei` se desinstalaron, ver RFC-01 §3 **D2-bis**), siempre client-only
+  (`dynamic`, `ssr:false`). Vive detrás del contenido (`--z-bg-3d`),
+  `pointer-events:none` salvo escena interactiva explícita. Con
+  `prefers-reduced-motion` **no se arranca el `requestAnimationFrame`**: se dibuja un
+  solo frame y el arrastre redibuja a demanda (**D3**). Nunca bloquea el primer render.
 - **Nada del template importa de una app**: ni de `features/`, ni de una capa de
   datos, ni del backend. Es portable por contrato (SDD §2).
 

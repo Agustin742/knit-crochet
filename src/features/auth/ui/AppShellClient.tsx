@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 
 import type { PublicUser } from "@/features/auth/types";
-import { AppShell } from "@/shared/ui";
+import { AppShell, AsciiYarn } from "@/shared/ui";
 
 export interface AppShellClientProps {
   children: ReactNode;
@@ -51,7 +51,11 @@ export function AppShellClient({ children }: AppShellClientProps) {
   }, [router]);
 
   return (
-    <AppShell user={user} onLogout={() => void handleLogout()}>
+    <AppShell
+      user={user}
+      onLogout={() => void handleLogout()}
+      background={<AsciiYarn />}
+    >
       {children}
     </AppShell>
   );

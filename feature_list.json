@@ -213,16 +213,16 @@
     {
       "id": 14,
       "name": "ascii_yarn",
-      "title": "Web component <ascii-yarn> (three.js AsciiEffect, client-only)",
-      "rfc_ref": "RFC-01 §3, SDD §7",
-      "description": "La escena signature: ovillo de lana con agujas renderizado en ASCII (AsciiEffect), auto-rotación + arrastre, montado client-only sin SSR, detrás del contenido (--z-bg-3d). Se usa como hero (Dashboard) y como loader global.",
+      "title": "Componente AsciiYarn (port de template/ascii-yarn.js, three puro, client-only)",
+      "rfc_ref": "RFC-01 §3 (decisiones D1, D2-bis, D3), SDD §7",
+      "description": "La escena signature: ovillo de lana con agujas renderizado en ASCII, auto-rotación + arrastre, montado client-only sin SSR, detrás del contenido (--z-bg-3d). Se usa como hero (Dashboard) y como loader global. DECISIONES CERRADAS con el usuario (RFC-01 §3): D1 = componente React AsciiYarn, NO custom element. D2 (SUPERADA) = three + R3F + drei con <AsciiRenderer />; se decidió cuando template/ascii-yarn.js no existía en el repo. D2-bis (VIGENTE) = el usuario entregó template/ascii-yarn.js, la implementación de referencia, y manda sobre src/: el motor es three PURO portando su algoritmo — render a un WebGLRenderTarget de cols x rows (1 pixel = 1 caracter), readRenderTargetPixels, luminancia -> rampa de 13 caracteres, escritura a un <pre>. Sin AsciiEffect, sin drei, sin R3F (ambos desinstalados). Razon: AsciiEffect promedia bloques a resolucion completa y emite su propia <table>, asi que por construccion no puede dar el mismo resultado visual. D3 = con prefers-reduced-motion se dibuja UN solo frame y no se arranca el requestAnimationFrame, pero el arrastre sigue y redibuja a demanda (esto saldo ademas la deuda del frameloop continuo).",
       "acceptance": [
-        "web component client-only en src/shared/ui/three/; montaje diferido dynamic ssr:false (three.js no corre en server)",
-        "ovillo + agujas con AsciiEffect: auto-rota y se arrastra; vive en --z-bg-3d, pointer-events:none salvo como hero interactivo",
-        "congela / cae a estático con prefers-reduced-motion; no bloquea el primer render del contenido",
+        "componente React client-only en src/shared/ui/three/ (NO custom element, D1); montaje diferido dynamic ssr:false (three.js no corre en server)",
+        "ovillo + agujas portados 1:1 de template/ascii-yarn.js (D2-bis): esfera + 18 anillos con LCG semilla 42, agujas cilindro+cono+perilla, camara fov 34 con aspect (cols*0.6)/rows, rampa de 13 caracteres; auto-rota y se arrastra; vive en --z-bg-3d, pointer-events:none salvo como hero interactivo",
+        "prefers-reduced-motion apaga la auto-rotación y mantiene el arrastre (D3); no bloquea el primer render del contenido",
         "Verificación SDD §9: smoke de montaje + reduced-motion + init.sh + build (no se testean píxeles)"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 15,
@@ -286,7 +286,7 @@
       "name": "dashboard_ui",
       "title": "Página Dashboard (métricas conmutables + comparativas + activos + hero)",
       "rfc_ref": "RFC-02",
-      "description": "La página de inicio post-login: hero con <ascii-yarn>, selector de métrica conmutable y superponible (default horas), panel de métricas con comparativas, filtros año (rango libre) y tipo (combinables), lista de activos (~15, orden cambiable, ver-todos) y dos botones de creación que abren el modal con el type. NOTA DE SCOPE (deuda #13): el Dashboard vive en '/' y por RFC es privado, pero src/proxy.ts lista '/' en PUBLIC_PAGES. Resolver acá la protección de '/': decidir Dashboard privado en '/' (quitar '/' de PUBLIC_PAGES + landing pública aparte si se quiere) y ajustar proxy.ts en consecuencia.",
+      "description": "La página de inicio post-login: hero con <ascii-yarn>, selector de métrica conmutable y superponible (default horas), panel de métricas con comparativas, filtros año (rango libre) y tipo (combinables), lista de activos (~15, orden cambiable, ver-todos) y dos botones de creación que abren el modal con el type. NOTA DE SCOPE (deuda #13): el Dashboard vive en '/' y por RFC es privado, pero src/proxy.ts lista '/' en PUBLIC_PAGES. Resolver acá la protección de '/': decidir Dashboard privado en '/' (quitar '/' de PUBLIC_PAGES + landing pública aparte si se quiere) y ajustar proxy.ts en consecuencia. NOTAS DE SCOPE HEREDADAS DE #14 (decidir ANTES de empezar): (a) hoy el <AsciiYarn> es fondo global del AppShell; el hero del Dashboard debe REEMPLAZAR ese fondo en esta ruta o montarse como segunda instancia interactive — dos AsciiEffect simultáneos duplican el coste de CPU del bucle de asciificación, así que hay que elegir explícitamente. (b) a11y del modo interactive: el hero será arrastrable con puntero pero es aria-hidden y su canvas no es focusable, así que NO habrá forma de rotarlo por teclado; decidirlo a propósito (como pieza decorativa de marca es defendible y no viola axe) y no por omisión. (c) evaluar frameloop='demand' o un limitador de fps para el ovillo: hoy va frameloop='always' y re-asciifica cada frame incluso con reduced-motion.",
       "acceptance": [
         "página en src/app/(app)/page.tsx; UI en src/features/dashboard/ui/; reusa la card de proyecto de RFC-03",
         "selector de métrica conmutable Y superponible (horas/proyectos/metros), default horas; comparativas siempre visibles para las 3",

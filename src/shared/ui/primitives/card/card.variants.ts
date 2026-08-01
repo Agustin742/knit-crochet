@@ -4,8 +4,8 @@ import { cva, type VariantProps } from "class-variance-authority";
    raised = superficie elevada con sombra dura; flat = superficie plana sin sombra. */
 export const cardVariants = cva(
   [
-    "border-[length:var(--border-width)] border-solid border-border rounded-md",
-    "p-[var(--space-5)]",
+    "border-(length:--border-width) border-solid border-border rounded-md",
+    "p-(--space-5)",
   ],
   {
     variants: {

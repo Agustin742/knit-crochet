@@ -51,7 +51,7 @@ export function Field({
     : children;
 
   return (
-    <div className={cn("flex flex-col gap-[var(--space-2)]", className)}>
+    <div className={cn("flex flex-col gap-(--space-2)", className)}>
       <label
         htmlFor={fieldId}
         className="font-body font-semibold text-sm text-fg"

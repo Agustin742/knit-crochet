@@ -1,4 +1,22 @@
-@import "tailwindcss";
+/* ============================================================
+   Alcance del escaneo de clases (Tailwind v4)
+   Tailwind busca candidatos a clase en TODO el repo, incluidos los .md.
+   `progress/` (informes de agentes), `docs/` (PRD/RFC/SDD) y `template/`
+   (prototipo HTML, con clases que NO son las de la app) citan nombres de
+   clases en prosa: un ejemplo con comodín en un informe se tomó por una clase
+   real y emitió `var(--dur-*)`, CSS inválido que rompió el build. Nada de eso
+   es código de la app.
+   - `source("../")` acota la detección automática a `src/`.
+   - `@source not` deja explícitas las tres carpetas prohibidas (defensa en
+     profundidad y documentación del porqué).
+   Las rutas son relativas a ESTE archivo (`src/app/`).
+   Guardrail verificado por `globals-css.test.ts`.
+   ============================================================ */
+@import "tailwindcss" source("../");
+
+@source not "../../progress";
+@source not "../../docs";
+@source not "../../template";
 
 /* ============================================================
    Knit&Crochet — Design tokens (SDD-01 §5, portados de template/tokens.css)
@@ -32,30 +50,56 @@
   --success: var(--brand-green);
   --focus: var(--brand-pink);
 
-  /* ---- Navbar archivero (dark-on-dark, micro-escalones tonales) ---- */
-  --folder-tone-1: #382a1e;
-  --folder-tone-2: #3a2c20;
-  --folder-tone-3: #3c2e21;
-  --folder-tone-4: #3e3023;
-  --folder-tone-5: #403225;
-  --folder-tone-6: #423427;
-  --folder-emboss-light: rgba(245, 237, 223, 0.12);
-  --folder-emboss-dark: rgba(0, 0, 0, 0.3);
-  --folder-prefix: #a8937b;
+  /* ---- Navbar archivero: modelo fichero (RFC-01 §3 D4) ----
+     Las 6 hojas comparten UNA sola tonalidad (la cara de la hoja sale de la
+     paleta, no se inventa color nuevo). La profundidad la dan tres pistas que
+     cooperan: la cara sobre el fondo, la sombra hacia arriba (y negativa, como
+     la referencia) y el filo superior del canto.
+     Por qué el filo existe: la referencia es blanco sobre blanco y le basta una
+     sombra negra al 6% de opacidad; sobre este fondo espresso el negro satura
+     enseguida y el contraste máximo alcanzable con sombra sola es ~1.4:1, o sea
+     6 hojas indistinguibles. Los tres contrastes se miden de verdad en
+     `archive-nav.tokens.test.ts`. ---- */
+  --nav-leaf-face: var(--brand-brown);
+  --nav-leaf-edge: rgba(245, 237, 223, 0.42);
+  --nav-tab-prefix: #a8937b;
 
   /* ---- Navbar: dimensiones y sombras compuestas (token-first; los
-     componentes referencian estos tokens, nunca los valores crudos) ---- */
+     componentes referencian estos tokens, nunca los valores crudos).
+     Presupuesto vertical: 6 RANURAS de canto + una pestaña de un objetivo
+     táctil (6 x 10 + 44 = 104) entran exactas en el alto del nav. Ojo con la
+     enmienda E10: los cantos que se DIBUJAN son 5, no 6 —la hoja de la ruta
+     activa no dibuja el suyo—, pero esa hoja **conserva su ranura de alto**
+     (pierde cara, no alto). Si no la conservara, su pestaña y la del canto más
+     bajo quedarían al mismo nivel y la escalera del fichero arrancaría plana.
+     Así que el presupuesto se cuenta siempre en ranuras: es el mismo con ruta
+     activa y sin ella. ---- */
   --nav-height: 104px;
-  --folder-overlap: 16px;
-  --folder-lift: 6px;
-  --folder-body-height: 22px;
-  --folder-body-height-active: 34px;
-  --shadow-folder-tab: inset 1px 1px 0 var(--folder-emboss-light),
-    inset -1px 0 0 var(--folder-emboss-dark);
-  --shadow-folder-body: inset 0 2px 2px rgba(0, 0, 0, 0.25),
-    inset 1px 1px 0 var(--folder-emboss-light),
-    inset -1px 0 0 var(--folder-emboss-dark);
-  --shadow-folder-hover: 6px 7px 9px rgba(0, 0, 0, 0.5);
+  --nav-leaf-height: 10px;
+  --nav-tab-height: var(--touch-target);
+  /* Cuánto SALE la pestaña del cajón al pasar el puntero (enmiendas E5 y E9).
+     El canto de la hoja no encoge —es opaco, y encogerlo abría un hueco que
+     enseñaba la textura del fondo—, y la pestaña tampoco se desplaza: CRECE
+     hacia arriba con la base anclada a su canto (`--nav-tab-height-lifted`).
+     Desplazarla dejaba a la vista la franja de canto que tapaba en reposo, con
+     su filo claro de 1px cruzando por debajo, y la pestaña se leía flotando
+     suelta; creciendo, lo que cubría en reposo sigue cubierto por construcción
+     y no puede aparecer ninguna arista entre la pestaña y su hoja. */
+  --nav-tab-lift: 8px;
+  --nav-tab-height-lifted: calc(var(--nav-tab-height) + var(--nav-tab-lift));
+  --shadow-nav-leaf: 6px -5px 7px rgba(0, 0, 0, 0.55);
+  --shadow-nav-leaf-edge: inset 0 1px 0 var(--nav-leaf-edge);
+
+  /* ---- Navbar: presupuesto HORIZONTAL de la rampa de pestañas.
+     El carril ocupa el ancho del shell menos un margen a cada lado (los utils
+     salieron del nav hasta la feature de auth: enmienda E7). Con la etiqueta ya
+     en tamaño grande (enmienda E6) las 6 pestañas sólo entran enteras a partir
+     de `--bp-archive`, que es el ancho al que se enciende el archivero
+     (enmienda E4). La cuenta la rehace `archive-nav.tokens.test.ts` a partir de
+     ESTOS tokens, no de números afinados a ojo. ---- */
+  --nav-tab-inset-start: var(--space-6);
+  --nav-tab-inset-end: var(--nav-tab-inset-start);
+  --nav-tab-padding-x: var(--space-2);
 
   /* ---- Alias al namespace de color de Tailwind v4 (generan utilidades bg / text / border) ----
      Referencian los tokens de rol/marca de arriba; no introducen valores nuevos. */
@@ -85,6 +129,12 @@
   --font-body: var(--font-archivo), "Helvetica Neue", sans-serif;
   --font-mono: var(--font-ibm-plex-mono), "Courier New", monospace;
   --font-emphasis: var(--font-instrument-serif), Georgia, serif;
+
+  /* Etiqueta de la pestaña del archivero (enmienda E6 de D4): grande, no una
+     etiqueta de sistema. Es el tamaño de la escala que deja entrar las 6
+     pestañas enteras al ancho en que nace el archivero (`--bp-archive`);
+     agrandarlo obliga a subir ese ancho, y el test de tokens lo verifica. */
+  --text-nav-tab: 18px;
 
   --text-xs: 11px;
   --text-sm: 13px;
@@ -164,21 +214,44 @@
   --z-bg-3d: 0;
   --z-base: 1;
   --z-nav: 100;
+  /* Profundidad DENTRO del archivero (contexto de apilamiento del propio nav):
+     la ranura 1 es el FONDO del cajón —la hoja pegada al contenido, que desde
+     E10 es siempre la de la ruta activa— y es la que pinta encima; la
+     profundidad decrece hacia arriba. Numeran POSICIÓN EN EL STACK, no índice
+     en la lista de páginas: al navegar cambia qué hoja ocupa cada ranura, pero
+     no la columna horizontal de su pestaña. La banda del wordmark y los utils
+     va por delante de las 6. */
+  --z-nav-leaf-1: 6;
+  --z-nav-leaf-2: 5;
+  --z-nav-leaf-3: 4;
+  --z-nav-leaf-4: 3;
+  --z-nav-leaf-5: 2;
+  --z-nav-leaf-6: 1;
+  --z-nav-band: 7;
   --z-overlay: 200;
   --z-modal: 300;
   --z-toast: 400;
 
-  /* ---- Breakpoints (tablet + desktop co-primarios) ---- */
+  /* ---- Breakpoints ----
+     `--bp-archive` es el ancho en que el archivero sustituye al bottom-nav: NO
+     es una preferencia, es el ancho al que las 6 pestañas entran enteras con la
+     etiqueta grande (enmiendas E4 y E6 de D4). Si se agranda la etiqueta hay que
+     subirlo; `archive-nav.tokens.test.ts` rehace la cuenta y falla si no cuadra.
+     Hoy coincide con el ancho de desktop, pero se declara aparte porque el
+     motivo es otro y puede moverse solo. */
   --bp-mobile: 640px;
   --bp-tablet: 768px;
   --bp-desktop: 1180px;
+  --bp-archive: 1180px;
 
   /* ---- Alias al namespace de breakpoints de Tailwind v4 (generan variantes
-     responsive: mobile:/tablet:/desktop:). Deben ser literales: las media
-     queries no resuelven var(); comparten los mismos valores que --bp-*. ---- */
+     responsive: mobile:/tablet:/desktop:/archive:). Deben ser literales: las
+     media queries no resuelven var(); comparten los mismos valores que --bp-*,
+     y el test de tokens verifica que cada par siga sincronizado. ---- */
   --breakpoint-mobile: 640px;
   --breakpoint-tablet: 768px;
   --breakpoint-desktop: 1180px;
+  --breakpoint-archive: 1180px;
 
   /* ---- Táctil ---- */
   --touch-target: 44px;

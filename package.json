@@ -27,6 +27,7 @@
     "react-dom": "^19.2.0",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.3",
+    "three": "0.185.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -36,6 +37,7 @@
     "@types/node": "^22.20.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "@types/three": "0.185.1",
     "axe-core": "^4.12.1",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9.39.0",

@@ -529,3 +529,182 @@
   reduced-motion; llena el slot 3D del AppShell y es el loader global).
 - **Deuda anotada:** (a) `proxy.ts` `/` público vs. Dashboard privado por RFC — resolver al cablear auth↔dashboard.
   (b) No hay feature explícita para páginas login/register — decidir si se agrega slice.
+
+## 2026-07-25 — Feature #14 `ascii_yarn` (DONE) — la escena signature en ASCII
+- **Agente:** leader → **3 exploradores en paralelo** (contrato SDD/RFC, técnica three/AsciiEffect, slot del
+  AppShell) → **decisiones D1/D2/D3 cerradas con el usuario** → implementer → reviewer (**APROBADO** a la
+  primera, sin hallazgos bloqueantes ni mayores).
+- **Por qué exploración previa:** los RFC/template pedían un web component y el SDD §3/§6 pedía R3F+CanvasHost.
+  Dos fuentes de verdad en contradicción → RFC-00 §6 obliga a resolverlas antes de salir de `pending`.
+- **Decisiones cerradas (asentadas en RFC-01 §3 como tabla D1/D2/D3 + SDD §3 + description de #14):**
+  **D1** componente React `AsciiYarn`, NO custom element (AsciiEffect reemplaza el DOM del canvas; Shadow DOM
+  rompería los tokens). **D2** se mantiene `three` + R3F + `drei`: el ASCII va por `<AsciiRenderer />` y el giro
+  por `<OrbitControls>` — eso justifica drei como dependencia en vez de cablear AsciiEffect a mano. **D3** con
+  `prefers-reduced-motion` se apaga la auto-rotación pero **el arrastre sigue** (movimiento pedido ≠ impuesto).
+- **Qué:** `src/shared/ui/three/ascii-yarn/` — `AsciiYarn` (barrera `"use client"` con `dynamic ssr:false`,
+  host con las reglas duras del ASCII y gate mobile), `AsciiYarnScene` (Canvas + luces + controls + renderer,
+  **único archivo del repo que importa `three`**), `YarnMesh` (esfera + 6 toros + 2 agujas), 2 hooks
+  (`usePrefersReducedMotion`, `useViewportSupports3d`) con `useSyncExternalStore`.
+- **Slot lleno:** `AppShell` gana prop `background?: ReactNode` (sigue SIN importar `three`, presentación pura);
+  quien conoce la capa 3D es `AppShellClient` (feature layer, ya cliente). El ovillo se ve en todas las privadas.
+- **Hallazgos no obvios (verificados contra `node_modules`, no inventados):** `enabled={false}` en OrbitControls
+  apagaría también la auto-rotación → el gate va por `pointer-events`, con **doble candado** porque R3F escribe
+  `pointerEvents:'auto'` inline. El fondo de escena debe ser **negro opaco**: con canvas transparente AsciiEffect
+  fuerza brillo 1 y, con `invert`, pinta la pantalla entera de `@`. `fgColor="var(--accent)"` es la vía token-first
+  (drei lo asigna como CSS string inline).
+- **Degradación mobile = OMITIR** (de las 3 opciones del SDD §7), leyendo el token `--bp-tablet` con `matchMedia`:
+  `tablet:` solo escondería la escena, seguiría montada consumiendo CPU. **Falla abierto** (si no hay token, monta).
+- **Tests:** 9 nuevos con mocks **en el borde** (solo R3F y drei; `YarnMesh` y los intrínsecos de three se
+  renderizan de verdad). `matchMedia` real de happy-dom vía `window.happyDOM.settings.device`. Sin tests de píxeles.
+- **Verificación (ejecutada por el reviewer, no copiada):** `bash ./init.sh` exit 0 — **356 passed | 6 skipped**
+  (antes 338 → +18: 9 ascii-yarn + 1 layout + 8 de no-hardcode; 0 rotos). `pnpm build` exit 0, 12/12 páginas.
+  **El chunk con `WebGLRenderer` no aparece en ningún manifiesto inicial ni en el HTML prerenderizado.**
+  `grep` de imports de three/R3F en `src/` = exactamente 2 líneas, ambas en `AsciiYarnScene.tsx`.
+- **Stack nuevo (pnpm):** `three@0.185.1`, `@react-three/fiber@9.6.1`, `@react-three/drei@10.7.7`;
+  dev `@types/three@0.185.1`. `next.config.ts` NO se tocó (three publica ESM ya compilado).
+- **Informes:** `progress/reports/explore_ascii_yarn_contrato.md`, `explore_three_asciieffect.md`,
+  `explore_slot3d_appshell.md`, `impl_ascii_yarn.md`, `review_ascii_yarn.md`.
+- **Informe de síntesis:** `progress/informs/5.informe-ascii_yarn.md`.
+- **Próximo:** feature #15 `uploads_image` (POST /api/uploads/image cableando el helper Cloudinary de #5;
+  aplica la deuda 3: folder/publicId desde el userId del JWT validados con zod, nunca del body crudo).
+- **Deuda anotada:** `frameloop="always"` re-asciifica cada frame incluso con reduced-motion (coste de batería
+  continuo en todas las privadas) → candidata a `frameloop="demand"`. Las 3 decisiones que #19 debe tomar antes
+  de empezar (fondo vs. hero, a11y de teclado del modo interactive, fps) quedaron escritas en su `description`.
+
+## 2026-07-25 — Bugfix + hardening: un informe `.md` rompía el CSS de toda la app
+- **Agente:** usuario reporta el crash → leader diagnostica + fix inmediato → implementer construye el
+  guardrail → leader verifica. (No es una feature: no se tocó ningún `status` de `feature_list.json`.)
+- **Síntoma:** `pnpm dev` con `Parsing CSS source code failed … var(--dur-*) … Unexpected token Delim('*')`
+  apuntando a `src/app/globals.css`; la app devolvía 500 en todas las rutas.
+- **Causa raíz (el archivo culpable NO era el que señalaba el error):** `progress/reports/impl_ui_shell_nav.md:69`
+  (informe de #13) documentaba una convención escribiendo `duration-[var(--dur-*)]`, con `*` como abreviatura
+  humana de "cualquier token `--dur-`". **Tailwind v4 escanea TODO el repo buscando clases, incluidos los `.md`**,
+  lo tomó por una clase real y generó `transition-duration: var(--dur-*)` — CSS inválido que tumbaba el archivo entero.
+- **Fix inmediato (leader):** reescrita esa línea sin sintaxis de clase con comodín + nota para que nadie la
+  "corrija" de vuelta. Verificado compilando el CSS aparte con postcss (sin tocar el `pnpm dev` del usuario,
+  que tenía tomada `.next`): 0 líneas inválidas.
+- **Guardrail (implementer), en `src/app/globals.css`:** `@import "tailwindcss" source("../")` (acota la detección
+  automática a `src/`) + `@source not` para `progress/`, `docs/` y `template/`. Sintaxis verificada **contra el
+  parser real de `node_modules/tailwindcss` 4.3.3** (prefijo `not ` con espacio, ruta entre comillas, base = el
+  directorio del CSS), no de memoria.
+- **Prueba de que el guardrail funciona** (una directiva mal escrita fallaría en silencio): carnadas sembradas en
+  las 3 carpetas + 4 escenarios. Sin exclusiones las 3 aparecen en el CSS **y el veneno original reproduce el bug
+  exacto**; con el guardrail puesto y el veneno aún en `progress/`, cero carnadas y cero inválidos, con las clases
+  reales de `src/**` intactas. Control negativo del test: comentando las directivas, 3 de 6 tests fallan.
+- **Hallazgo de paso:** el CSS generado **adelgaza 2,7 kB** (30976 → 28273 bytes). `docs/`/`template/`/`progress/`
+  YA estaban inyectando utilidades basura en el CSS de producción; el `*` inválido fue solo la primera que reventó
+  en vez de colarse en silencio.
+- **Test de regresión:** `src/app/globals-css.test.ts` (6 tests) — compila el CSS de verdad, aserta que no hay
+  `var(--…*)`, que siguen apareciendo utilidades reales de `src/**`, y que las 3 carpetas no se escanean (carnadas
+  temporales borradas en `afterAll`). Robusto al cwd vía `import.meta.url`.
+- **Verificación:** `bash ./init.sh` VERDE — **362 passed | 6 skipped** (antes 356 → +6, 0 rotos), verificado por
+  el leader además del implementer. `pnpm build` OK + inspección del CSS realmente emitido por el build.
+- **Informes:** `progress/reports/impl_tailwind_source_guardrail.md`.
+- **Informe de síntesis:** `progress/informs/6.informe-bugfix-tailwind_source_guardrail.md`.
+- **Deuda:** el test importa `postcss` sin declararlo en `package.json` (dependencia dura de Next/Vite, hoisteada
+  y pinneada por el `overrides` de `pnpm-workspace.yaml`); si algún día falla con "Cannot find package 'postcss'",
+  añadirlo como devDependency explícita.
+- **Regla nueva para todos los agentes:** no citar clases de Tailwind con comodines ni inventadas en los informes.
+
+## 2026-07-25 — Port fiel del ovillo + sintaxis canónica de Tailwind (dos tareas encadenadas)
+- **Agente:** usuario reporta "se ve horrible y distinto al template" → leader (diagnóstico + decisión con el
+  usuario) → implementer (port) ; luego usuario reporta warnings de IntelliSense → leader (convención) →
+  implementer → reviewer (**APROBADO**). Ninguna es feature: no se tocó ningún `status`.
+
+### (a) Port fiel de `template/ascii-yarn.js` — corrección de #14
+- **Premisa que cambió:** el usuario **entregó `template/ascii-yarn.js`**, la implementación de referencia que
+  el explorador dio por inexistente (el template solo mostraba la etiqueta como texto y el `.js` "en la raíz"
+  nunca se había entregado). Con eso, D2 (drei `AsciiRenderer`) quedó obsoleta.
+- **D2-bis (nueva, con el usuario):** motor de **`three` puro** portando el algoritmo del template — render a
+  un `WebGLRenderTarget` de `cols × rows` (**1 píxel = 1 carácter**), `readRenderTargetPixels`, luminancia →
+  rampa de 13 caracteres, escritura a un `<pre>`. **Sin `AsciiEffect`, sin drei, sin R3F** (ambos paquetes
+  desinstalados, −45 dependencias). Razón: `AsciiEffect` promedia bloques a resolución completa y emite su
+  propia `<table>` con `letter-spacing`; **por construcción no puede dar el mismo resultado visual**.
+- **Fidelidad 1:1 auditable** (tabla completa en el report): 18 anillos con el LCG de semilla 42 (no
+  `Math.random`), esfera 0.98, `MeshPhong 0xd8d8d8`, agujas cilindro+cono+perilla, cámara fov 34 con
+  **aspect `(cols*0.6)/rows`** (compensa que el carácter es más alto que ancho), 3 luces, paso 0.006,
+  arrastre 0.01/0.008 con clamp ±1.2, retícula 96×44.
+- **Desvíos deliberados:** `three` del paquete instalado y no del CDN; literales CSS a token (`11px` →
+  `text-xs`, que **ya valía 11px**; `currentColor` heredado de `text-accent` en el host); `glow` mapeado a
+  `--shadow-glow` (mismo rosa, radio/alfa distintos — no se inventó token).
+- **Deuda 8 SALDADA:** con `prefers-reduced-motion` se dibuja **un frame y no se arranca el rAF**; el arrastre
+  redibuja a demanda. Se acabó el consumo continuo de CPU en todas las páginas privadas.
+- **Verificación:** `init.sh` 368 passed | 6 skipped. `pnpm build` OK. **La validación visual la hace el
+  usuario** — es el criterio de aceptación real (SDD §9) y quedó pendiente.
+- **Report:** `progress/reports/impl_ascii_yarn_port.md`.
+
+### (b) Sintaxis canónica de variables en Tailwind v4
+- **Disparador:** warnings `suggestCanonicalClasses` de IntelliSense. El usuario pidió asentarlo en las
+  convenciones y arreglar lo existente. El inventario real eran **60 ocurrencias en 12 archivos**, no las 3
+  que reportaba el IDE (solo veía los archivos abiertos).
+- **Convención nueva** en `docs/harness/conventions.md`: forma corta `p-(--space-6)` en vez de
+  `p-[var(--space-6)]`, con tabla (incluye el hint de tipo `border-(length:--border-width)` y la propiedad
+  arbitraria `[z-index:…]` → `z-(--z-nav)`) y **excepciones explícitas**: valores compuestos y `calc()` **no**
+  se convierten porque la forma corta acepta **una sola variable** y perdería valores en silencio.
+- **Criterio de corrección = equivalencia del CSS**, no "compila y pasan los tests". Verificado por el
+  implementer (47 pares en aislamiento: 43 SAME + 4 controles negativos DIFF) y **reproducido por el
+  reviewer**, que además **reconstruyó el estado previo revirtiendo las 70 ocurrencias en una copia fuera del
+  repo**: CSS completo **idéntico** (204 bloques, 0 diferencias).
+- **Incoherencia saldada:** z-index estaba escrito de dos formas (`z-[var(--z-base)]` y `[z-index:…]`) y
+  **emitía reglas CSS duplicadas**; ahora emite una.
+- **Guardrail nuevo** `src/shared/ui/canonical-tailwind-classes.test.ts`: barre `src/**` **por recorrido de
+  directorios, no por lista fija** (a diferencia de `no-hardcode.test.ts`), con 14 de sus 17 tests dedicados a
+  probar que el regex no tiene falsos positivos con las excepciones.
+- **REGLA NUEVA derivada de un tropiezo del propio refactor:** la primera versión de ese test escribía las
+  clases de ejemplo literales y **Tailwind, que también escanea los `.test.ts`, las convirtió en utilidades
+  reales** (`.border`, `.transition`, `.shadow-paper` fantasma) — misma familia del bug del `--dur-*`. Ahora
+  las muestras se arman por concatenación en runtime. Asentado en `conventions.md`.
+- **Verificación:** `init.sh` **385 passed | 6 skipped** (+17 = exactamente los del guardrail). `pnpm build` OK.
+  Reviewer: cero utilidades fantasma (207 reglas compilando con y sin los 40 tests), `twMerge` sin cambios en
+  17 cadenas reales, guardrail marca 70/70 sobre el estado previo y 0 sobre el actual.
+- **Reports:** `progress/reports/impl_canonical_tailwind_syntax.md`, `review_canonical_tailwind_syntax.md`.
+- **Deuda nueva:** (13) **defecto real preexistente**: `leading-tight` se pierde en `buttonVariants` porque
+  `twMerge` la descarta contra el `text-base` de la variante de tamaño — el interlineado del botón no es el
+  que dice el código. (14) el guardrail es ciego a utilidades negativas y a la forma de propiedad arbitraria.
+  (15) `no-hardcode.test.ts:12-15` cita clases literales en un comentario.
+
+## 2026-07-27 — Corrección de #13 `ui_shell_nav`: `ArchiveNav` al modelo fichero
+
+- **Origen:** el usuario reportó que el nav "no se ve como un organizador". Diagnóstico del leader con
+  el **MCP de Chrome**: el `.kc-folder` del template y su port a `src/` implementaban **una fila de
+  pestañas solapadas**, no un archivero.
+- **Causa raíz — la fuente estaba mal, no la implementación.** `SDD-01` §0 admite que la referencia del
+  archivero (`softglossary.space`) *"no respondió al fetch"* y se reconstruyó **de capturas**. Nadie había
+  visto nunca su CSS. Se abrió en vivo y se midió: el modelo real es un **stack vertical de hojas
+  full-bleed** de 10px de canto, con escalonado que sale del apilamiento, offsets horizontales por
+  pestaña, hover que **encoge** la hoja (10→2px) y la despega 8px, y sombra hacia **arriba**. Volcado
+  verbatim en `progress/reports/explore_softglossary_register.md`.
+- **Decisión nueva D4** en `docs/design/rfc/RFC-01-shell.md` §3, con 10 invariantes. **Deroga el
+  `.kc-folder` para `src/**`.** Por decisión del usuario `template/template-src.html` **NO se tocó**:
+  template y `src/` ya no coinciden, y para `src/` manda D4 (mismo criterio que `<ascii-yarn>` en D1).
+- **Reviewer RECHAZÓ la 1ª ronda por contrato, no por calidad** (init.sh y build verdes): 3 de los 10
+  invariantes no se cumplían. Dos eran decisiones del usuario, no del implementer.
+- **Tres enmiendas E1/E2/E3 a D4**, escritas en el RFC con su porqué para que nadie las revierta:
+  - **E1** — el cajón **no se reordena al navegar** (decisión del usuario): reordenar mueve las 6
+    pestañas en cada clic y destruye la memoria espacial. Arrastra que la activa ya **no** puede pintar
+    la hoja en tono de página (en mitad del cajón se lee como un agujero): el tono va en la **pestaña**.
+  - **E2** — "las 6 etiquetas enteras" rige **desde 768px**, no sólo en desktop. El reviewer midió que a
+    768px se recortaban **3 de las 6**, y `--bp-tablet` es el ancho donde el archivero se enciende.
+  - **E3** — la profundidad la reparten sombra hacia arriba **+ filo de 1px**; lo prohibido es el escalón
+    tonal entre hojas.
+- **El contraste era imposible de portar:** sobre el espresso, **ni una sombra negra opaca** pasa de
+  1.41:1. Se recalibró la sombra del **6% al 55%** y el filo lo lleva a 2.79:1. Los tres ratios están
+  **clavados en tests** (`archive-nav.tokens.test.ts`), calculados con luminancia WCAG y **reproducidos
+  por el reviewer**.
+- **"CALCULADORAS" no entraba en una línea a ningún ancho del rango** (~152px de columna contra ~160px
+  disponibles): se resolvió con el lockup **en dos líneas**, que además es la forma de la referencia.
+  Más monograma y nombre de usuario oculto bajo desktop.
+- **Verificación:** `init.sh` **408 passed | 6 skipped** (baseline 385, **+23, ninguno eliminado**),
+  `pnpm build` OK. Guardrails intactos y verdes sin tocarlos — el de cero-hardcode **cazó al implementer
+  en caliente** al escribir un ancho literal en un comentario. Validación visual del leader en navegador:
+  a 768px las 6 etiquetas con `scrollWidth === clientWidth`, cero solapes, 74px de holgura.
+- **Reports:** `explore_softglossary_register.md`, `explore_archivenav_blast_radius.md`,
+  `explore_archivenav_tailwind_expresion.md`, `impl_archive_nav_fichero.md`,
+  `review_archive_nav_fichero.md`, `review_archive_nav_fichero_r2.md`.
+  **Informe de cierre:** `progress/informs/7.informe-archive_nav_fichero.md`.
+- **Deuda nueva:** (16) `--shadow-paper` sin consumidor. (17) variante fantasma de `Button` ilegible
+  sobre superficies oscuras (el nav sólo la parchea). (18) los dos juegos de tokens de breakpoint no
+  están sincronizados por ningún test, y ahora sostienen la garantía de E2. (19) en tablet no se muestra
+  el nombre de usuario. (20) la garantía de ancho cubre las 6 páginas de la app, no listas de ítems
+  arbitrarias.
+- **#13 sigue `done`** (no se reabrió), igual que en la corrección de #14.

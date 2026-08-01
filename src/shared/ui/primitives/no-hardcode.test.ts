@@ -8,6 +8,11 @@ import { describe, expect, it } from "vitest";
  * color, tamaño, radio, borde ni sombra. Todo valor visual referencia un token
  * (`var(--…)` o utilidad Tailwind respaldada por `@theme`). Los VALORES viven
  * sólo en `globals.css`; los componentes nunca los repiten.
+ *
+ * Excepción explícita: en `three/ascii-yarn/` los números de geometría, luces y
+ * cámara son unidades de mundo 3D portadas de `template/ascii-yarn.js`, no CSS.
+ * Lo que sí se exige ahí es que el color visible y el tamaño de fuente del ASCII
+ * salgan de tokens (`text-accent` → `currentColor`, `text-xs`, `--shadow-glow`).
  */
 const COMPONENT_FILES = [
   "./button/Button.tsx",
@@ -21,6 +26,11 @@ const COMPONENT_FILES = [
   "../layout/archive-nav/archive-nav.variants.ts",
   "../layout/bottom-nav/BottomNav.tsx",
   "../layout/bottom-nav/bottom-nav.variants.ts",
+  "../three/ascii-yarn/AsciiYarn.tsx",
+  "../three/ascii-yarn/AsciiYarnScene.tsx",
+  "../three/ascii-yarn/asciiFromPixels.ts",
+  "../three/ascii-yarn/createYarnScene.ts",
+  "../three/ascii-yarn/useViewportSupports3d.ts",
 ];
 
 const HEX_COLOR = /#[0-9a-fA-F]{3,8}\b/;

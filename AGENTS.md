@@ -21,6 +21,7 @@
 | `feature_list.json`          | Lista de tareas con estado (pending / in_progress / done) | Siempre, al empezar |
 | `progress/current.md`        | Estado de la sesión actual                                | Siempre, al empezar |
 | `progress/history.md`        | Bitácora append-only de sesiones anteriores               | Si necesitas contexto histórico |
+| `progress/deudas.md`         | **Libro mayor de deuda técnica, acumulativo.** NO se vacía al cerrar | Antes de planear (mira si tu tarea salda o toca alguna) y al encontrar deuda nueva |
 | `progress/reports/`          | Informes de subagentes (`impl_*`, `review_*`, `explore_*`) | Si orquestas o auditas una feature |
 | `docs/product/PRD-01-estructura-funcional.md` | **Fuente de verdad funcional** (datos, BFF, lógica): features 1-11 | Antes de planear una feature de backend |
 | `docs/design/rfc/RFC-00-proceso.md` | **Índice y proceso de la fase de UI/diseño**: jerarquía de verdad + mapeo RFC → `feature_list.json` | Antes de planear una feature de UI (id ≥ 12) |
@@ -64,7 +65,10 @@ Antes de terminar:
 2. Si la tarea está acabada: marca `status: "done"` en `feature_list.json`.
 3. Mueve el resumen de `progress/current.md` al final de `progress/history.md`.
 4. Vacía `progress/current.md` dejando solo la plantilla.
-5. No dejes archivos temporales, ni `console.log` de debug, ni TODOs sin contexto.
+5. **`progress/deudas.md` NO se vacía ni se mueve: es acumulativo.** Antes de vaciar `current.md`,
+   comprueba que toda deuda nueva de la sesión está volcada ahí; lo que quede sólo en `current.md` se
+   pierde. Saldar una deuda es **tacharla y explicar cómo**, nunca borrarla.
+6. No dejes archivos temporales, ni `console.log` de debug, ni TODOs sin contexto.
 
 ## 6. Si te bloqueas
 

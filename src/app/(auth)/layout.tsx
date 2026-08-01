@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
  */
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <main className="relative flex min-h-dvh flex-col items-center justify-center bg-bg p-[var(--space-6)]">
+    <main className="relative flex min-h-dvh flex-col items-center justify-center bg-bg p-(--space-6)">
       {children}
     </main>
   );

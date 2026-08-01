@@ -13,8 +13,11 @@ export interface BottomNavProps {
 }
 
 /**
- * Navegación inferior (< tablet). 6 accesos táctiles ≥ --touch-target con la
- * activa determinada por la RUTA actual (`aria-current="page"`).
+ * Navegación inferior. 6 accesos táctiles ≥ --touch-target con la activa
+ * determinada por la RUTA actual (`aria-current="page"`). Cubre todo lo que
+ * queda por debajo de `--bp-archive`, que es donde el archivero puede mostrar
+ * sus 6 etiquetas enteras (RFC-01 §3, enmienda E4): sólo cambia el ancho hasta
+ * el que se muestra, nada de su interior.
  */
 export function BottomNav({ items = NAV_ITEMS, className }: BottomNavProps) {
   const pathname = usePathname() ?? "/";
@@ -23,10 +26,10 @@ export function BottomNav({ items = NAV_ITEMS, className }: BottomNavProps) {
     <nav
       aria-label="Navegación principal (móvil)"
       className={cn(
-        "flex items-stretch tablet:hidden",
-        "border-t-[length:var(--border-width)] border-solid border-fg-inverse-muted",
-        "bg-bg [background-image:var(--texture-dots-dark)] [background-size:var(--space-4)_var(--space-4)]",
-        "[z-index:var(--z-nav)]",
+        "flex items-stretch archive:hidden",
+        "border-t-(length:--border-width) border-solid border-fg-inverse-muted",
+        "bg-bg bg-(image:--texture-dots-dark) [background-size:var(--space-4)_var(--space-4)]",
+        "z-(--z-nav)",
         className,
       )}
     >

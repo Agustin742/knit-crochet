@@ -66,8 +66,14 @@ Design system (feature #12) reusado; nada reimplementado.
   `aria-hidden` (decorativo) → nombre accesible limpio ("Dashboard", no ".knit Dashboard").
 - **Landmarks únicos:** ArchiveNav `nav` = "Navegación principal"; BottomNav `nav` = "Navegación principal
   (móvil)" → sin violación `landmark-unique` de axe (ambos existen en el DOM, sólo cambia display por bp).
-- **reduced-motion:** el hover/transiciones del nav son CSS por token (`transition-[...] duration-[var(--dur-*)]`),
-  degradados por la media global ya presente en `globals.css`; no hay animación JS.
+- **reduced-motion:** el hover/transiciones del nav son CSS por token (utilidades `transition-…` con la
+  duración leída de los tokens de la familia `--dur-` vía `duration-[var(…)]`), degradados por la media
+  global ya presente en `globals.css`; no hay animación JS.
+  > NOTA (2026-07-25): esta línea decía la duración con un comodín dentro de la sintaxis de clase. **Tailwind
+  > v4 escanea también los `.md` de este repo**, tomó ese texto por una clase real y generó
+  > `transition-duration: var(--dur-*)`, CSS inválido que rompía el `dev` con `Unexpected token Delim('*')`.
+  > **Nunca escribas una clase Tailwind con comodines en los informes**: citá una clase real o descríbela en
+  > prosa.
 
 ## Deuda / notas conocidas (NO tocadas en #13, como pide el brief)
 

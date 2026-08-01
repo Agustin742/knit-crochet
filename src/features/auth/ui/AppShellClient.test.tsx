@@ -1,4 +1,6 @@
 // @vitest-environment happy-dom
+import type { ReactNode } from "react";
+
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,6 +12,35 @@ const pushMock = vi.fn();
 vi.mock("next/navigation", () => ({
   usePathname: () => "/",
   useRouter: () => ({ push: pushMock }),
+}));
+
+/**
+ * El shell se dobla a propósito. Lo que prueba este archivo es la COSTURA con
+ * el backend (traer el usuario y cablear el cierre de sesión), no cómo se
+ * pinta: desde la enmienda E7 de D4 el `ArchiveNav` **no renderiza utils**
+ * —ofrecía "Salir" sin sesión abierta— y la pantalla que los justifica llega en
+ * la feature #31 `auth_ui`. Con el doble, el cableado sigue cubierto y el día
+ * que #31 lo muestre no hay que reescribir esta lógica.
+ */
+vi.mock("@/shared/ui", () => ({
+  AppShell: ({
+    children,
+    user,
+    onLogout,
+  }: {
+    children: ReactNode;
+    user?: { name: string } | null;
+    onLogout?: () => void;
+  }) => (
+    <div>
+      {user ? <span>{user.name}</span> : null}
+      <button type="button" onClick={onLogout}>
+        Salir
+      </button>
+      {children}
+    </div>
+  ),
+  AsciiYarn: () => <span data-testid="ascii-yarn" />,
 }));
 
 const PUBLIC_USER = {
@@ -48,7 +79,7 @@ beforeEach(() => {
 });
 
 describe("AppShellClient (wiring me + logout)", () => {
-  it("populates the nav user name from GET /api/auth/me", async () => {
+  it("hands the shell the user from GET /api/auth/me", async () => {
     render(
       <AppShellClient>
         <p>Panel</p>
@@ -73,7 +104,7 @@ describe("AppShellClient (wiring me + logout)", () => {
     expect(pushMock).toHaveBeenCalledWith("/login");
   });
 
-  it("still renders the shell when /api/auth/me fails (no user in nav)", async () => {
+  it("still renders the shell when /api/auth/me fails (no user handed over)", async () => {
     vi.stubGlobal(
       "fetch",
       mockFetch((url) =>

@@ -94,7 +94,7 @@ Base **React + Tailwind**. Recomendación con motivo:
 |---|---|---|
 | **Estilos** | **Tailwind CSS v4** (tokens vía `@theme` + variables CSS) | Utility-first + tokens nativos; traduce casi 1:1 desde mockups; ideal para estética muy custom. |
 | **Variantes** | **`class-variance-authority` (cva) + `tailwind-merge` + `clsx`** | Variantes (`variant`, `size`) **tipadas** y componibles; `tailwind-merge` evita choques al pasar `className`. |
-| **3D** | **`three` + `@react-three/fiber` + `@react-three/drei`** + **`AsciiEffect`** (three.js examples) | R3F integra three.js declarativo; `drei` trae helpers; **`AsciiEffect`** renderiza la escena como ASCII (el ovillo rotable, §7). |
+| **3D** | **`three` puro** (sin R3F ni `drei`, sin `AsciiEffect`) | La escena signature porta el algoritmo de `template/ascii-yarn.js`: render a un `WebGLRenderTarget` de `cols × rows` (**1 píxel = 1 carácter**), lectura de píxeles, luminancia → rampa de caracteres, y escritura a un `<pre>`. Da control exacto de la retícula y del aspecto del carácter, cosa que `AsciiEffect` (que promedia bloques y emite su propia `<table>`) no permite. Ver §7 y RFC-01 §3 (D2-bis). |
 | **Animación 2D** | **CSS primero**; `motion` (Framer Motion) solo donde el CSS no alcanza | Bundle chico; el movimiento pesado va por 3D. |
 | **Iconos/motivos** | **SVG propios** parametrizables por token | La estética es específica; una librería genérica no encaja. Iconos utilitarios (chevrons) pueden venir de una librería liviana. |
 | **Texturas/pixel-art** | **Assets de imagen** (papel, encaje) + PNG/SVG pixel para stickers/badges | Fusión retro (Hill House); optimizados y versionados con el template. |
