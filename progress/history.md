@@ -760,3 +760,61 @@
   es hoy lo que *protege* su interlineado. (34) el gate de la 13 no cubre el eje del llamador vía `className`.
 - **Fichas corregidas:** la **17** (decía que el archivero la parcheaba — falso desde E7; y decía "ilegible"
   cuando era invisible) y la **31** (alcance más alarmista de lo real).
+
+---
+
+## 2026-08-01 — #31 `auth_ui` DONE (páginas de login y register)
+
+- **Cadena:** leader → **3 exploradores en paralelo** → implementer → reviewer (APROBADO) → implementer
+  (deudas 37/38) → reviewer (APROBADO) → implementer (método de envío) → reviewer (APROBADO). **3 rondas de
+  review, ningún bloqueante en ninguna.**
+- **#31 se adelantó al orden por id** (le tocaba después de #15-#30) por una **restricción dura**: el proxy
+  manda a `/login` y esa ruta **no existía** (404), así que en cuanto #19 volviera privado el Dashboard —su
+  criterio de aceptación— la app entera habría quedado inalcanzable en el navegador.
+- **Alcance acotado por decisión del usuario a las dos páginas.** Había pedido primero que #31 devolviera el
+  logout al archivero; **cambió de decisión al ver la medición**: 30.88px de holgura contra los 168px que
+  reservaba la banda de utils, subir el ancho de nacimiento a ~1269-1317px reabría una decisión cerrada el día
+  antes, y un control a la derecha **se solaparía con la pestaña de la columna 6 en 4 de las 6 rutas sin que
+  ningún test lo detectara**. → **feature #32 `account_menu`** creada (`pending`), bloqueada hasta una
+  enmienda E11 del RFC-01 con tres decisiones tomadas. Deudas 29 y 30 mudadas ahí.
+- **Lo entregado:** `/register` crea la cuenta e inicia sesión de una vez; `/login` autentica y devuelve al
+  destino guardado. Ovillo ASCII sólo en login (RFC-01 §2), con test que impide moverlo al layout.
+- **Seguridad — se cerró un redirector abierto que nacía con la feature.** El `?next=` del proxy **no tenía
+  ninguna validación en el repo**. El reviewer no la leyó: la **atacó** con 61.440 casos de fuerza bruta + 45
+  clásicos a mano, y en la 2ª ronda repitió el ataque **por el camino nuevo** (servidor→cliente) añadiendo
+  parámetro repetido, prototipo contaminado, getters hostiles y objetos con conversión a texto envenenada.
+  **Cero fugas en las dos rondas.**
+- **Ronda 2 — deudas 37 y 38, cerradas por decisión del usuario** en vez de dejarlas fichadas:
+  - **37**: `/login` se servía **sin formulario en el HTML** (frontera de Suspense con relleno nulo). Se
+    resolvió leyendo el destino en el servidor; la frontera desaparece. **Precio declarado:** `/login` pasa de
+    estática a dinámica.
+  - **38**: los errores tardíos de campo no se anunciaban con lector de pantalla. Se resolvió **moviendo el
+    foco al primer control inválido**; `Field` ya cablea las asociaciones, así que no se tocó el design system.
+- **Ronda 3 — hallazgo del reviewer, cerrado en su versión mínima.** Los dos formularios se servían **sin
+  `action` ni `method`**, así que el envío nativo del navegador era un **GET con la contraseña en la URL**
+  (CWE-598) — verificado contra un servidor real, no por lectura. **El escenario lo habilitó el arreglo de la
+  37**: ahora el formulario se ve antes de hidratar, así que se puede enviar antes de que React enganche.
+  Defecto **previo** (`/register` lo tenía desde el principio; el reviewer admitió que se le pasó en su primera
+  review). Se declaró POST: saca el secreto de la URL, que era **lo irreversible**.
+- **⚠️ CORRECCIÓN AL REGISTRO:** este arnés afirmó dos veces que declarar POST convertía el peor caso en "un
+  405 inofensivo". **Es falso: Next 16 responde 200 a un POST a una página del App Router.** Lo midió el
+  implementer, corrigió al reviewer y al leader, y el reviewer lo reprodujo y lo aceptó. Seguridad igual;
+  experiencia no: queda un envío **silencioso** → deuda 39.
+- **Verificación:** `bash ./init.sh` **481 passed | 6 skipped** (baseline 435, **+46, ninguno borrado sin
+  justificar**; 1 reescrito conservando entera su garantía original). `pnpm build` OK. **Condición doble en
+  todos los gates nuevos**, ejecutada por el implementer y **reproducida por el reviewer** (la de la guarda del
+  destino da 17 rojos clavados). Los dos gates del caparazón intactos y verdes en las tres rondas.
+  **Los dos defectos más serios se detectaron levantando un servidor real, no leyendo código.**
+- **Reports:** `explore_auth_endpoints_contract.md`, `explore_auth_ui_designsystem.md`,
+  `explore_auth_shell_blast_radius.md`, `impl_auth_ui_paginas.md`, `review_auth_ui_paginas.md`,
+  `impl_auth_ui_deudas_37_38.md`, `review_auth_ui_deudas_37_38.md`, `impl_auth_forms_post.md`,
+  `review_auth_forms_post.md`. **Informe de cierre:** `progress/informs/10.informe-auth_ui.md`.
+- **Deuda nueva 35-43**, saldadas 37 y 38. Destacan: **39** (el acceso sigue dependiendo de JS; la salida es
+  Server Action), **40** (el gate de la 37 no ve dentro de los componentes cliente) y **43** (**tercera**
+  aparición del patrón "lista fija" en el repo, y la primera en la que lo que se escapa es una credencial —
+  conviene taparla junto con la 40, con el mismo barrido por directorios).
+- **Lección operativa del arnés:** los subagentes `Explore` son de **solo lectura** y **no pueden escribir su
+  informe**. Los tres exploradores bloquearon al intentarlo y el leader tuvo que volcarlos a mano a
+  `progress/reports/`. Para la regla anti-teléfono-descompuesto hay que usar `general-purpose`.
+- **Consecuencia visible del alcance:** hoy **no hay forma de cerrar sesión desde la interfaz** (esperado;
+  llega con #32). La cookie caduca sola a los 7 días.

@@ -467,7 +467,30 @@
         "register: form nombre+email+password → POST /api/auth/register; éxito inicia sesión y redirige; email duplicado → error en el campo",
         "presentación pura del design system: el fetch/redirect vive en features/auth/ui/ (no en shared/ui), como AppShellClient (#13)",
         "ovillo ASCII de fondo SOLO en login (no en register), cuando exista <ascii-yarn> (#14); si #14 aún no está, dejar el slot preparado sin bloquear",
-        "Verificación SDD §9: RTL (login OK/inválido, register OK/duplicado, redirect) + axe + smoke + init.sh + build"
+        "Verificación SDD §9: RTL (login OK/inválido, register OK/duplicado, redirect) + axe + smoke + init.sh + build",
+        "el ?next= del proxy debe VALIDARSE antes de redirigir (aceptar solo rutas internas; rechazar absolutas y protocol-relative, caer a '/'). Hoy no existe esa validación en el repo: es trabajo nuevo de #31",
+        "ALCANCE ACOTADO (decisión del usuario, 2026-08-01): #31 son SOLO las dos páginas. El cableado de la sesión en el caparazón (usuario + cerrar sesión) NO entra: se midió y no cabe en el archivero (30.88px de holgura contra los 168px que reservaba la banda de utils), y meterlo obligaba a subir el ancho de nacimiento a ~1269-1317px, reabriendo una decisión ya cerrada. Se abre como feature #32. Los dos gates de src/features/auth/ui/AppShellClient.test.tsx (:87 cero fetch al montar, :101 el shell no recibe user/onLogout) SE QUEDAN COMO ESTÁN y siguen siendo verdad. NO tocar src/shared/ui/**, AppShell*, ArchiveNav, globals.css ni proxy.ts. Medición: progress/reports/explore_auth_shell_blast_radius.md"
+      ],
+      "status": "done"
+    },
+    {
+      "id": 32,
+      "name": "account_menu",
+      "title": "Menú de cuenta en el caparazón: usuario visible + cerrar sesión",
+      "rfc_ref": "RFC-01 §3 (enmienda E11, por escribir)",
+      "description": "Devuelve al caparazón lo que la enmienda E7 le quitó: el usuario visible y el control de 'cerrar sesión'. E7 los sacó del ArchiveNav porque se ofrecía 'Salir' sin ninguna sesión abierta; #31 crea la sesión, así que la condición de vuelta que E7 dejó escrita ya se cumple. NACE COMO SLICE PROPIA, no dentro de #31, por una medición: la banda de utils reservaba 168px (72px en tablet) y hoy sólo quedan 30.88px de holgura en el carril, así que reponerla obligaría a subir --bp-archive de 1180px a ~1269-1317px y el archivero desaparecería de los portátiles de 1280-1366px — justo lo que el usuario evitó al fijar la etiqueta en 18px. Medición completa en progress/reports/explore_auth_shell_blast_radius.md. BLOQUEADA hasta que exista la enmienda E11 del RFC-01 con las tres decisiones de abajo tomadas: escribir código antes de eso es rehacer el archivero a ciegas, que es como nacieron E5, E8, E9 y E10.",
+      "acceptance": [
+        "PRERREQUISITO — enmienda E11 en docs/design/rfc/RFC-01-shell.md que decida (a) DÓNDE vive el control: dentro del carril del archivero, en la banda por encima de él, o fuera del elemento nav. Sólo la tercera opción no come del presupuesto horizontal de las 6 etiquetas",
+        "PRERREQUISITO — E11 decide (b) QUÉ PASA POR DEBAJO DE 1180px: ahí no existe el archivero (E4) y manda el BottomNav, que son 6 accesos táctiles repartiéndose el ancho y no tiene props para recibir usuario ni logout. Sin esta decisión, cablear 'la sesión en el shell' produce UI sólo en pantallas grandes. Corrige además la deuda 19, cuya ficha se quedó corta",
+        "PRERREQUISITO — E11 decide (c) el GATE del extremo DERECHO de la banda, gemelo del de archive-nav.tokens.test.ts:192 pero con la ranura 6 como peor caso. Hoy no existe: un control a la derecha con respiro de 8px y alto de objetivo táctil ocupa y=8..52 y se solapa con la pestaña de la columna 6 (borde superior en 10px en reposo, 2px con el puntero encima) en 4 de las 6 rutas, con los tests en verde",
+        "cablear GET /api/auth/me y POST /api/auth/logout + redirect a /login; el shell muestra el usuario y ofrece cerrar sesión",
+        "reescribir CONSCIENTEMENTE los dos gates de src/features/auth/ui/AppShellClient.test.tsx (:87 y :101), que hoy asertan lo contrario — no borrarlos (deuda 29). Conservar el invariante de coste que los motivó: una petición por montaje, no una por navegación ni un re-render en cascada. La opción de menor radio es resolver el usuario en el layout servidor de (app), que deja el gate de 'cero fetch de cliente' intacto y verdadero",
+        "resolver la deuda 30: si AppShellClient recupera estado, 'use client' deja de mentir y la deuda se salda sola; si se resuelve en servidor, renombrar el módulo y repuntar sus importadores",
+        "el control de logout NO puede ser un enlace dentro del elemento nav: layout.test.tsx:243 exige que todo enlace del nav sea una pestaña. Un button, o fuera del nav, sobrevive",
+        "la variante fantasma de Button es la candidata natural (es la que E7 usaba) y hoy se lee sobre el archivero: 12.83:1 heredando sobre el fondo del header, 8.00:1 sobre la cara de una hoja. Pero el anillo de foco sobre la cara de una hoja da 2.92:1, por debajo del mínimo de 3:1 — hallazgo nuevo que la deuda 31 no cubre. Sólo importa si el control se apoya sobre una hoja",
+        "actualizar la ficha de la deuda 19 (se quedó corta: no es 'en tablet no se ve el nombre', es que entre 320 y 1179px no hay ninguna superficie de shell capaz de alojarlo) y recalibrar 22/23/24",
+        "salda la DEUDA 36 (colgada aquí en el cierre de #31, decisión del reviewer): hoy un usuario ya autenticado puede entrar a /login y /register porque src/proxy.ts las declara públicas por igualdad exacta y no mira la cookie — con sesión abierta, un marcador de /login muestra el formulario y un fallo de password responde 'Email o contraseña incorrectos.' estando ya dentro, y un alta desde /register sustituye la sesión en silencio. El arreglo sólo existe en el proxy (única capa que ve la cookie httpOnly antes de renderizar): si hay cookie válida y el destino es una ruta de auth → redirigir a '/'. #31 no lo hizo porque proxy.ts quedó fuera de su alcance, y se cuelga de esta slice por ser la que vuelve a tocar sesión",
+        "Verificación SDD §9 + init.sh + build, y validación visual en navegador de la geometría en las 6 rutas (la escalera del archivero cambia de forma según cuál esté activa: deuda 26)"
       ],
       "status": "pending"
     }
