@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { cleanup, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
 
@@ -195,15 +196,97 @@ describe("active by route (usePathname, not scroll-spy)", () => {
   });
 });
 
-describe("utils reservados para #31 auth_ui (E7)", () => {
-  it("acepta user/onLogout pero NO los renderiza", async () => {
+/**
+ * Este bloque decía "acepta user/onLogout pero NO los renderiza" y era verdad:
+ * la enmienda E7 sacó los utils del nav porque se ofrecía "Salir" sin ninguna
+ * sesión abierta, y las props se quedaron en la firma esperando a la pantalla de
+ * auth. Se REESCRIBIÓ, no se borró, al cablear la sesión (deuda 29).
+ *
+ * El invariante original se conserva entero: **el archivero no aloja el control
+ * de cuenta**. Lo que cambia es que ahora hay dónde alojarlo — la banda propia
+ * del shell (E11 a) — y que el nav ya ni siquiera acepta esas props: tenerlas y
+ * tirarlas era una promesa muerta en el contrato del design system.
+ */
+describe("el control de cuenta vive FUERA del nav (E7 + E11 a)", () => {
+  it("lo monta el shell en su banda, y el cajón no se entera", async () => {
+    const user = userEvent.setup();
     const onLogout = vi.fn();
-    render(<ArchiveNav user={{ name: "Ada" }} onLogout={onLogout} />);
-    // Ofrecer "Salir" sin ninguna sesión abierta era el defecto; las props
-    // siguen en la firma para no romper el cableado, pero se ignoran.
-    expect(screen.queryByText("Ada")).toBeNull();
+    const { container } = render(
+      <AppShell user={{ name: "Ada" }} onLogout={onLogout}>
+        <p>Contenido</p>
+      </AppShell>,
+    );
+
+    const band = container.querySelector("[data-slot='account-band']");
+    expect(band).not.toBeNull();
+    const nav = screen.getByRole("navigation", { name: ARCHIVE_NAV });
+    // Ni por el árbol del DOM ni por el marcado: el nav sigue siendo 6 hojas.
+    expect(nav.contains(band)).toBe(false);
+    expect(within(nav).queryByText("Ada")).toBeNull();
+    expect(within(nav).queryByRole("button", { name: "Salir" })).toBeNull();
+
+    const inBand = within(band as HTMLElement);
+    expect(inBand.getByText("Ada")).toBeInTheDocument();
+    await user.click(inBand.getByRole("button", { name: "Salir" }));
+    expect(onLogout).toHaveBeenCalledTimes(1);
+  });
+
+  it("la banda va POR ENCIMA del cajón, no superpuesta a él", () => {
+    const { container } = render(
+      <AppShell user={{ name: "Ada" }} onLogout={vi.fn()}>
+        <p>Contenido</p>
+      </AppShell>,
+    );
+
+    const band = container.querySelector("[data-slot='account-band']");
+    const header = container.querySelector("header");
+    // En el flujo y antes del archivero: lo empuja hacia abajo en vez de
+    // taparlo. La cuenta de por qué eso es obligatorio (la pestaña de la
+    // columna 6 deja 2 de techo con el puntero encima) está en
+    // `account-band.tokens.test.ts`.
+    expect(band).not.toBeNull();
+    expect(header).not.toBeNull();
+    const position = (band as Element).compareDocumentPosition(
+      header as Node,
+    );
+    expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("el control de salir es un BOTÓN, no un enlace", () => {
+    // Un enlace dentro del nav rompería el invariante 8-bis (E8); fuera del nav
+    // seguiría siendo la semántica equivocada para una acción.
+    const { container } = render(
+      <AppShell user={{ name: "Ada" }} onLogout={vi.fn()}>
+        <p>Contenido</p>
+      </AppShell>,
+    );
+
+    const band = container.querySelector("[data-slot='account-band']");
+    expect(within(band as HTMLElement).queryAllByRole("link")).toHaveLength(0);
+  });
+
+  it("sin sesión no hay banda: no se ofrece salir a un visitante (E7)", () => {
+    const { container } = render(
+      <AppShell>
+        <p>Contenido</p>
+      </AppShell>,
+    );
+
+    expect(container.querySelector("[data-slot='account-band']")).toBeNull();
     expect(screen.queryByRole("button", { name: "Salir" })).toBeNull();
-    expect(onLogout).not.toHaveBeenCalled();
+  });
+
+  it("con usuario pero sin cableado tampoco: media sesión no se ofrece", () => {
+    // El escenario de la deuda 29: la cadena cortada dos capas más arriba dejaba
+    // un botón que no hacía nada. Que no aparezca es visible; que aparezca muerto
+    // no lo es.
+    const { container } = render(
+      <AppShell user={{ name: "Ada" }}>
+        <p>Contenido</p>
+      </AppShell>,
+    );
+
+    expect(container.querySelector("[data-slot='account-band']")).toBeNull();
   });
 });
 
@@ -408,7 +491,7 @@ describe("motion degrades (no JS animation; CSS transitions only)", () => {
 
 describe("a11y (axe)", () => {
   it("has no violations in ArchiveNav", async () => {
-    const { container } = render(<ArchiveNav user={{ name: "Ada" }} onLogout={vi.fn()} />);
+    const { container } = render(<ArchiveNav />);
     expect(await axe(container)).toHaveNoViolations();
   });
 

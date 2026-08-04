@@ -1,6 +1,9 @@
 /** Destino por defecto tras iniciar sesión: el Dashboard (RFC-01 §2). */
 export const DEFAULT_REDIRECT = "/";
 
+/** Destino tras cerrar sesión: la pantalla de acceso (RFC-01 §3, E11). */
+export const LOGOUT_REDIRECT = "/login";
+
 const FIRST_PRINTABLE_CODE_POINT = 0x20;
 const DELETE_CODE_POINT = 0x7f;
 

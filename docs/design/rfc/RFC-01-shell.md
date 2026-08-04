@@ -134,7 +134,7 @@ que sobre una superficie **opaca, oscura y con 6 ítems** producen el efecto con
 | **E4** | **Invariante 7 + §2.** El archivero **deja de nacer en 768px**. Arranca al ancho al que las 6 etiquetas entren enteras **con el tamaño tipográfico nuevo de E6**; por debajo va el `BottomNav`. La garantía de "las 6 enteras" rige desde ese ancho, no desde 768. | El usuario pidió etiquetas mucho más grandes (E6) y eso es **incompatible** con meter 6 pestañas en 552px de carril útil. Entre las dos cosas eligió el tamaño. Deja **parcialmente sin efecto a E2**: la garantía no desaparece, se mueve de ancho. **Afecta a §2** ("tablet + desktop = archivero"), que queda acotado. |
 | **E5** | **Invariante 8** reescrito y **8-bis nuevo.** El hover **ya no encoge la hoja**: sube sólo la pestaña. Y el área sensible es la **pestaña**, nunca una franja a todo el ancho. | Dos defectos reales, ambos reproducidos. (a) La referencia puede encoger su hoja porque su tarjeta es **transparente** sobre página blanca; la nuestra tiene **cara opaca**, así que al encoger abre un hueco que deja ver la textura de puntos — se lee como un agujero, no como una ficha que se levanta. (b) El área sensible era un **carril de rejilla de 1442×44px con 5 columnas vacías igualmente clicables**: como la profundidad decrece hacia arriba, la hoja de z-index más alto se tragaba casi todo el nav, y apuntar a una pestaña activaba **otra**. Medido con `elementFromPoint`. |
 | **E6** | **Nuevo invariante tipográfico.** La etiqueta de la pestaña es **grande**, no una etiqueta de sistema. | Estaba en **11px** contra los **36px** de la referencia: menos de un tercio. El archivero perdía toda su presencia. Es el motor de E4. |
-| **E7** | **Wordmark y utils.** (a) Las hojas **no pueden cruzar por debajo del wordmark**. (b) Los utils (usuario + logout) **salen del nav** hasta la feature **#31 `auth_ui`**. | (a) Las hojas de las dos últimas rutas pasaban por debajo del subtítulo del wordmark. **El invariante 2 (full-bleed) no se negocia**: se resuelve dando al wordmark superficie propia o reubicándolo por encima del stack, no recortando las hojas. (b) Se mostraba un botón "Salir" **sin ninguna sesión abierta**: se ofrecía cerrar sesión a un visitante anónimo. Los utils vuelven cuando exista la pantalla de auth que los justifica. |
+| **E7** | **Wordmark y utils.** (a) Las hojas **no pueden cruzar por debajo del wordmark**. (b) Los utils (usuario + logout) **salen del nav** hasta la feature **#31 `auth_ui`**. | (a) Las hojas de las dos últimas rutas pasaban por debajo del subtítulo del wordmark. **El invariante 2 (full-bleed) no se negocia**: se resuelve dando al wordmark superficie propia o reubicándolo por encima del stack, no recortando las hojas. (b) Se mostraba un botón "Salir" **sin ninguna sesión abierta**: se ofrecía cerrar sesión a un visitante anónimo. Los utils vuelven cuando exista la pantalla de auth que los justifica. **→ Esa condición se cumplió con #31; la vuelta la ejecuta E11, y NO al `nav`: ahí ya no caben.** |
 
 ### Tercera tanda de enmiendas (E8-E10) — de la segunda revisión visual del usuario
 
@@ -148,6 +148,53 @@ con el coste asumido y documentado abajo.
 | **E8** | **Invariante 8-bis endurecido.** El hover **y el clic** son de la **pestaña y sólo la pestaña**. El canto full-bleed pasa a decoración inerte. Cae la coletilla de E5 que permitía "más, si se quiere, el canto de 10px". | E5 dejó el canto como área sensible **opcional** y la implementación se la tomó entera: el `group` quedó en la hoja completa (1536×10px a todo el ancho) y el lift de la pestaña colgaba de `group-hover`. Resultado medido: pasar el puntero por **cualquier punto de la franja horizontal** levantaba la pestaña de esa hoja, aunque el puntero estuviera a 1400px de ella. Además la franja entera navegaba, o sea un enlace invisible sin ninguna señal visual. |
 | **E9** | **Invariante 8 completado.** Al levantarse, la pestaña debe seguir **atada** a su hoja: ninguna arista visible entre la pestaña y su canto. | Defecto reproducido en Dashboard. Geometría medida: la pestaña va de y=60 a y=104 y su propio canto de y=94 a y=104, o sea **en reposo la pestaña tapa su canto entero**. Al subir los 8px de `--nav-tab-lift` destapa la franja 94–104 y con ella aparece el **filo claro de 1px** del canto (`--shadow-nav-leaf-edge`, un `inset 0 1px 0` al 42%) cruzando justo por debajo de la pestaña. Esa raya que antes no estaba es lo que la hace leerse como "flotando suelta". |
 | **E10** | **Invariantes 3, 5 y 10 (deroga E1).** Se dibujan **5 cantos, no 6**: la hoja **activa** no dibuja canto y **baja al fondo** del cajón, apoyada en el contenido. El área de contenido **es su cara**. La **columna horizontal** de cada pestaña queda fija por el índice de la página en la lista: sólo cambia el orden **vertical**. | Decisión del usuario. El área de contenido ya se lee como una hoja más, así que con 6 cantos el cajón muestra **7 hojas para 6 páginas** — el usuario lo reportó como "hay un canto de más, sin título". Verificado que **no** había una 7ª caja: hay exactamente 6 barras opacas full-width, una por página; el sobrante es el propio contenido. Quitarle el canto a la activa y bajarla al fondo hace que la metáfora "el contenido es la hoja abierta" funcione en **las 6 rutas**, no sólo en `/`. **Coste asumido:** se pierde el orden estable que protegía E1. Se acota fijando la **x por índice de lista**, que es lo que sostiene la memoria espacial — E1 temía que las pestañas cambiaran "de altura **y de columna**" en cada clic; con E10 cambian sólo de altura. |
+
+### Cuarta tanda — E11 (vuelta de los utils): el menú de cuenta sale del archivero
+
+**Qué la motiva.** E7(b) sacó los utils del nav "hasta que exista la pantalla de auth que los justifica".
+Esa pantalla ya existe (**#31 `auth_ui`**, cerrada), así que la condición de vuelta se cumplió — pero la
+vuelta **no se puede ejecutar como estaba escrita**, porque entre E4 y E6 el archivero se comió el
+presupuesto horizontal que la banda de utils ocupaba. E11 decide **con qué geometría vuelven**, que es
+justo lo que E7(b) dejó sin escribir. Sin esta enmienda, E7 quedaría contradicha sin registro.
+
+**La medida que fuerza la decisión** (de `progress/reports/explore_auth_shell_blast_radius.md`, derivada
+de `globals.css` con los mismos tokens que usa `archive-nav.tokens.test.ts`):
+
+| magnitud | valor |
+|---|---|
+| holgura horizontal total convertible en margen derecho | **30.88px** |
+| lo que reservaba la banda de utils histórica | **168px** (72px en tablet) |
+| relleno lateral de un `Button` tamaño `md` del design system | **48px** (24 por lado) |
+
+**No cabe por ningún camino.** Recuperar los 168px exigiría subir `--bp-archive` de 1180px a ≈1317px, lo
+que **reabriría la decisión cerrada** del tamaño de etiqueta (`progress/informs/9.informe-deudas_21_17_13_04.md`):
+el archivero desaparecería de los portátiles de 1280-1366px. Descartado por el usuario.
+
+| # | Qué cambia | Por qué |
+|---|---|---|
+| **E11 (a)** | **El control de cuenta (usuario + cerrar sesión) NO vuelve al `ArchiveNav`.** Vive en una **banda propia del `AppShell`, fuera del elemento `nav`**. El archivero queda **intacto**: no se reserva ancho, no se rompe la simetría del carril, `--nav-tab-inset-end` sigue derivado de `--nav-tab-inset-start`. | Decisión del usuario, sobre la medida de arriba. Es la única de las tres opciones que **no consume presupuesto** de las 6 etiquetas y **no reabre** el ancho de nacimiento. Además salva dos gates que de otro modo habría que reescribir: `archive-nav.tokens.test.ts:213` (simetría del carril) y `layout.test.tsx:230` (todo enlace dentro del `nav` es una pestaña) — este último **sólo** si el control es un `button` o vive fuera del `nav`, y ambas cosas se cumplen aquí. |
+| **E11 (b)** | **La banda propia rige en TODOS los anchos**, de 320px a desktop. No se toca `BottomNav`: no gana props de sesión ni una séptima ranura. | Decisión del usuario. Hoy, entre 320px y 1179px, **no existe ninguna superficie de shell capaz de alojar usuario ni logout** (el archivero no se monta por debajo de `--bp-archive` y `BottomNav` no declara esas props): cablear la sesión "en el shell" habría producido UI **sólo a partir de 1180px**. Un séptimo elemento en `BottomNav` rompería el reparto a partes iguales de los 6 accesos táctiles y obligaría a recalcular su geometría entera. Con un anfitrión único e independiente del nav, el problema **no se plantea**: la misma banda sirve en los dos regímenes. Esto **corrige la deuda 19**, que describía el hueco como "en tablet no se muestra el nombre" cuando en realidad no hay superficie ninguna. |
+| **E11 (c)** | **Gate obligatorio del extremo derecho de la banda**, gemelo del que ya existe para el wordmark (`archive-nav.tokens.test.ts:192`) pero **con la ranura 6 como peor caso**. Sin ese gate, E11 no se considera implementada. | Es el riesgo real de este encargo, y **no es un test que caiga: es uno que no existe**. Los invariantes verticales de la banda sólo están asertados para la **izquierda** (wordmark contra la columna 1, que sólo puede caer en ranura 1 o 2). La **columna 6 sí puede caer en la ranura 6**, y ahí el borde superior de su pestaña está en **10px en reposo y 2px con el puntero encima**; un control de 44px de alto táctil con 8px de respiro ocupa y=8..52 y **se solapa en 4 de las 6 rutas**. Es el patrón exacto de la deuda 23 reproducido en el otro extremo, y es exactamente cómo nacieron E5, E8, E9 y E10: entregado con todo verde y descubierto por el usuario en pantalla. **Aunque (a) saque el control del `nav`, el gate sigue siendo obligatorio**: la banda se superpone al archivero, así que la colisión es geométrica y no depende del árbol del DOM. |
+
+**Consecuencia sobre el invariante 2 (full-bleed):** ninguna. El control no vive en el cajón.
+
+> **⚠️ Corrección a E11(c), escrita al cerrar #32 (2026-08-03).** El texto de (c) daba por supuesto que la
+> banda **se superpondría** al archivero, y de ahí sacaba que la colisión era geométrica. **La implementación
+> demostró que esa premisa era inviable**, no opinable: el techo libre sobre la pestaña de la columna 6 en la
+> ranura 6 es de **10px en reposo y 2px con el puntero encima**, y la banda necesita **60px** (objetivo
+> táctil + dos respiros). **No hay forma de meter 60 en 2.**
+>
+> Por eso la banda va **EN EL FLUJO**: es un hijo del `AppShell` que va **antes** del `header`, y el archivero
+> empieza donde ella acaba. La colisión deja de ser posible **por construcción**, que es la única forma
+> honesta de cumplir un invariante cuyo margen real es de 2px.
+>
+> **El gate (c) sigue siendo obligatorio y sigue existiendo** — pero ahora lo que asegura es que **la banda
+> permanezca en el flujo**: deriva de las clases reales del `cva` si está en flujo o superpuesta, y exige que
+> su borde inferior quede por encima del techo del cajón. Si alguien la saca del flujo, cae en rojo.
+> Detalle y condición doble en `progress/reports/impl_account_menu.md` §4.1.
+> **Agujero conocido de ese gate:** sólo mira las clases **propias** de la banda, así que se la puede
+> superponer **desde fuera** (vía `className` o un contenedor posicionado en `AppShell`) y seguiría verde →
+> **deuda 52**.
 
 **Lo que NO cambia:** la paleta, las texturas, las tipografías y el lockup de etiqueta. Se porta la
 **mecánica** de la referencia, no su estética blanco-sobre-blanco — el SDD §0 es explícito en que

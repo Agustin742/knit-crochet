@@ -21,6 +21,8 @@ const COMPONENT_FILES = [
   "./card/card.variants.ts",
   "./field/Field.tsx",
   "./field/Input.tsx",
+  "../layout/account-band/AccountBand.tsx",
+  "../layout/account-band/account-band.variants.ts",
   "../layout/app-shell/AppShell.tsx",
   "../layout/archive-nav/ArchiveNav.tsx",
   "../layout/archive-nav/archive-nav.variants.ts",

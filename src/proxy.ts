@@ -13,13 +13,36 @@ const PUBLIC_API_ROUTES = ["/api/auth/register", "/api/auth/login"];
 /** Páginas accesibles sin sesión (igualdad exacta: todo lo demás es privado). */
 const PUBLIC_PAGES = ["/", "/login", "/register"];
 
+/**
+ * Páginas que sólo tienen sentido SIN sesión (deuda 36). La allowlist de arriba
+ * decide si la sesión es **obligatoria**; ésta, si **sobra**. Son las páginas y
+ * no los endpoints: redirigir un `POST /api/auth/login` rompería el propio
+ * acceso, y el reemplazo de sesión que hace el alta es una decisión del endpoint,
+ * no del proxy.
+ */
+const AUTH_PAGES = ["/login", "/register"];
+
 export const LOGIN_PATH = "/login";
+export const HOME_PATH = "/";
 
 function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith("/api/")) {
     return PUBLIC_API_ROUTES.includes(pathname);
   }
   return PUBLIC_PAGES.includes(pathname);
+}
+
+async function hasValidSession(request: NextRequest): Promise<boolean> {
+  const token = request.cookies.get(JWT_COOKIE_NAME)?.value;
+  if (!token) {
+    return false;
+  }
+  try {
+    await verifySessionToken(token);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function unauthorized(request: NextRequest, pathname: string): NextResponse {
@@ -33,19 +56,26 @@ function unauthorized(request: NextRequest, pathname: string): NextResponse {
 
 export async function proxy(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
+  const authenticated = await hasValidSession(request);
+
+  /* Con sesión abierta, las pantallas de acceso y de alta no tienen nada que
+     ofrecer y sí mucho que romper: un marcador de `/login` enseñaba el
+     formulario y respondía "Email o contraseña incorrectos." a alguien que ya
+     estaba dentro, y un alta desde `/register` sustituía la sesión en silencio.
+     Es el único sitio donde se puede arreglar: la cookie es `httpOnly` y ésta es
+     la única capa que la ve antes de renderizar (deuda 36).
+     El destino es siempre el Dashboard, sin honrar el `?next=`: ese parámetro lo
+     escribe este mismo proxy para volver DESPUÉS de autenticarse, y hacerle caso
+     aquí abriría un redirector desde una ruta pública. */
+  if (authenticated && AUTH_PAGES.includes(pathname)) {
+    return NextResponse.redirect(new URL(HOME_PATH, request.nextUrl));
+  }
 
   if (isPublicPath(pathname)) {
     return NextResponse.next();
   }
 
-  const token = request.cookies.get(JWT_COOKIE_NAME)?.value;
-  if (!token) {
-    return unauthorized(request, pathname);
-  }
-
-  try {
-    await verifySessionToken(token);
-  } catch {
+  if (!authenticated) {
     return unauthorized(request, pathname);
   }
 

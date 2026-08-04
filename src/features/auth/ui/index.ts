@@ -7,4 +7,8 @@ export type { AuthPanelProps } from "./AuthPanel";
 export { LoginForm } from "./LoginForm";
 export type { LoginFormProps } from "./LoginForm";
 export { RegisterForm } from "./RegisterForm";
-export { DEFAULT_REDIRECT, resolveNextPath } from "./next-path";
+export {
+  DEFAULT_REDIRECT,
+  LOGOUT_REDIRECT,
+  resolveNextPath,
+} from "./next-path";

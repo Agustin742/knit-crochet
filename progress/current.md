@@ -3,19 +3,25 @@
 > Este archivo se vacía al cerrar cada sesión y se mueve a `history.md`.
 > Mientras trabajas, **mantenlo actualizado en tiempo real**, no al final.
 
-- **Feature en curso:** ninguna. Última cerrada: **#31 `auth_ui`** (páginas de login y register), volcada a
-  `progress/history.md`. Informe de cierre: `progress/informs/10.informe-auth_ui.md`.
-- **Agente:** leader → 3 exploradores → implementer → reviewer, con **3 rondas de review, todas APROBADAS**.
+- **Feature en curso:** ninguna. Última cerrada: **#32 `account_menu`**, volcada a `progress/history.md`.
+  Informe de cierre: `progress/informs/11.informe-account_menu.md`.
+- **Agente:** leader (escribe la enmienda E11) → 1 implementer → 1 reviewer. **APROBADO a la primera, 0
+  bloqueantes** (7 observaciones no bloqueantes, fichadas como deudas **52, 53 y 54**).
+- Antes, en la misma sesión: **diagnóstico de las deudas 44/45/46** con 2 `general-purpose` en paralelo +
+  1 implementer (el smoke real de auth contra Neon).
 
 ## Estado del proyecto
 
 - **Fase 1 (PRD-01, features 1-11):** completa (`done`).
-- **Fase 2 (UI, features 12-32):** en curso. **#12, #13, #14 y #31 `done`**; siguiente pendiente por id =
-  **#15 `uploads_image`**.
-- `bash ./init.sh` VERDE: **481 passed | 6 skipped** (46 archivos + 1 skipped). `pnpm build` OK.
-- **La app ya se puede usar de verdad:** hay alta y acceso. Antes de #31 el proxy mandaba a `/login` y esa
-  ruta devolvía **404**, así que ninguna página privada era alcanzable en un navegador.
-- **No hay forma de cerrar sesión desde la interfaz** (esperado: llega con #32). La cookie caduca a 7 días.
+- **Fase 2 (UI, features 12-32):** en curso. **#12, #13, #14, #31 y #32 `done`**; siguiente pendiente por
+  id = **#15 `uploads_image`**.
+- `bash ./init.sh` VERDE: **515 passed | 11 skipped** (49 archivos + 2 skipped, que son los dos smokes).
+  `pnpm build` OK. **Verificado por el leader**, no sólo reportado.
+- **La app ya se puede usar de verdad, y ahora se nota:** hay alta, acceso, **el caparazón muestra quién
+  está dentro y hay botón de cerrar sesión** (#32). Con la sesión abierta, `/login` y `/register` te
+  devuelven al inicio (deuda 36 saldada).
+- **Los dos bugs que el usuario reportó en el navegador están diagnosticados, y el servidor está sano.**
+  Ver el bloque de las deudas 44/45/46 más abajo.
 
 ## Decisiones cerradas por el usuario (no se reabren)
 
@@ -23,10 +29,19 @@
   **determina a partir de qué ancho de pantalla existe el archivero**: a 24px desaparecería de los portátiles
   de 1280-1366px y a los 36px de la referencia sólo lo verían monitores grandes. Los dos tokens están atados
   por un test que obliga a moverlos juntos.
-- **El menú de cuenta (usuario + cerrar sesión) NO iba en #31: es la feature #32 `account_menu`**, bloqueada
-  hasta que exista la enmienda **E11** del RFC-01 con tres decisiones tomadas (dónde vive el control, qué pasa
-  por debajo de 1180px, y el gate del extremo derecho de la banda). Motivo medido: **30.88px de holgura contra
-  los 168px** que reservaba la banda de utils. Detalle en `explore_auth_shell_blast_radius.md`.
+- **El menú de cuenta (usuario + cerrar sesión) NO iba en #31: es la feature #32 `account_menu`.** Estuvo
+  bloqueada hasta que existiera la enmienda **E11** del RFC-01. **E11 ya está escrita** (2026-08-03,
+  `docs/design/rfc/RFC-01-shell.md`, "Cuarta tanda"), con las tres decisiones tomadas por el usuario:
+  - **(a)** el control **NO vuelve al `ArchiveNav`**: vive en una **banda propia del `AppShell`, fuera del
+    elemento `nav`**. El archivero queda **intacto** y **`--bp-archive` sigue en 1180px** — o sea que la
+    decisión cerrada del tamaño de etiqueta **no se reabre**. Motivo medido: **30.88px de holgura** contra
+    los **168px** que reservaba la banda de utils, y **48px** sólo del relleno lateral de un `Button` `md`.
+  - **(b)** esa banda rige en **todos los anchos**, de 320px a desktop: **`BottomNav` no se toca**. Resuelve
+    de paso el agujero real que la deuda 19 describía mal (entre 320 y 1179px no había **ninguna**
+    superficie capaz de alojar la sesión, porque el archivero no se monta y `BottomNav` no tiene props).
+  - **(c)** el **gate del extremo derecho de la banda** (ranura 6 como peor caso) es **obligatorio**, y lo
+    sigue siendo aunque el control salga del `nav`: **la colisión es geométrica, no del árbol del DOM**.
+  Detalle de la medición en `explore_auth_shell_blast_radius.md`.
 - **Para el envío de los formularios de auth se compró el arreglo mínimo** (declarar POST), no la Server
   Action. Lo irreversible —el secreto fuera de la URL— queda cerrado; el resto es la **deuda 39**.
 
@@ -54,32 +69,31 @@ levantando `pnpm start` y mirando la respuesta.
 **5. Los subagentes `Explore` son de SOLO LECTURA: no pueden escribir su informe.** Para la regla
 anti-teléfono-descompuesto de `CLAUDE.md`, usá **`general-purpose`**, o asumí el volcado desde el leader.
 
-## 🔴 PRÓXIMA SESIÓN — arrancar por aquí, NO por #15
+## ✅ RESUELTO EN ESTA SESIÓN — los cuatro síntomas del navegador (deudas 44/45/46)
 
-El usuario probó la app en el navegador después de cerrar #31 y reportó **cuatro síntomas**. Decidió que se
-arreglan en la siguiente sesión. Fichas **44, 45 y 46** en `progress/deudas.md`, con el detalle y el primer
-paso de diagnóstico de cada una.
+Los cuatro están cerrados o recalificados. **Ninguno era un defecto de datos.**
 
-**Dos de los cuatro ya estaban fichados, y quedan confirmados en pantalla** (no son hallazgos nuevos):
-- *"puedo estar en el dashboard sin estar logueado"* → **deuda 1**, ya es criterio de aceptación de **#19**.
-- *"puedo entrar a login/register con la sesión ya iniciada"* → **deuda 36**, colgada de **#32**.
+- **44** (*"tras el alta no llego al Dashboard con la sesión iniciada"*) → era **(b)**: la sesión **sí** se
+  crea y `RegisterForm` **sí** navega (`router.replace("/")` + `router.refresh()`). No se notaba porque `/`
+  es pública y **nada en el caparazón decía que había sesión**. **Lo arregla #32, ya cerrada.**
+- **45** (*"el alta no rechaza un email ya registrado"*) → **el servidor devuelve 409**, medido contra Neon
+  real, también con distinta caja y con espacios. Las tres hipótesis (traducción del UNIQUE, normalización
+  del email, mapeo del status en el cliente) **cayeron con evidencia**. La ficha está **recalificada como
+  deuda de presentación**: el mensaje llega y se pinta bajo el campo email, pero **nadie ha comprobado que
+  sea perceptible**. El usuario decidió dar por buena la evidencia y no comprobarlo en navegador.
+- **46** → **SALDADA**: `src/__smoke__/auth.smoke.test.ts`.
+- *"puedo estar en el dashboard sin estar logueado"* → sigue siendo la **deuda 1**, criterio de **#19**.
+- *"puedo entrar a login/register con la sesión ya iniciada"* → era la **deuda 36**, **saldada por #32**.
 
-**Los otros dos pueden ser bugs de producción y ninguno está diagnosticado:**
-- **44** — tras el alta no se llega al Dashboard "con la sesión iniciada". **Separar primero** si no redirige
-  de verdad, o si redirige y **no se nota** porque `/` es pública (deuda 1) y **nada en el caparazón muestra
-  al usuario** (eso es #32). El primer paso es mirar si existe la cookie `kc_session` tras el alta: si está,
-  lo que corresponde es **priorizar #32**, no parchear el formulario.
-- **45** — el alta no rechaza un email ya registrado. **Si se confirma, es un defecto de producción con los
-  481 tests en verde.**
+**La lección de método, que es lo que conviene recordar:** el smoke acertó **refutando** su propia
+hipótesis. La ficha 45 apostaba al paralelo con `isDuplicateColorCode` (lanas) y el paralelo era **falso**:
+`registerUser` consulta antes de insertar, así que nunca llega al error del driver. Sin medir, se habría
+"arreglado" un código sano y el defecto real habría seguido ahí.
 
-**Y la causa de método, que es lo que hay que atacar primero — deuda 46:** la cadena de auth **nunca se ha
-ejercitado contra la base real**. Los tests de rutas doblan el borde de datos y los de UI doblan `fetch`, así
-que **nadie ha recorrido navegador → route handler → Drizzle → Postgres**. Hay **precedente exacto**: el smoke
-test real contra Neon de la fase 1 destapó un bug en la traducción del error UNIQUE de las lanas
-(`isDuplicateColorCode`). **La hipótesis número uno de la 45 es que falle la traducción equivalente para el
-email.** Hacer el smoke real **antes** de tocar código: es lo que dice dónde está el fallo.
+**Lo que sí queda vivo de todo esto: las deudas 47 y 48** (el store de auth no traduce el 23505 → 500 en vez
+de 409; y la carrera del check-then-act). **La 47 primero**: con ella puesta, la 48 degrada a un 409 correcto.
 
-## Después — feature #15 `uploads_image`
+## PRÓXIMA — feature #15 `uploads_image`
 
 Endpoint **único** y compartido `POST /api/uploads/image` que cablea el helper de Cloudinary ya existente
 (#5): recibe un archivo (multipart/Blob), lo sube y devuelve `{ url }`. Lo usan los forms de Project (#22),
@@ -88,12 +102,21 @@ Yarn (#25) y Pattern (#28) — **no es un endpoint por entidad**. Aquí se salda
 el cliente de Cloudinary mockeado en el borde, 401 sin sesión, input inválido (zod). Fuente: RFC-03/04/05 §8
 + PRD §11.7. Es una slice de **backend**, no de UI: no aplica el checklist visual del SDD §9.
 
-## Notas para consumidores del design system (acumulado #12-#14, #31)
+## Notas para consumidores del design system (acumulado #12-#14, #31, #32)
 
-- **Layout listo:** `src/shared/ui/layout/` (AppShell, ArchiveNav, BottomNav) — presentación pura. `AppShell`
-  acepta `user`/`onLogout` **pero nadie las alimenta y `ArchiveNav` las ignora**: contrato reservado a **#32**,
-  que tendrá que **reescribir** los dos gates de `AppShellClient.test.tsx` (`:87`, `:101`) — deuda 29 —, no
-  sólo añadir código.
+- **Layout listo:** `src/shared/ui/layout/` (AppShell, **AccountBand**, ArchiveNav, BottomNav) — presentación
+  pura. `AppShell` acepta `user`/`onLogout` y ahora **son reales**: alimentan la banda de cuenta. `ArchiveNav`
+  **ya no las declara** (las tiraba desde E7; se le quitaron en #32).
+- **`AccountBand` (nueva, #32):** nombre + botón "Salir", **en el flujo** y **antes** del `header` del
+  archivero, fuera del elemento `nav`, **sin variante responsive** (rige de 320px a desktop). **No monta nada
+  si falta el usuario O el callback de logout**: enseñar el nombre con un botón muerto es el error de E7 al
+  revés. Su gate de geometría vive en `account-band.tokens.test.ts` y lo que asegura es **que siga en el
+  flujo** — si alguien la superpone, cae en rojo. **Ojo: sólo mira las clases propias de la banda, así que se
+  la puede superponer desde fuera vía `className` o un contenedor posicionado → deuda 52.**
+- **El usuario se resuelve en el SERVIDOR**, no en cliente: `getSessionUser()` en el layout de `(app)`. Ese
+  es el motivo de que el gate *"montar el caparazón no dispara ningún fetch de cliente"* **siga siendo
+  verdad**. Si vas a añadir datos al caparazón, **hacelo por el mismo camino** o romperás ese invariante.
+  Precio ya fichado: `/` pasó de estática a dinámica y hay una lectura de la base por carga (deuda 50).
 - **Piezas de auth reutilizables** (`src/features/auth/ui/`): `AuthPanel` (marco de pantalla de acceso),
   `AuthFormError` (bloque de error con región viva — **es el `Alert` que el SDD §6 lista como pendiente**;
   candidato a promover a `shared/ui` en cuanto tenga un segundo consumidor), `focus-first-invalid.ts`,
@@ -127,8 +150,17 @@ el cliente de Cloudinary mockeado en el borde, 401 sin sesión, input inválido 
 
 ## Deuda técnica acumulada
 
-> Vive en **`progress/deudas.md`** — libro mayor, **no se vacía nunca**. Hoy: **43 fichas**; saldadas y
-> tachadas 1, 2, 4, 8, 13, 17, 21, 32, 37 y 38.
+> Vive en **`progress/deudas.md`** — libro mayor, **no se vacía nunca**. Hoy: **54 fichas**; saldadas y
+> tachadas 1, 2, 4, 8, 13, 17, 21, 32, 37, 38, 46 y —por **#32**— **19, 29, 30 y 36**. La **45** está
+> **recalificada** (su hipótesis era falsa: pasó de deuda de datos a deuda de presentación), no saldada; la
+> **19** está corregida **y** saldada. Recalibradas por #32: **22, 23 y 24**. Nuevas: **47**, **48**, y de
+> #32 **49**, **50**, **51**, más las tres que levantó el reviewer: **52** (el gate de E11(c) se puede burlar
+> **desde fuera** de la banda), **53** (la banda no tiene nombre accesible) y **54** (`GET /api/auth/me` se
+> quedó **sin ningún consumidor en producción**: hay que darle uno o retirarlo, no dejarlo en el limbo).
+>
+> **Tres que sólo se cierran con una pantalla delante, y conviene mirarlas juntas:** la **26** (la escalera
+> del archivero en las 6 rutas), la **51** (la banda con una sesión real) y la **53**. Hoy son imposibles:
+> sólo existe la ruta `/`.
 >
 > **No copies deudas de vuelta aquí.** Si una tarea toca una, citála por número.
 >
@@ -142,7 +174,8 @@ el cliente de Cloudinary mockeado en el borde, 401 sin sesión, input inválido 
 
 ## Pendiente operativo (no bloquea)
 
-- Bastante trabajo sin commitear (features #8-#14, #31, `informs/`, `docs/design/rfc`, `template/`, el lote de
-  higiene y este cierre). Commit(s) limpios cuando el usuario lo indique.
+- Bastante trabajo sin commitear (features #8-#14, #31, **#32**, `informs/`, `docs/design/rfc`, `template/`,
+  el lote de higiene y este cierre). Commit(s) limpios cuando el usuario lo indique. **Ya son muchas sesiones
+  acumuladas sin commit: conviene proponerlo pronto.**
 - El destrackeo de `tsconfig.tsbuildinfo` dejó una **eliminación preparada en el índice** de git: entra en el
   próximo commit. El archivo sigue en disco.

@@ -16,10 +16,6 @@ import {
   tabVariants,
 } from "./archive-nav.variants";
 
-export interface ArchiveNavUser {
-  name: string;
-}
-
 export interface ArchiveNavProps {
   /**
    * Rutas del nav; por defecto las 6 páginas de la app (RFC-01 §2). El cajón
@@ -27,16 +23,6 @@ export interface ArchiveNavProps {
    * (ver el porqué en `archive-nav.variants.ts`).
    */
   items?: readonly NavItem[];
-  /**
-   * RESERVADO para la feature #31 `auth_ui`. Hoy el nav **no renderiza utils**
-   * (enmienda E7 de D4: se ofrecía "Salir" sin ninguna sesión abierta), así que
-   * esta prop se acepta y se ignora a propósito, con un test que lo fija. Se
-   * mantiene en la firma para no romper a `AppShell` ni al cableado de auth
-   * mientras la pantalla que la justifica no existe.
-   */
-  user?: ArchiveNavUser | null;
-  /** RESERVADO para #31 `auth_ui`, ignorada hoy: ver `user`. */
-  onLogout?: () => void;
   className?: string;
 }
 
@@ -61,6 +47,14 @@ export interface ArchiveNavProps {
  * las 6 etiquetas entran enteras con el tamaño grande (enmiendas E4/E6). El
  * wordmark vive en la banda superior, por encima de la hoja más alta (E7).
  * Presentación pura: no hace fetch.
+ *
+ * **No aloja el menú de cuenta, ni volverá a hacerlo** (enmienda E11 a, que
+ * cierra lo que E7 b dejó abierto): entre E4 y E6 el carril se quedó con una
+ * holgura de 30.88 y sólo el relleno lateral de un botón son 48, así que el
+ * control de sesión vive en la `AccountBand` del `AppShell`, fuera de este
+ * elemento (todas las medidas, en unidades de píxel de CSS). Por
+ * eso este componente **no tiene** props de usuario ni de logout: tenerlas y
+ * ignorarlas era una promesa muerta en la firma.
  */
 export function ArchiveNav({ items = NAV_ITEMS, className }: ArchiveNavProps) {
   const pathname = usePathname() ?? "/";

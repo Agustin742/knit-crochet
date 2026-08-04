@@ -1,3 +1,4 @@
+export * from "./account-band";
 export * from "./app-shell";
 export * from "./archive-nav";
 export * from "./bottom-nav";

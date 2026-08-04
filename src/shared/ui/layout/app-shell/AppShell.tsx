@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 
 import { cn } from "../../lib/cn";
-import { ArchiveNav, type ArchiveNavUser } from "../archive-nav";
+import { AccountBand, type AccountUser } from "../account-band";
+import { ArchiveNav } from "../archive-nav";
 import { BottomNav } from "../bottom-nav";
 import type { NavItem } from "../nav-items";
 
@@ -17,24 +18,22 @@ export interface AppShellProps {
   /** Rutas del nav; por defecto las 6 páginas de la app (RFC-01 §2). */
   items?: readonly NavItem[];
   /**
-   * RESERVADA para la feature #31 `auth_ui`. Se acepta y se propaga tal cual al
-   * `ArchiveNav`, **que hoy la ignora a propósito**: la enmienda E7 de D4 sacó
-   * los utils del nav porque ofrecían "Salir" sin ninguna sesión abierta. O sea:
-   * pasar un usuario aquí **no pinta nada en pantalla** hasta que #31 monte la
-   * pantalla que lo justifica. Está en la firma para no romper el contrato del
-   * design system mientras tanto (`ArchiveNav` fija con un test que la ignora).
+   * Sesión abierta. Se pinta en la **banda de cuenta**, una superficie propia
+   * del shell que va por encima del cajón y **fuera del elemento `nav`**
+   * (enmienda E11 de D4). No vuelve al `ArchiveNav`, que ya no tiene ancho que
+   * ceder; ver `AccountBand`. Sin `user` la banda no se monta.
    */
-  user?: ArchiveNavUser | null;
-  /** RESERVADA para #31 `auth_ui`, propagada e ignorada hoy: ver `user`. */
+  user?: AccountUser | null;
+  /** Cierre de sesión, cableado por la app. Sin él tampoco hay banda. */
   onLogout?: () => void;
   className?: string;
 }
 
 /**
- * Caparazón de la app: ArchiveNav (desde `--bp-archive`) + `main` con el
- * contenido + BottomNav (por debajo de ese ancho) + un slot detrás del contenido
- * para la capa 3D
- * (`--z-bg-3d`, feature 14). Presentación pura: recibe datos y callbacks.
+ * Caparazón de la app: banda de cuenta (a todos los anchos) + ArchiveNav (desde
+ * `--bp-archive`) + `main` con el contenido + BottomNav (por debajo de ese
+ * ancho) + un slot detrás del contenido para la capa 3D (`--z-bg-3d`, feature
+ * 14). Presentación pura: recibe datos y callbacks.
  */
 export function AppShell({
   children,
@@ -58,7 +57,12 @@ export function AppShell({
         {background}
       </div>
 
-      <ArchiveNav items={items} user={user} onLogout={onLogout} />
+      {/* La banda va en el FLUJO y por delante del cajón en orden de lectura:
+          no se superpone al archivero, lo empuja. Ver `AccountBand` y el gate
+          de `account-band.tokens.test.ts`. */}
+      <AccountBand user={user} onLogout={onLogout} />
+
+      <ArchiveNav items={items} />
 
       <main className="relative flex-1 z-(--z-base)">{children}</main>
 

@@ -1,32 +1,61 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { type ReactNode, useCallback } from "react";
 
-import { AppShell, AsciiYarn } from "@/shared/ui";
+import { AppShell, type AccountUser, AsciiYarn } from "@/shared/ui";
+
+import { postLogout } from "./auth-client";
+import { LOGOUT_REDIRECT } from "./next-path";
 
 export interface AppShellClientProps {
   children: ReactNode;
+  /**
+   * Sesión abierta, **resuelta en el layout servidor** de `(app)` y entregada
+   * por props. No se pide desde aquí a propósito: ver el JSDoc del componente.
+   */
+  user?: AccountUser | null;
 }
 
 /**
  * Costura entre el design system (presentación pura) y la app: monta el
- * caparazón de las páginas del grupo `(app)` y le inyecta la capa 3D.
+ * caparazón de las páginas del grupo `(app)`, le inyecta la capa 3D y le cablea
+ * el cierre de sesión.
  *
- * NO pide el usuario ni cablea el logout, **a propósito**. Los pedía —
- * `GET /api/auth/me` en un `useEffect` en cada carga de cualquier página del
- * grupo— pero desde la enmienda E7 de D4 el `ArchiveNav` no renderiza utils, así
- * que ese usuario no lo consumía nadie: era una petición HTTP y un re-render del
- * shell entero (ovillo ASCII incluido) por navegación, a cambio de nada. El
- * `handleLogout` que lo acompañaba era, por el mismo motivo, código inalcanzable
- * (deuda 21).
+ * **El usuario NO se pide desde aquí.** Lo resuelve `getSessionUser()` en
+ * `src/app/(app)/layout.tsx`, que es un Server Component, y baja por props. Esto
+ * no es un detalle de estilo: la versión anterior pedía `GET /api/auth/me` en un
+ * `useEffect` en **cada carga de cada página** del grupo para alimentar una prop
+ * que nadie consumía, y guardaba el resultado en estado, o sea una petición HTTP
+ * y un re-render del shell entero —ovillo ASCII incluido— por navegación
+ * (deuda 21). Resolverlo en el servidor devuelve la funcionalidad **sin volver a
+ * pagar ese coste**: montar el caparazón sigue sin disparar ni una petición de
+ * cliente, y el gate que lo vigila sigue siendo verdad en vez de tener que
+ * invertirse (deuda 29).
  *
- * La feature **#31 `auth_ui`** es la que vuelve a cablear las dos cosas, con la
- * pantalla que las justifica ya construida y decidiendo entonces DÓNDE vive el
- * menú de cuenta: `GET /api/auth/me` para el usuario (el endpoint sigue vivo y
- * con sus tests) y `POST /api/auth/logout` + redirección a `/login` para el
- * cierre de sesión, que se pasan al shell por `user`/`onLogout` — props que
- * `AppShell` conserva en su firma esperándolas (deuda 29).
+ * Lo único que este módulo hace en el navegador es el logout, que es una acción
+ * explícita de la persona: `POST /api/auth/logout` y, **sólo si el servidor
+ * confirma** que borró la cookie, `replace` a la pantalla de acceso. Si la
+ * petición falla, la sesión sigue viva y no se navega: mandar a `/login` con la
+ * cookie puesta acabaría en un rebote al Dashboard (el proxy ya no deja entrar
+ * ahí con sesión) y se leería como un botón errático. `replace` y no `push` para
+ * que "atrás" no devuelva al caparazón de una sesión ya cerrada, y `refresh`
+ * para que los Server Components dejen de ver la sesión anterior.
  */
-export function AppShellClient({ children }: AppShellClientProps) {
-  return <AppShell background={<AsciiYarn />}>{children}</AppShell>;
+export function AppShellClient({ children, user }: AppShellClientProps) {
+  const router = useRouter();
+
+  const handleLogout = useCallback(async () => {
+    if (!(await postLogout())) {
+      return;
+    }
+    router.replace(LOGOUT_REDIRECT);
+    router.refresh();
+  }, [router]);
+
+  return (
+    <AppShell user={user} onLogout={handleLogout} background={<AsciiYarn />}>
+      {children}
+    </AppShell>
+  );
 }

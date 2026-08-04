@@ -818,3 +818,74 @@
   `progress/reports/`. Para la regla anti-teléfono-descompuesto hay que usar `general-purpose`.
 - **Consecuencia visible del alcance:** hoy **no hay forma de cerrar sesión desde la interfaz** (esperado;
   llega con #32). La cookie caduca sola a los 7 días.
+
+---
+
+## 2026-08-03 — Diagnóstico de los bugs de navegador (deudas 44/45/46) + feature #32 `account_menu`
+
+Sesión de dos mitades: primero **medir** los dos bugs que el usuario reportó tras probar la app, y después
+construir lo que la propia medición señaló como el arreglo de fondo.
+
+### Mitad 1 — el smoke real de auth (deuda 46) refutó la hipótesis, que es para lo que sirve
+
+- **Cadena:** leader → 2 `general-purpose` de diagnóstico en paralelo (servidor / cliente) + 1 `implementer`
+  (el smoke). Tarea de **verificación**: instrucción explícita de **no parchear nada**.
+- **La ficha 45 apostaba** a que fallara la traducción del error UNIQUE de Postgres, por analogía con el bug
+  de `isDuplicateColorCode` de las lanas. **El leader vio antes de lanzar nada que el paralelo no aplicaba**:
+  `registerUser` hace `findByEmail` **antes** de insertar, así que nunca llega al error del driver.
+- **Resultado medido contra Neon real:** `POST /api/auth/register` con email repetido devuelve **409**,
+  también con distinta caja y con espacios. **5/5 verde.** Las tres hipótesis (traducción del UNIQUE,
+  normalización del email, mapeo del status en el cliente) cayeron **con evidencia**, no por descarte.
+- **Dato de la base que acota el síntoma:** había **una sola fila** en `users`. Un 201 espurio habría dejado
+  dos → descartado. Un 500 también deja una → **no** descartado.
+- **Deuda 46 saldada** (`src/__smoke__/auth.smoke.test.ts`, mismo flag `SMOKE_NEON` que el de lanas, skipped
+  y sin abrir conexión en la corrida hermética). **Deuda 45 RECALIFICADA** como deuda de **presentación**:
+  el 409 llega y se pinta bajo el campo email, pero nadie ha comprobado que sea **perceptible**. **Deuda 44
+  resuelta como (b)**: la sesión sí se crea y el formulario sí navega — no se notaba porque nada en pantalla
+  decía que había sesión, que es exactamente lo que #32 viene a arreglar.
+- **Deudas nuevas 47 y 48**, ciertas aunque no causaran el síntoma: el store de auth **no traduce el 23505**
+  (500 en vez de 409) y `registerUser` es un check-then-act con ventana de carrera. **La 47 primero**: con
+  ella, la 48 degrada a un 409 correcto.
+- **Decisión del usuario:** dar por buena la evidencia y **no** hacer la comprobación en navegador.
+
+### Mitad 2 — E11 escrita y feature #32 `account_menu` cerrada
+
+- **#32 estaba bloqueada por diseño**, no por código: exigía la enmienda **E11** del RFC-01 con tres
+  decisiones tomadas. El leader las planteó con la medición delante (**30.88px** de holgura contra los
+  **168px** que reservaba la banda histórica, y **48px** sólo de relleno lateral de un `Button` `md`) y el
+  usuario eligió: **(a)** el control **fuera del `nav`**, en banda propia del `AppShell`, con el archivero
+  intacto y **`--bp-archive` sin tocar** — o sea **sin reabrir** la decisión cerrada del tamaño de etiqueta;
+  **(b)** esa banda rige **en todos los anchos**, sin tocar `BottomNav`; **(c)** gate obligatorio del
+  extremo derecho con la ranura 6 como peor caso.
+- **Cadena:** leader (E11) → 1 implementer → 1 reviewer. **APROBADO a la primera: 0 bloqueantes**, 7
+  observaciones no bloqueantes.
+- **⚠️ CORRECCIÓN AL RFC, hecha al cerrar:** E11(c) daba por supuesto que la banda **se superpondría** al
+  archivero. **La implementación demostró que esa premisa era inviable:** el techo libre sobre la pestaña de
+  la columna 6 en ranura 6 es de **10px en reposo y 2px con el puntero encima**, y la banda necesita **60px**.
+  No hay forma de meter 60 en 2. La banda va **en el flujo**, antes del `header`, y la colisión deja de ser
+  posible **por construcción**. El gate (c) sigue existiendo y ahora asegura **que la banda siga en el flujo**.
+- **El usuario se resuelve en el layout servidor** de `(app)` (`getSessionUser`), que era la "opción de menor
+  radio" del propio acceptance: así el gate de *"montar el caparazón no dispara ningún fetch de cliente"*
+  **sigue siendo verdad** en vez de haberse borrado. `AppShellClient` recupera estado sólo para el logout →
+  **deuda 30 saldada sola**.
+- **`ArchiveNav` pierde las props `user`/`onLogout`**, que declaraba y tiraba desde E7: una promesa muerta
+  menos. La banda **no monta nada** si falta el usuario **o** el callback — enseñar el nombre con un botón
+  muerto es el error de E7 al revés.
+- **Deuda 36 saldada en `src/proxy.ts`:** con cookie válida, `/login` y `/register` redirigen a `/`. **Sólo
+  páginas, nunca los endpoints** (redirigir un POST rompería el propio alta), y **verificando la firma**, no
+  la mera presencia de la cookie.
+- **Verificación:** `bash ./init.sh` **515 passed | 11 skipped** (partida 481/11; **+34**, ninguno borrado) y
+  `pnpm build` OK, **reproducidos por el reviewer con sus propios números**. **Tres condiciones dobles**
+  ejecutadas en las dos direcciones. **Medido contra un servidor real** (`pnpm start` + `curl`): el redirect
+  de la 36 en vivo (307 a `/`), el logout sin sesión (401), y **0 bandas** en el HTML anónimo.
+- **Deudas: 19 corregida y saldada**, 22/23/24 recalibradas, **29/30/36 tachadas**; **nuevas 49** (si el
+  logout falla no se avisa: el botón parece roto), **50** (`/` pasó de estática a dinámica; una lectura de
+  la base por carga), **51** (la banda no se ha visto con sesión real), y del review **52** (el gate (c) se
+  puede burlar **desde fuera**: misma familia que 22 y 40), **53** (la banda no tiene nombre accesible) y
+  **54** (`GET /api/auth/me` se quedó **sin ningún consumidor**).
+- **Reports:** `explore_auth_duplicate_email_server.md`, `explore_auth_register_client.md`,
+  `impl_smoke_auth_neon.md`, `impl_account_menu.md`, `review_account_menu.md`.
+  **Informe de cierre:** `progress/informs/11.informe-account_menu.md`.
+- **Lección de método de la sesión:** el smoke acertó **refutando** su propia hipótesis, y el implementer
+  **corrigió una premisa del RFC que había escrito el leader**. Las dos cosas salieron de medir en vez de
+  razonar.

@@ -101,6 +101,22 @@
   --nav-tab-inset-end: var(--nav-tab-inset-start);
   --nav-tab-padding-x: var(--space-2);
 
+  /* ---- Banda de cuenta: usuario visible + cerrar sesión (RFC-01 §3, E11).
+     Vive en el `AppShell`, FUERA del elemento nav, y va en el FLUJO por encima
+     del cajón: nunca se superpone al archivero. El motivo es geométrico y está
+     medido: la columna 6 puede caer en la ranura 6, y ahí el borde superior de
+     su pestaña queda a 10 del techo del nav en reposo y a 2 con el puntero
+     encima, así que sobre el cajón no cabe ningún control de un objetivo
+     táctil. La cuenta la rehace `account-band.tokens.test.ts` a partir de estos
+     tokens y de las CLASES REALES de la banda, y cae en rojo si alguien la saca
+     del flujo.
+     El inset lateral LEE el del carril para alinear el control con el wordmark.
+     La relación es de un solo sentido: la banda sigue al nav; el nav nunca sigue
+     a la banda (E11 a: `--nav-tab-inset-end` sigue derivado de su gemelo y
+     `--bp-archive` no se toca). ---- */
+  --nav-account-inset-inline: var(--nav-tab-inset-start);
+  --nav-account-inset-block: var(--space-2);
+
   /* ---- Alias al namespace de color de Tailwind v4 (generan utilidades bg / text / border) ----
      Referencian los tokens de rol/marca de arriba; no introducen valores nuevos. */
   --color-bg: var(--bg);

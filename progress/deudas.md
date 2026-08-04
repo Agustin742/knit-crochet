@@ -141,8 +141,21 @@
     advierte, pero si alguien toca uno solo **el test seguiría verde con el layout roto**. Es la única
     grieta de "cerrado por construcción"; se tapa con un assert de igualdad en `globals-css.test.ts`.
     La duplicación es preexistente, pero ahora sostiene una garantía que antes no existía.
-19. **En tablet no se muestra el nombre de usuario** (consecuencia de la palanca elegida para E2: ocultarlo
-    libera el ancho que necesitan las 6 etiquetas). Quien diseñe el menú de cuenta tiene que saberlo.
+19. ~~**En tablet no se muestra el nombre de usuario** (consecuencia de la palanca elegida para E2: ocultarlo
+    libera el ancho que necesitan las 6 etiquetas). Quien diseñe el menú de cuenta tiene que saberlo.~~
+    → **FICHA CORREGIDA Y SALDADA** (#32 `account_menu`, 2026-08-03). **La ficha se quedaba corta y por eso
+    engañaba:** desde **E4** el archivero **no existe** por debajo de `--bp-archive` (`ArchiveNav.tsx` lo
+    esconde y `BottomNav` lo sustituye), así que el problema no era "en tablet no se ve el nombre" sino que
+    **entre 320 y 1179 de ancho no había NINGUNA superficie de shell capaz de alojar la sesión**: `AppShell`
+    no le pasaba nada al `BottomNav` y `BottomNav` ni siquiera declaraba esas props. Enunciada como estaba,
+    invitaba a la conclusión falsa de que bastaba con volver a enseñar el nombre en el archivero.
+    **Cómo se saldó:** la enmienda **E11 b** decide que el control de cuenta vive en una **banda propia del
+    `AppShell`**, fuera del `nav` y **sin ninguna variante responsive**, así que rige en los dos regímenes con
+    un solo anfitrión y **`BottomNav` no se toca** (ni props de sesión, ni una séptima ranura que rompería el
+    reparto a partes iguales de sus 6 accesos táctiles). **Prueba:**
+    `src/shared/ui/layout/account-band/account-band.tokens.test.ts` → *"rige de 320px a desktop: sin variante
+    responsive y sin ocultarse (E11 b)"*, que recorre las clases reales de la banda y falla si alguna lleva
+    prefijo de variante o la esconde.
 20. **La garantía de ancho del archivero cubre las 6 páginas de la app**, no a un consumidor que pase su
     propia lista de `items`; para ése la red de seguridad es el recorte con elipsis, no el test.
     **Ampliada por la review r4: tampoco cubre bien a las 6 páginas propias** — ver deuda 24, con la que
@@ -175,11 +188,27 @@ su informe; síntesis en `progress/informs/8.informe-archive_nav_e8_e10.md`.
     `ArchiveNav.tsx`. Subirle un escalón el tamaño ahí da 43.2 contra los 42 de la pestaña de la columna 1
     levantada → **solapan 1.2px y el wordmark pinta encima**, con los 420 tests en verde. Se tapa asertando
     también las clases del componente (o moviéndolas a una variante `cva`).
+    **RECALIBRADA por #32 (2026-08-03): sigue abierta y sigue siendo la misma, pero ya no es el único
+    ejemplar de su especie con solución conocida.** El gate nuevo del extremo derecho
+    (`account-band.tokens.test.ts`) es de la misma familia —geometría de la banda contra la pestaña del peor
+    caso— y **sí** deriva su posición de las **clases reales** del componente (las lee del `cva` pasado por
+    `cn()`, que es lo que acaba en el atributo), no sólo de tokens. Esa es exactamente la técnica que esta
+    ficha pide para el wordmark: **hay precedente ejecutable en el repo, cópialo**. Lo que #32 **no** hizo fue
+    aplicarla al wordmark, porque tocar `ArchiveNav` estaba fuera de su alcance (E11 a lo deja intacto).
 23. **La mitad HORIZONTAL del invariante del wordmark no tiene gate ninguno**, y de ella depende que 5 de las
     6 columnas no lo pisen. Lo único que lo impide son ~27.7px de distancia sin asertar. Y no es holgura
     cómoda: desde E10 columna y ranura están desacopladas, así que **en 4 de las 6 rutas la pestaña de la
     columna 2 con el puntero encima entra 2.4px** en la banda de línea del wordmark. Alargar el wordmark
     (p. ej. a "Knit&Crochet Studio") lo pone encima de una etiqueta sin que ningún test se entere.
+    **RECALIBRADA por #32 (2026-08-03): el gemelo VERTICAL del otro extremo ya existe y esta mitad sigue sin
+    cubrirse.** E11 c obligó a escribir el gate del extremo derecho, que es el que faltaba en el eje vertical
+    (la columna 6 puede caer en la ranura 6 y ahí quedan 2 de techo con el puntero encima, contra los 42 que
+    protegen a la columna 1). **Lo que esta ficha describe es lo que sigue destapado: el eje HORIZONTAL.**
+    Sigue sin gate para el wordmark, y ahora hay una segunda pieza en la misma banda —el control de cuenta,
+    pegado al borde derecho— cuyo ancho tampoco está asertado contra nada. Hoy no colisiona con ninguna
+    pestaña porque la banda va **en el flujo**, encima del cajón y no superpuesta a él, así que la separación
+    es vertical y total; **si alguien alguna vez la superpone, este eje pasa a importar** y el gate vertical
+    ya lo impediría antes (ver el segundo test de `account-band.tokens.test.ts`).
 24. **La constante de avance tipográfico no es la cota superior que dice ser: cuenta caracteres, no glifos.**
     El test que garantiza "las 6 etiquetas enteras" multiplica por `label.length`, así que **renombrar una
     etiqueta a otra de igual largo pero con letras más anchas la desborda sin que el test se entere** (una de
@@ -188,6 +217,13 @@ su informe; síntesis en `progress/informs/8.informe-archive_nav_e8_e10.md`.
     como "cota". Protege bien contra subir el tamaño y contra bajar el ancho de nacimiento (su motivo de
     existir), **no** contra cambiar las etiquetas — el cambio más probable de los tres. La red real ahí es el
     recorte con elipsis, que es **degradación, no cumplimiento** del invariante 7. Fusionar con la deuda 20.
+    **RECALIBRADA por #32 (2026-08-03): sigue abierta, intacta y ahora es MÁS barata de tapar de lo que la
+    ficha sugiere.** #32 no tocó el presupuesto horizontal —E11 a deja el carril como estaba y hay un test
+    nuevo que lo fija (*"no toca el presupuesto horizontal del carril"*, que exige que `--nav-tab-inset-end`
+    siga derivándose de su gemelo)—, así que **el margen sobre el que esta ficha razona no se movió ni un
+    milímetro**: las 6 etiquetas siguen con los mismos 5.15 de holgura por columna. Lo que cambia es que ya
+    **no hay ninguna feature pendiente que quiera comerse ese ancho**: el menú de cuenta, que era la
+    candidata, se fue a otra superficie. La ficha deja de ser urgente y pasa a ser higiene.
 25. **La costura de la ficha abierta con el contenido coincide en TONO pero no en TEXTURA.** La ranura sin
     cara muestra el fondo del header, que lleva la textura de puntos; el área de contenido no la lleva
     (`AppShell` pinta un color opaco que tapa la del `body`). Es sutil (puntos al 8%) y a ojo pasa, pero la
@@ -217,7 +253,30 @@ su informe; síntesis en `progress/informs/8.informe-archive_nav_e8_e10.md`.
 Ninguna bloquea. Las tres primeras son consecuencias directas y conscientes de lo que se saldó; las dos
 últimas son hallazgos colaterales, verificados empíricamente, del mismo mecanismo de la deuda 13.
 
-29. **#31 `auth_ui` tiene que VOLVER A CABLEAR el usuario y el logout del shell.** Al saldar la deuda 21 se
+29. ~~**#31 `auth_ui` tiene que VOLVER A CABLEAR el usuario y el logout del shell.**~~ → **SALDADA** por
+    **#32 `account_menu`** (2026-08-03), que es la slice a la que se acabó colgando (no #31). La cadena está
+    entera y **medida en las dos direcciones**:
+    - **El usuario** lo resuelve `getSessionUser()` (`src/features/auth/api/session-user.ts`) en el **layout
+      servidor** de `(app)`, que lo baja por props hasta `AppShell` → `AccountBand`. Se eligió el servidor
+      justo por lo que esta ficha avisaba: era la única salida que **no obliga a invertir** el gate de coste
+      ("montar el shell no dispara ninguna petición") — sigue siendo verdad y sigue vigilándolo, ahora con la
+      contrapartida explícita de que la única petición que sale del caparazón es la del logout.
+    - **El logout** es `POST /api/auth/logout` desde `AppShellClient` y navega a `/login` **sólo si el
+      servidor confirma** que borró la cookie.
+    - **Los dos gates que esta ficha decía que había que reescribir se reescribieron, no se borraron**
+      (`AppShellClient.test.tsx`, con su JSDoc explicando el cambio), y el tercero
+      (`layout.test.tsx`, *"acepta user/onLogout pero NO los renderiza"*) también: conserva su invariante
+      —**el archivero no aloja el control de cuenta**— y le añade dónde vive ahora.
+    - **El escenario de fallo concreto que describía —un botón "Salir" que no hace nada— ya no se puede
+      montar:** `AccountBand` no renderiza nada si le falta el usuario **o** el callback, con test propio
+      (*"con usuario pero sin cableado tampoco: media sesión no se ofrece"*). Que el control desaparezca es
+      visible; que aparezca muerto no lo era.
+    **Condición doble del gate de coste:** reponiendo un `fetch` en un efecto de montaje caen **3** tests de
+    `AppShellClient.test.tsx` (`fires no HTTP request when mounted…`, `posts to the logout endpoint…` y
+    `costs one request per press, and none per mount`) y al quitarlo vuelven los **9** a verde. Salida cruda
+    en `progress/reports/impl_account_menu.md`.
+    Texto original de la ficha, conservado porque explica por qué el cableado estuvo cortado:
+    **#31 `auth_ui` tiene que VOLVER A CABLEAR el usuario y el logout del shell.** Al saldar la deuda 21 se
     borró el `fetch("/api/auth/me")` y el `handleLogout` de `AppShellClient`, y hoy nadie alimenta las props
     `user`/`onLogout` de `AppShell` (que siguen en la firma). **Escenario de fallo:** #31 monta el menú de
     cuenta dentro del `ArchiveNav`, lo cablea a `onLogout` y **el botón "Salir" no hace nada** y el nombre
@@ -226,7 +285,17 @@ Ninguna bloquea. Las tres primeras son consecuencias directas y conscientes de l
     tiene que **reescribir ese gate**, no sólo añadir código. Lo que hay que reponer: `GET /api/auth/me`
     (endpoint vivo y probado) y `POST /api/auth/logout` + redirección a `/login`. Está escrito también en el
     JSDoc de `src/features/auth/ui/AppShellClient.tsx`.
-30. **`AppShellClient` conserva `"use client"` sin usar ya ninguna capacidad de cliente.** Se quedó sin
+30. ~~**`AppShellClient` conserva `"use client"` sin usar ya ninguna capacidad de cliente.**~~ → **SALDADA
+    SOLA** por **#32** (2026-08-03), que es la de las dos salidas que la propia ficha anticipaba: **el módulo
+    recuperó estado de cliente**, así que la directiva dejó de mentir y no hubo que renombrar nada ni repuntar
+    a sus tres importadores. Hoy usa `useRouter` y un manejador (`useCallback`) para el logout, que son
+    capacidades de cliente por definición: sin la directiva no compilaría.
+    **Lo que NO recuperó, a propósito:** el `useState` y el `useEffect` que pedían el usuario. Ese trozo se
+    resuelve en el servidor (deuda 29), así que el límite del árbol de cliente que la ficha señalaba como
+    coste —`AppShell` y `BottomNav` entrando al bundle del navegador— **sigue existiendo pero ahora se paga
+    por algo**: el manejador de logout tiene que vivir en el cliente y cuelga de `AppShell`.
+    Texto original de la ficha:
+    **`AppShellClient` conserva `"use client"` sin usar ya ninguna capacidad de cliente.** Se quedó sin
     estado, sin efectos y sin manejadores: hoy es un envoltorio que devuelve un elemento. **Escenario de
     fallo (de coste, no de corrección):** la directiva marca el límite del árbol de cliente, así que
     `AppShell` y `BottomNav` —que no tienen directiva propia— entran en el bundle del navegador sin
@@ -304,7 +373,25 @@ Ninguna bloquea. Las tres primeras son consecuencias directas y conscientes de l
     contrato de mensajes del endpoint (`auth-routes.test.ts` no los asierta hoy), así que conviene hacerlo
     en la misma slice que revise los textos de auth. No se hizo en #31 por no tocar el contrato del
     servidor desde una feature de UI.
-36. **Un usuario ya autenticado puede entrar a `/login` y `/register`, y nadie lo devuelve al Dashboard.**
+36. ~~**Un usuario ya autenticado puede entrar a `/login` y `/register`, y nadie lo devuelve al Dashboard.**~~
+    → **SALDADA** por **#32 `account_menu`** (2026-08-03), la slice de la que colgaba. `src/proxy.ts` mira
+    ahora la cookie **antes** de resolver la allowlist: si la sesión es válida y el destino es una página de
+    auth, responde un redirect a `/`. La allowlist seguía decidiendo sólo si la sesión es **obligatoria**; le
+    faltaba la mitad que decide si **sobra**.
+    **Tres decisiones de alcance, escritas para que nadie las deshaga por inercia:**
+    - **Sólo páginas, nunca los endpoints.** Redirigir un `POST /api/auth/login` rompería el propio acceso, y
+      que el alta reemplace la sesión es una decisión del endpoint, no del proxy. Hay test.
+    - **El destino es siempre `/`, sin honrar el `?next=`.** Ese parámetro lo escribe el propio proxy para
+      volver **después** de autenticarse; hacerle caso aquí convertiría una ruta pública en un redirector.
+      Hay test con un valor hostil.
+    - **Con cookie inválida o caducada la pantalla sigue accesible**, que es justo cuando hace falta. Hay test.
+    **Condición doble:** anulando la condición del redirect caen **2** tests de `src/proxy.test.ts` y al
+    restaurarla vuelven los **13** a verde. **Medido además contra un servidor real** (`pnpm build` +
+    `pnpm start` + `curl` con una cookie firmada con los mismos claims que `signSessionToken`):
+    `GET /login` con sesión → **307** con `location: /`, y `POST /api/auth/logout` con esa misma sesión →
+    **200**. Salidas crudas en `progress/reports/impl_account_menu.md`.
+    Texto original de la ficha:
+    **Un usuario ya autenticado puede entrar a `/login` y `/register`, y nadie lo devuelve al Dashboard.**
     `src/proxy.ts:11-14` declara las dos rutas públicas por igualdad exacta y **no mira la cookie**: la
     allowlist sólo decide si se exige sesión, nunca si sobra. **Escenario de fallo concreto:** un usuario con
     sesión abierta abre su marcador de `/login`, ve el formulario vacío, escribe mal la contraseña y recibe
@@ -447,6 +534,12 @@ Ninguna bloquea. Las tres primeras son consecuencias directas y conscientes de l
     **Por qué merece atención pese a no estar abierta:** es la **tercera** aparición de "lista fija" en este
     repositorio (ya está fichada en `no-hardcode.test.ts`), y la primera en la que lo que se escapa por el
     agujero es una **credencial**. Detectada por el reviewer en `review_auth_forms_post.md` (NB-1).
+    **Confirmación de campo (#32, 2026-08-03):** al añadir el componente nuevo de la banda de cuenta hubo que
+    **acordarse a mano** de registrar sus dos archivos en la lista de `no-hardcode.test.ts` — y de hecho el
+    guardrail sólo los vio porque se registraron: recién entonces marcó en rojo tres comentarios con valores
+    en píxeles que se habían colado en las explicaciones. Funcionó, pero **funcionó por memoria**, que es
+    justo lo que esta ficha dice que no escala. El contraste está en el mismo repositorio:
+    `canonical-tailwind-classes.test.ts` cubrió los archivos nuevos **sin que nadie hiciera nada**.
 
 > ### Corrección al registro (2026-08-01), para que no sobreviva por inercia
 >
@@ -484,7 +577,17 @@ Ninguna bloquea. Las tres primeras son consecuencias directas y conscientes de l
     Si está, es (b) y esto no es un bug nuevo sino la suma de las deudas 1 y la ausencia de #32 — y lo que
     corresponde es **priorizar #32**, no parchear el formulario.
 
-45. **⚠️ REPORTADO EN PANTALLA: el alta no rechaza un email ya registrado.**
+45. **⚠️ REPORTADO EN PANTALLA: el alta no rechaza un email ya registrado.** → **RECALIFICADA el
+    2026-08-03 como DEUDA DE PRESENTACIÓN, no de datos.** El servidor está medido y devuelve 409; lo que
+    no está medido es si ese 409 **se ve**. Por decisión del usuario se da por buena la evidencia y no se
+    hace la comprobación en navegador. **Enunciado vigente de la ficha:** *el rechazo del email duplicado
+    llega al cliente y se pinta bajo el campo email, pero no hay evidencia de que sea perceptible* —
+    candidatos: el texto queda por debajo del campo en tamaño pequeño, el foco pudo no moverse de forma
+    visible, y `setFieldErrors({})` al reenviar hace que el mensaje **parpadee** (desaparece y reaparece),
+    lo que puede leerse como *"no valida"*. **Cómo cerrarla:** repetir el alta duplicada mirando la
+    pestaña Network (si es 409, es esto; si es 500, es la deuda 47). **Se resuelve de verdad revisando la
+    prominencia del error de campo en el formulario de alta**, no tocando el servidor.
+    Texto original de la ficha, conservado porque la hipótesis que contiene se investigó a fondo:
     El usuario reporta que *"no se valida si ya hay un mail creado"*. **Si se confirma, es un defecto de
     producción**, porque el camino está cubierto por tests y aun así falla en el navegador — exactamente el
     patrón que este proyecto ya sufrió una vez.
@@ -500,7 +603,52 @@ Ninguna bloquea. Las tres primeras son consecuencias directas y conscientes de l
     código de estado y el cuerpo** que devuelve `POST /api/auth/register`. Con eso se sabe si el fallo está en
     el servidor (traducción del error) o en el cliente (mapeo del status).
 
-46. **La cadena de auth completa nunca se ha ejercitado contra la base real** — es la deuda de método detrás
+    ### ⬆️ CORRECCIÓN DE LA FICHA (2026-08-03) — la hipótesis de arriba está DESCARTADA
+
+    > El texto anterior se conserva porque explica el razonamiento que llevó al smoke, pero **su hipótesis
+    > era falsa**. Se hizo el primer paso de diagnóstico que él mismo pedía (deuda 46) y esto es lo que
+    > salió, medido contra Neon real:
+
+    - **`POST /api/auth/register` con un email ya registrado devuelve `409`** con cuerpo
+      `{"error":"Ya existe una cuenta con ese email."}`. También con **distinta caja** y con **espacios**
+      alrededor. En la base queda **una sola fila**. Salida cruda en
+      `progress/reports/impl_smoke_auth_neon.md`.
+    - **El paralelo con `isDuplicateColorCode` no aplicaba:** `registerUser` **no depende del error del
+      driver**. Hace `findByEmail` **antes** de insertar y lanza `EmailAlreadyRegisteredError`, así que el
+      camino nunca llega al `DrizzleQueryError` envuelto que rompía en las lanas. (Lo que sí quedó de ahí
+      es la deuda **47**, que es ese mismo agujero pero latente.)
+    - **La normalización del email tampoco era:** `emailSchema` (`src/features/auth/validation.ts`) hace
+      `.trim().toLowerCase()` **antes** de validar el formato, es el mismo objeto para alta y login, y
+      existe desde el commit original de auth — así que **no hay filas legacy sin normalizar creadas por la
+      app**. Verificado ejecutando el schema y confirmado contra la base.
+    - **El cliente tampoco:** `RegisterForm` mapea el 409 **por status, no por texto**, y la clave `error`
+      que lee `auth-client.ts` es exactamente la que emite `errorResponse`. Detalle en
+      `progress/reports/explore_auth_register_client.md`.
+    - **La constraint UNIQUE existe de verdad en la base** (`users_email_unique`), no sólo en el schema
+      Drizzle.
+
+    **Dato de la base que acota el síntoma:** tras el reporte había **una sola fila** en `users` (la cuenta
+    `"Agus"` creada a mano el 2026-08-02). Si el alta duplicada hubiera devuelto un 201 espurio, habría
+    **dos**. Eso **descarta el 201 espurio**, pero *no* descarta un 500 — las dos cosas dejan una sola fila.
+
+    **Qué queda por medir, y es lo único que puede cerrar la ficha:** qué ocurrió **en la pantalla**.
+    Ningún test automático puede darlo. Repetir el alta duplicada con la pestaña **Network** abierta:
+    - status **409** → el defecto es de **presentación** (el mensaje se pinta bajo el campo email; pudo
+      pasar desapercibido, o el foco no se movió de forma perceptible) y la ficha hay que **reescribirla en
+      esos términos**, que son los de una deuda de UI, no de datos.
+    - status **500** → aplica la deuda **47** y probablemente la **48**.
+    - status **no-409 distinto** → difiere el entorno de ejecución (otro build, otra `DATABASE_URL`), no la
+      lógica: tercera línea de investigación.
+
+46. ~~**La cadena de auth completa nunca se ha ejercitado contra la base real**~~ — **SALDADA** el
+    2026-08-03. Existe `src/__smoke__/auth.smoke.test.ts`, guardado por el mismo flag `SMOKE_NEON` que el
+    smoke de las lanas: en la corrida hermética queda **skipped y sin abrir conexión**. Ejercita los
+    **Route Handlers reales** con un `Request` real (no dobla el store ni `fetch`), así que recorre
+    *route handler → zod → servicio → Drizzle → Neon* **y** la respuesta HTTP (status, cuerpo, `set-cookie`).
+    Cubre alta feliz, alta duplicada, normalización de caja/espacios, los tres caminos del login y la
+    existencia real de la constraint UNIQUE en la base. **5/5 en verde.** Prueba:
+    `progress/reports/impl_smoke_auth_neon.md`. Queda como guardia viva.
+    Texto original de la ficha, conservado porque explica por qué se hizo: era la deuda de método detrás
     de la 45, y merece ficha propia porque va a volver a morder.
     `src/app/api/auth/auth-routes.test.ts` dobla el **borde de datos** (`vi.mock` sobre el store) y los tests
     de UI doblan **`fetch`**. Entre los dos no queda ni un test que recorra *navegador → route handler →
@@ -511,3 +659,118 @@ Ninguna bloquea. Las tres primeras son consecuencias directas y conscientes de l
     acaba de pasar.
     **Arreglo:** un smoke test real de la cadena de auth contra Neon, como el que ya se hizo para las lanas.
     **Conviene hacerlo ANTES de arreglar la 45**, porque es lo que dice dónde está el fallo.
+    *(Se hizo, y acertó: dijo que el fallo NO estaba en el servidor. Ver la corrección de la ficha 45.)*
+
+47. **`createAuthUserStore(...).create` no traduce la violación UNIQUE `users_email_unique` (23505).**
+    Encontrada leyendo el código durante el diagnóstico de la 45; **no reproducida**, porque el
+    pre-chequeo de `registerUser` la tapa en el caso secuencial.
+    **Escenario concreto de fallo:** si el insert llega a chocar con la constraint, `store.create`
+    (`src/features/auth/api/store.ts`) deja escapar el error crudo del driver y el route handler responde
+    **500 "Error interno del servidor."** en vez del **409** accionable que el formulario sabe pintar bajo
+    el campo email.
+    Es **el mismo agujero que el smoke destapó en `isDuplicateColorCode`** (lanas), por una puerta distinta:
+    el driver `neon-http` envuelve el error de Postgres en un `DrizzleQueryError` cuyos `.code`/`.constraint`
+    son `undefined`, y el `NeonDbError` con `code: "23505"` viaja en **`.cause`**. El fix tiene la misma
+    forma que el que ya se aplicó en `src/features/yarns/api/store.ts`: recorrer la cadena de `.cause` con
+    guarda de profundidad. **Se puede reutilizar esa heurística en vez de duplicarla** — candidata a subir a
+    `shared/`. Debe llevar test de la forma **anidada**, no sólo de la plana (fue exactamente lo que dejó
+    verde el bug de las lanas).
+
+48. **`registerUser` es un *check-then-act* no atómico: ventana de carrera entre `findByEmail` y el insert.**
+    `src/features/auth/api/register.ts`. La ventana está **ensanchada a propósito** por el
+    `await hashPassword(...)` que va en medio: bcrypt con coste 12 tarda decenas o centenas de milisegundos.
+    **Escenario concreto de fallo:** dos altas **simultáneas** del mismo email (doble clic que burle el
+    `disabled`, dos pestañas, un reintento de red) pasan las dos el `findByEmail`; una inserta y la otra
+    choca con el UNIQUE → y por la deuda **47**, eso sale como **500**, no como 409.
+    El smoke de la 46 es **secuencial y no lo reproduce**; queda documentado, no medido.
+    **Orden de arreglo:** la 47 primero. Con la traducción del 23505 puesta, esta carrera degrada a un 409
+    correcto y la 48 deja de ser un fallo visible (la constraint de la base es la que decide, que es lo
+    correcto). Sin la 47, es un 500 en la cara del usuario.
+
+## Deudas nuevas — de la feature #32 `account_menu` (`impl_account_menu.md`)
+
+Ninguna bloquea. Las dos primeras son consecuencias conscientes de decisiones que se tomaron con su motivo;
+la tercera es un hallazgo colateral, medido.
+
+49. **Si el cierre de sesión falla, no se lo decimos a nadie: el botón simplemente no hace nada.**
+    `AppShellClient` navega a `/login` **sólo** cuando `POST /api/auth/logout` confirma que borró la cookie,
+    que es lo correcto (navegar sin confirmación deja al usuario en la pantalla de acceso **con la sesión
+    viva**, y el proxy lo devuelve de rebote al Dashboard desde que se saldó la deuda 36). Lo que falta es la
+    otra mitad: **cuando no confirma, no se pinta ningún mensaje**.
+    **Escenario de fallo concreto:** alguien pulsa "Salir" con la red caída o con el servidor devolviendo un
+    500. La petición se va, vuelve mal, y en pantalla **no pasa absolutamente nada**: ni mensaje, ni spinner
+    que se apague, ni cambio de foco. La lectura natural es "el botón está roto", y lo más probable es que lo
+    pulse otra vez, y otra. Es **la misma clase de silencio** que la deuda 39 describe para el envío de los
+    formularios sin JS: el peor resultado no es el error, es la ausencia de error.
+    **Está cubierto por dos tests** (`does not navigate if the server did not clear the session` y
+    `does not navigate if the request never left`), así que la **decisión** de no navegar está protegida; lo
+    que no existe es la **señal** al usuario.
+    **Arreglo:** ya hay pieza para ello y no habría que inventar nada — `AuthFormError`
+    (`features/auth/ui/`) es un bloque de error con región viva, y está fichado como candidato a promover a
+    `shared/ui` en cuanto tenga un segundo consumidor. Este es ese segundo consumidor. No se hizo en #32
+    porque promover un componente del feature al design system es un cambio de contrato del template, no un
+    detalle del cableado, y el alcance de la slice era el menú de cuenta.
+
+50. **`/` pasó de estática a dinámica, y cada carga de una página de `(app)` cuesta una lectura de la base.**
+    Medido en dos builds limpios: **antes** el listado del build marcaba `/` como estática (`○`), **después**
+    como dinámica (`ƒ`). Es la consecuencia inevitable —y aceptada— de que el caparazón muestre quién está
+    dentro: el layout de `(app)` lee la cookie, y leer la cookie hace la ruta dinámica. Es exactamente el
+    mismo precio que se pagó en la deuda 37 para `/login`.
+    **Lo que sí conviene tener en el radar:** el layout llama a `getSessionUser()`, que hace **un `findById`
+    contra Neon por carga de página**. No es por navegación (un layout compartido no se vuelve a renderizar
+    en la navegación de cliente del App Router), pero sí por carga completa y por `router.refresh()`.
+    **Escenario de fallo concreto:** cuando existan las 6 páginas y alguien navegue con recargas duras, cada
+    una arranca con una consulta a la base cuyo resultado es siempre el mismo durante los 7 días que vive la
+    cookie. Con Neon serverless eso es latencia en el camino crítico del primer render.
+    **Cuándo importa de verdad:** cuando `/` deje de ser pública (deuda 1, criterio de aceptación de **#19**)
+    la mitad "estática vs dinámica" deja de tener sentido —una página privada no se prerenderiza— y queda
+    sólo la lectura. **Arreglo natural si molesta:** meter el nombre en el propio JWT al firmarlo, y así el
+    caparazón no necesita la base para pintar la banda. No se hizo en #32 porque cambia el contenido del
+    token, o sea el contrato de sesión de toda la app, y eso no cabe en una slice de UI.
+
+51. **La banda de cuenta sólo se ha visto en una ruta, porque sólo existe una ruta.** El caparazón se
+    verificó con tests de comportamiento (RTL sobre el marcado real) y con el gate de geometría, y contra un
+    **servidor real** se comprobó el caso anónimo (la banda **no** sale) y el redirect de la deuda 36. Lo que
+    **no** se ha visto es la banda con una sesión de verdad en pantalla, porque para eso hace falta una fila
+    real en `users` y esta slice tenía prohibido tocar la base.
+    **Se solapa con la deuda 26 y conviene mirarlas juntas** en la primera validación visual: 26 pide
+    comprobar la escalera del archivero en las 6 rutas (hoy imposible: 5 no existen) y esto pide comprobar en
+    esas mismas 6 que la banda no se lleva por delante nada del cajón. Como la banda va **en el flujo**, la
+    predicción es que empuje el archivero hacia abajo y no lo toque en ninguna ruta; **eso es una predicción
+    derivada de tokens, no una observación**.
+
+52. **El gate de E11(c) sólo mira las clases PROPIAS de la banda: se la puede superponer desde fuera y
+    seguiría verde.** La levantó el reviewer de #32 (NB-1 de `progress/reports/review_account_menu.md`).
+    `src/shared/ui/layout/account-band/account-band.tokens.test.ts:208-215` deriva el desplazamiento de las
+    clases del `cva` de la banda — que es lo correcto, y es lo que hace que el gate **no** sea de los que
+    miden un par elegido a mano. El agujero está una capa más arriba.
+    **Escenario de fallo concreto:** `AccountBand` acepta un `className` (`AccountBand.tsx:16, 50`) y
+    `AppShell.tsx:63` podría envolverla en un contenedor posicionado. En cualquiera de los dos casos la banda
+    **queda superpuesta al cajón** —exactamente la colisión que E11(c) existe para impedir, con la pestaña de
+    la columna 6 a 2px del techo con el puntero encima— **y el gate sigue en verde**, porque las clases del
+    `cva` no han cambiado. El test de orden del DOM (`layout.test.tsx:227-247`) tampoco lo ve: **el orden de
+    los nodos no cambia al posicionar en absoluto.**
+    Es la misma familia que las deudas **22 y 40**: *el gate no ve dentro de la capa que de verdad decide.*
+    **Arreglo:** asertar además que `AppShell` no pasa clases de posicionamiento a la banda y que su
+    contenedor no lleva utilidades de fuera de flujo; o —mejor— subir la comprobación al `AppShell` ya
+    renderizado, que es la única capa donde la geometría final es observable.
+
+53. **La banda de cuenta no tiene nombre accesible propio ni landmark.** NB-6 del mismo review.
+    `AccountBand.tsx:48-61` es un contenedor con `data-slot`, un `span` con el nombre y el botón de salida.
+    **Escenario de fallo concreto:** un lector de pantalla anuncia el nombre de la persona **suelto**, sin
+    ningún contexto que diga que eso es la cuenta con la sesión abierta; queda como un texto huérfano entre
+    el wordmark y el archivero. `axe` **no lo marca** porque no es una violación — es justo el tipo de hueco
+    que un barrido automático no puede ver.
+    **Arreglo:** un `aria-label` en el contenedor, o hacer que el nombre sea el nombre accesible del bloque.
+    **Mirala junto a la 51 y la 26** en la primera validación visual: son las tres cosas que sólo se cierran
+    con una pantalla delante.
+
+54. **`GET /api/auth/me` se ha quedado sin ningún consumidor en producción.** NB-5 del mismo review,
+    verificado con búsqueda en `src`: hoy sólo lo nombran comentarios y un test del proxy.
+    **No es un defecto de #32** — el `acceptance` pedía dos cosas incompatibles (cablear el endpoint *y*
+    tomar la opción de menor radio, que era resolver el usuario en el layout servidor) y se eligió la
+    preferida con el motivo escrito. Pero deja un **endpoint público sin llamadores**, y eso es superficie
+    que hay que mantener y proteger sin que nadie la use.
+    **Decisión pendiente (de producto, no técnica):** o se le da consumidor —el candidato natural es un
+    refresco de la banda en cliente— o se retira con sus tests. **No la dejes en el limbo**: un endpoint sin
+    dueño es el que nadie actualiza cuando cambia el contrato de sesión.
