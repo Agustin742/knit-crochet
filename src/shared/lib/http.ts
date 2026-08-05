@@ -31,6 +31,17 @@ export async function readJsonBody(request: Request): Promise<unknown> {
   }
 }
 
+/** Devuelve `undefined` si el body no es multipart válido (lo valida luego zod). */
+export async function readFormData(
+  request: Request,
+): Promise<FormData | undefined> {
+  try {
+    return await request.formData();
+  } catch {
+    return undefined;
+  }
+}
+
 export function unexpectedErrorResponse(
   context: string,
   error: unknown,

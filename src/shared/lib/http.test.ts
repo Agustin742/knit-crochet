@@ -3,7 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { signSessionToken } from "@/shared/lib/auth/jwt";
 import { InvalidSessionError } from "@/shared/lib/auth/session";
-import { sessionErrorResponse, withSession } from "@/shared/lib/http";
+import {
+  readFormData,
+  sessionErrorResponse,
+  withSession,
+} from "@/shared/lib/http";
 
 const SECRET = "test-secret-suficientemente-largo-para-hs256";
 
@@ -86,5 +90,28 @@ describe("shared/lib/http withSession", () => {
 
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: "No autenticado." });
+  });
+});
+
+describe("shared/lib/http readFormData", () => {
+  it("parses a multipart body", async () => {
+    const body = new FormData();
+    body.append("file", new Blob(["x"], { type: "image/png" }), "foto.png");
+
+    const form = await readFormData(
+      new Request("https://test.local", { method: "POST", body }),
+    );
+
+    expect(form?.get("file")).toBeInstanceOf(Blob);
+  });
+
+  it("returns undefined when the body is not multipart", async () => {
+    const request = new Request("https://test.local", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ file: "foto.png" }),
+    });
+
+    await expect(readFormData(request)).resolves.toBeUndefined();
   });
 });

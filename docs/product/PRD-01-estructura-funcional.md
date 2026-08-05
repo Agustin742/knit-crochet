@@ -457,6 +457,31 @@ Todos requieren JWT válido (salvo `register`/`login`) y hacen scoping por `user
    `Yarn` referenciada por un proyecto (que sí admite `?force=true` para forzar). Por eso las
    FKs `yarn_types→brands`, `yarns→brands`, `yarns→yarn_types` son `ON DELETE no action` a
    propósito, y el `409` se comprueba **antes** de borrar. *(Decisión tomada el 2026-07-22.)*
+9. **Contrato de `POST /api/uploads/image`: lista blanca de tipos, tope de tamaño y
+   `publicId` único por subida.** Resuelve lo que el punto 7 dejó abierto al cablear el
+   endpoint (feature 15). Tres decisiones:
+   - **Tipos aceptados:** `image/jpeg`, `image/png`, `image/webp`. Cualquier otro → `400`.
+     Es una **lista blanca**, no una lista negra: lo no enumerado se rechaza.
+   - **Tamaño máximo: 4 MB.** Cubre una foto de móvil sin dejar el endpoint abierto. **El valor
+     está atado a la plataforma, no elegido al gusto:** el deploy es Vercel, y sus funciones
+     tienen un límite de cuerpo de petición de **4,5 MB** aplicado **a nivel de infraestructura**
+     — no se puede subir desde `vercel.json` ni desde el código, y lo que lo excede muere con un
+     **413 `FUNCTION_PAYLOAD_TOO_LARGE`** de la plataforma, **antes** de que nuestro handler
+     exista, así que el cliente recibiría un error que no es nuestro `{ error }`. Los 4 MB dejan
+     margen para el sobrecoste del `multipart` (límites de campo y cabeceras). *(Se cerró primero
+     en 5 MB el 2026-08-04 y se corrigió a 4 MB el 2026-08-05, cuando el reviewer de la feature 15
+     detectó el choque y se verificó contra la documentación de Vercel. **Quien suba este tope
+     tiene que resolver antes el límite de la plataforma**, típicamente subiendo del navegador
+     directo a Cloudinary con una firma en vez de pasar el binario por la función.)*
+   - **Las dos se comprueban ANTES de llamar a Cloudinary**, no después. Un archivo que no
+     pasa el filtro no debe consumir red ni cuota: el rechazo es local y barato.
+   - **`publicId` único por subida** (no determinista por usuario ni por entidad). Motivo: las
+     entidades guardan la **URL**, y un `publicId` determinista haría que la segunda foto de un
+     usuario **sobrescribiera** la primera en Cloudinary, rompiendo en silencio las URLs ya
+     persistidas en filas anteriores. El PRD no contempla borrado de imágenes, así que la
+     colisión no tendría quien la repare. El `folder` **sí** es determinista por `userId`.
+   *(Decisión tomada el 2026-08-04. Tipos y tamaño los eligió el usuario; el `publicId` único
+   lo decidió el leader por la razón de arriba y queda aquí registrado, no implícito.)*
 
 ---
 

@@ -240,9 +240,10 @@
         "POST /api/uploads/image recibe un archivo (multipart/Blob), sube vía shared/lib/cloudinary y devuelve { url }",
         "folder/publicId derivados del userId del JWT validado con zod, NUNCA del body crudo (deuda técnica 3 del harness)",
         "manejo de error de upload explícito (no rompe el endpoint); scoping por userId",
-        "Tests: subida OK (cliente Cloudinary mockeado en el borde), rechazo sin sesión (401), input inválido (zod)"
+        "Tests: subida OK (cliente Cloudinary mockeado en el borde), rechazo sin sesión (401), input inválido (zod)",
+        "DECISIÓN CERRADA (usuario + leader, 2026-08-04, asentada en PRD §11.9): lista blanca de tipos = image/jpeg, image/png, image/webp (lo no enumerado se rechaza con 400); tamaño máximo = 4 MB (CORREGIDO el 2026-08-05: se cerró en 5 MB y no cabía — Vercel limita el cuerpo de petición a 4,5 MB a nivel de infraestructura, no configurable, y devuelve 413 FUNCTION_PAYLOAD_TOO_LARGE antes de que exista el handler); AMBAS se comprueban ANTES de llamar a Cloudinary, no después (un archivo que no pasa el filtro no consume red ni cuota). publicId ÚNICO POR SUBIDA, no determinista: las entidades guardan la URL, y un publicId determinista haría que la segunda foto de un usuario sobrescribiera la primera en Cloudinary y rompiera en silencio las URLs ya persistidas. El folder SÍ es determinista por userId."
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 16,

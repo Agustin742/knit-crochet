@@ -889,3 +889,71 @@ construir lo que la propia medición señaló como el arreglo de fondo.
 - **Lección de método de la sesión:** el smoke acertó **refutando** su propia hipótesis, y el implementer
   **corrigió una premisa del RFC que había escrito el leader**. Las dos cosas salieron de medir en vez de
   razonar.
+
+---
+
+## 2026-08-05 — Feature #15 `uploads_image` (endpoint único de subida de imagen)
+
+- **Cadena:** leader → 1 implementer → 1 reviewer (**CAMBIOS REQUERIDOS**, 2 bloqueantes) → implementer
+  (corrección) → reviewer (**APROBADO**, 0 bloqueantes). Sin exploradores: el terreno estaba claro (helper
+  de Cloudinary de #5, `withSession` y el patrón de Route Handler ya establecidos).
+- **Qué entra:** `POST /api/uploads/image`, **puerta única y compartida** por los formularios de Proyecto
+  (#22), Lana (#25) y Patrón (#28) — **no un endpoint por entidad**. Recibe `multipart`, sube a Cloudinary y
+  devuelve `{ url }` con **201**. Verificado que no hay ni una mención a proyecto/lana/patrón en el código
+  nuevo. Hasta hoy existía la pieza que sabe hablar con Cloudinary (#5) pero **no había puerta por la que
+  entrara un archivo**: un teléfono sin línea.
+- **Deuda 3 SALDADA:** `folder`/`publicId` salen **sólo** del `userId` del JWT; del formulario se lee **un
+  único campo**, `file`. No se dio por buena leyendo: el reviewer intentó romperla haciendo que la carpeta
+  saliera del formulario y la suite se puso en rojo.
+- **Contrato cerrado antes de escribir código** (PRD **§11.9**, nueva): lista blanca `image/jpeg`/`png`/
+  `webp` (lo no enumerado se rechaza), tope **4 MB**, **ambas comprobaciones antes** de llamar a Cloudinary
+  (un archivo rechazado no consume red ni cuota, y hay test dedicado), y **`publicId` único por subida**.
+- **⚠️ EL TOPE SE CERRÓ EN 5 MB Y ESTABA MAL — no mal implementado, mal DECIDIDO.** El reviewer contrastó el
+  valor contra la plataforma: **Vercel limita el cuerpo de petición a 4,5 MB a nivel de infraestructura**, no
+  configurable, y lo que lo excede muere con un **413** *antes de que el handler exista*. Había un test
+  *"acepta un archivo justo en el límite"* **en verde certificando un caso que en producción falla siempre**.
+  Se elevó al usuario —contradecía una decisión suya tomada con información incompleta— y **bajó a 4 MB**.
+  **Ningún test podía encontrarlo: los tests miden el código contra el contrato, y aquí fallaba el contrato
+  contra la plataforma.** Regla derivable: **al cerrar un valor numérico de un contrato, contrastarlo contra
+  los límites de la plataforma antes de anclarlo en un test**; si no, el test consagra lo imposible.
+- **Por qué el `publicId` es único** (decisión del leader, registrada y no implícita): las entidades guardan
+  la **URL**, así que un `publicId` determinista haría que la segunda foto **sobrescribiera** la primera y
+  rompiera **en silencio** las URLs ya persistidas en filas anteriores. Precio aceptado y fichado: las
+  imágenes reemplazadas quedan huérfanas (**deuda 61**).
+- **Lo que bloqueó, y es sutil:** el implementer hizo bien la mitad difícil (los tests de frontera **derivan**
+  de la constante), pero **al derivarlo todo el valor del contrato se quedó sin ancla**. *"Acepta `MAX` y
+  rechaza `MAX+1`"* sigue verde **sea cual sea `MAX`**: se podía decuplicar el tope y abrir la lista blanca a
+  SVG y PDF con **27/27 en verde**. Es la familia de las deudas **18/22/23/33/40/43 en su forma espejo** —
+  *el test mide lo que el código diga, sea lo que sea*. El patrón correcto tiene **dos piezas**: **(a)** *un*
+  test que ancla la constante al literal (único sitio donde el literal se justifica, porque **ahí el literal
+  ES el contrato**) y **(b)** el resto derivando. Sólo estaba (b).
+- **Se avisó del riesgo de "arreglarlo" mal** (convertir (b) a literales = crear la deuda 18/22/23 de cero).
+  El reviewer verificó por `diff` que los dos archivos de test anteriores quedaron **byte a byte idénticos**.
+  No picó.
+- **Lo mejor que salió, y no se pidió:** el implementer no sólo ancló el número — escribió un test que ata el
+  tope a **estar por debajo del límite de la plataforma**, convirtiendo la deuda 55 de un párrafo del PRD en
+  un **invariante ejecutable**. Cubre el riesgo que el ancla no cubre: no que alguien suba el tope, sino que
+  **suba el tope y "arregle" el test que se le pone rojo** — que es literalmente cómo nació este defecto.
+  El reviewer verificó que tampoco es decorativo, separándolo del ancla con una mutación propia.
+- **`src/shared/lib/http.ts` tocado** (única modificación fuera del feature, y la de más riesgo: la usan
+  todos los endpoints). El reviewer enumeró los **28 archivos** que lo importan y verificó que el cambio es
+  **puramente aditivo**: `readFormData`, hermana de `readJsonBody`. Ninguna respuesta de ningún endpoint
+  anterior cambia.
+- **Método del review, que es lo que lo hizo valer:** **10 mutaciones deliberadas** (6 + 4), revertidas desde
+  copia y verificadas con `diff -r`. No leyó el código: lo rompió y miró qué tests se enteraban. Las dos
+  anclas nuevas se comprobaron **en las dos direcciones** (añadir un tipo **y quitar uno**: un `toContain`
+  habría pasado la segunda; escribió igualdad exacta).
+- **Verificación:** `bash ./init.sh` **547 passed | 11 skipped** (52 archivos + 2 skipped); partida 515,
+  **+32 tests, ninguno borrado**. `pnpm build` OK con `/api/uploads/image` como ruta dinámica. **Verificado
+  por el leader ejecutándolo**, y reproducido por el reviewer con sus propios números en las dos rondas, sin
+  discrepancias entre los tres.
+- **Deudas: nuevas 55-62.** La **55 nace tachada** (saldada en el acto al bajar a 4 MB). La más viva es la
+  **59**: nadie ha subido todavía un archivo a una cuenta **real** de Cloudinary — hermana de la **deuda 6**,
+  que se saldó así contra Neon y **destapó un bug de producción**.
+- **Reports:** `impl_uploads_image.md`, `review_uploads_image.md` (las dos rondas, la primera conservada como
+  registro de por qué se rechazó).
+  **Informe de cierre:** `progress/informs/12.informe-uploads_image.md`.
+- **Lección de método de la sesión:** el hallazgo más valioso **no lo encontró ningún test, y no podía**.
+  Salió de que un reviewer fuera a contrastar un valor ya cerrado contra el entorno real de despliegue. Y se
+  **elevó al usuario en vez de enterrarse como ficha de deuda**, porque contradecía una decisión suya — una
+  ficha habría dejado el error vivo con apariencia de estar gestionado.

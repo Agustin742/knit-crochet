@@ -774,3 +774,95 @@ la tercera es un hallazgo colateral, medido.
     **Decisión pendiente (de producto, no técnica):** o se le da consumidor —el candidato natural es un
     refresco de la banda en cliente— o se retira con sus tests. **No la dejes en el limbo**: un endpoint sin
     dueño es el que nadie actualiza cuando cambia el contrato de sesión.
+
+55. ~~**El tope de subida de 5 MB no cabe en el límite de cuerpo de petición de Vercel.**~~
+    **SALDADA en el acto, el 2026-08-05, antes de cerrar la feature 15.** La levantó el reviewer de #15
+    (O2 de `progress/reports/review_uploads_image.md`) contra el tope de **5 MB** que el usuario había
+    cerrado horas antes, y la marcó como la más importante de las suyas. Tenía razón.
+    **El hecho, verificado contra la documentación de Vercel y no de memoria:** las funciones limitan el
+    cuerpo de petición a **4,5 MB**, el límite se aplica **a nivel de infraestructura** —no se puede subir
+    desde `vercel.json` ni desde el código— y lo que lo excede muere con un **413
+    `FUNCTION_PAYLOAD_TOO_LARGE`** de la plataforma, **antes de que el handler exista**.
+    **Escenario de fallo que se evitó:** con el tope en 5 MB, el test `accepts a file sitting exactly on
+    the size limit` certificaba en verde un caso que en producción **siempre** falla, y el usuario que
+    subiera una foto grande habría recibido un error de plataforma que no es nuestro `{ error }` y que la
+    UI no sabe pintar. No lo habría visto nadie hasta el primer deploy con tráfico real.
+    **Cómo se saldó:** el leader lo elevó al usuario en vez de enterrarlo como ficha —contradecía una
+    decisión que él acababa de tomar con información incompleta— y el usuario **bajó el tope a 4 MB**.
+    Registrado en **PRD §11.9** con el porqué, para que quien lo suba en el futuro sepa que primero tiene
+    que resolver el límite de la plataforma (subida directa del navegador a Cloudinary con firma).
+    **La lección de método, que es lo que conviene recordar:** el defecto no estaba en el código, estaba en
+    el **contrato**. Ningún test podía encontrarlo, porque los tests miden el código contra el contrato y
+    aquí lo que fallaba era el contrato contra la plataforma. Lo encontró un reviewer que fue a comprobar
+    un valor cerrado contra el entorno de despliegue real.
+
+56. **El cuerpo entero se carga en memoria antes de comprobar el tamaño.** O3 del mismo review.
+    `readFormData` (`src/shared/lib/http.ts`) llama a `request.formData()`, que **bufferiza el archivo
+    completo**, y sólo después zod mira `file.size`.
+    **Escenario de fallo concreto:** una petición de 500 MB se materializa en RAM antes de que el endpoint
+    devuelva su 400. El contrato del PRD §11.9 ("las comprobaciones ocurren **antes de llamar a
+    Cloudinary**") **se cumple** —no se gasta ni red ni cuota de Cloudinary—, pero el rechazo no es tan
+    barato como la frase sugiere: cuesta memoria del servidor.
+    **Muy mitigada por la 55:** el límite de 4,5 MB de Vercel corta el cuerpo antes de llegar. Importa de
+    verdad **si algún día se deja de desplegar en Vercel**, o en desarrollo local, donde no hay ese corte.
+    **Arreglo natural:** mirar el `Content-Length` de la cabecera antes de leer el cuerpo.
+
+57. **La rama de `ImageUploadUnavailableError` del handler es redundante y ningún test la distingue.**
+    O1 del mismo review, **medido**: anular la rama con una condición falsa deja la suite en **19/19 verde**.
+    `src/app/api/uploads/image/route.ts` traduce `ImageUploadUnavailableError` a un 500 con `console.error`
+    — que es **exactamente** lo que ya produce el catch-all de `withSession` (`src/shared/lib/http.ts`).
+    **No es un defecto:** el acceptance pedía que las dos excepciones de Cloudinary estuvieran capturadas y
+    traducidas, y lo están; ésta simplemente se cumple dos veces.
+    **Escenario de fallo concreto, que es a futuro:** si mañana alguien borra la rama por "código muerto",
+    ningún test se entera; y si mañana se quiere un mensaje propio para "el servicio de imágenes no está
+    configurado" —que es información distinta de "error interno"— hoy no hay nada que lo proteja.
+    **Arreglo:** o se elimina por redundante, o se le da un comportamiento propio que un test pueda
+    distinguir del camino genérico.
+
+58. **El endpoint confía en el `Content-Type` que declara el cliente; no mira el contenido real.**
+    O4 del mismo review, y coincide con la deuda que el propio implementer se auto-fichó.
+    `file.type` lo escribe quien sube: la lista blanca de PRD §11.9 filtra una **declaración**, no un hecho.
+    **Escenario de fallo concreto:** un binario cualquiera renombrado y enviado con
+    `Content-Type: image/jpeg` pasa el filtro local y llega a Cloudinary. El daño real es limitado —
+    Cloudinary valida por su cuenta y rechaza lo que no sea una imagen, y ese rechazo ya está traducido a un
+    502— pero significa que **nuestra** primera línea de defensa es declarativa.
+    **Correctamente NO implementado:** inspeccionar los *magic bytes* está fuera del contrato cerrado y
+    habría sido alcance inventado. Queda fichado con dueño.
+
+59. **Nadie ha subido todavía un archivo real a una cuenta real de Cloudinary.** O5 del mismo review.
+    Todo está medido contra `fetch` mockeado en el borde, que es la técnica correcta para tests unitarios,
+    pero deja en pie la **regla 4** de `current.md`: *para lo que se sirve al navegador, medí contra un
+    servidor real*. Es la misma regla que en #31 destapó los dos defectos más serios, que ningún test vio.
+    **Lo que nadie ha comprobado:** que la firma que construye `buildUploadSignature` sea la que Cloudinary
+    espera de verdad, y que la respuesta real tenga la forma que `extractSecureUrl` asume.
+    **Cuándo se cierra:** con los formularios #22/#25/#28, o antes con un `curl` manual con cookie de sesión.
+    Es la hermana de la deuda 6, que se saldó exactamente así contra Neon — y que al hacerlo **destapó un
+    bug de producción**.
+
+60. **El contrato de respuesta del endpoint no está asentado donde lo vean sus tres consumidores.**
+    O6 del mismo review. `POST /api/uploads/image` responde **201** (no 200) con `{ url }`; el campo del
+    formulario se llama **`file`**; los errores son `{ error }` con 400/401/502/500.
+    **Escenario de fallo concreto:** #22 (Project), #25 (Yarn) y #28 (Pattern) son **tres slices distintas,
+    en tres sesiones distintas**, y cada una va a cablear la subida por su cuenta. La primera que asuma
+    `200` porque "un POST que devuelve datos responde 200" se romperá, y lo hará en el navegador y no en un
+    test, porque el mock lo escribirá quien escriba el consumidor.
+    **Arreglo:** queda asentado en las "Notas para consumidores del design system" de `current.md` en el
+    cierre de esta feature. Verificar que sobrevive al volcado a `history.md`.
+
+61. **Ninguna imagen se borra nunca de Cloudinary.** O7 del mismo review.
+    Es **consecuencia directa del contrato**, no un defecto de la implementación: el `publicId` es único por
+    subida (PRD §11.9) precisamente para que una foto nueva no sobrescriba a la anterior y no rompa las URLs
+    ya persistidas en filas anteriores.
+    **Escenario de fallo concreto:** cada vez que alguien reemplace la foto de un proyecto, de una lana o de
+    un patrón, la imagen anterior queda **huérfana para siempre** en Cloudinary. Nadie la referencia y nadie
+    la borra. Con el tiempo es cuota pagada por archivos que no se sirven.
+    **Sin dueño hoy, y a propósito:** el PRD no contempla borrado de imágenes. Cuando se contemple, esta
+    ficha es el punto de partida.
+
+62. **Sin límite de frecuencia ni de volumen de subida por usuario.** O8 del mismo review.
+    Con una sesión válida se puede subir sin tope: N peticiones de hasta 4 MB, sin cuenta ni ventana.
+    **Contrapartida deliberada del `publicId` único** — con un `publicId` determinista el mismo usuario se
+    sobrescribiría a sí mismo y el consumo estaría acotado por construcción, pero eso es justo lo que la
+    decisión del PRD §11.9 prohíbe, y por buenas razones (ver 61).
+    **Escenario de fallo concreto:** una cuenta comprometida, o simplemente un bucle en un formulario, agota
+    la cuota de Cloudinary del proyecto entero. Es la superficie de abuso que el endpoint abre por diseño.
