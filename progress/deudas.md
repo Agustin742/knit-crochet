@@ -828,8 +828,34 @@ la tercera es un hallazgo colateral, medido.
     502— pero significa que **nuestra** primera línea de defensa es declarativa.
     **Correctamente NO implementado:** inspeccionar los *magic bytes* está fuera del contrato cerrado y
     habría sido alcance inventado. Queda fichado con dueño.
+    **MATIZ (2026-08-05, al saldar la 59): la segunda línea de defensa quedó MEDIDA UNA VEZ, no GUARDADA
+    POR UN TEST.** Bytes que no son imagen declarados `image/png` llegaron a Cloudinary y **Cloudinary los
+    rechazó de verdad** (`Invalid image file`, status 400 del proveedor), y ese rechazo salió traducido al
+    502 que la ficha prometía. Pero eso lo verificó **el ojo humano leyendo el `console.error`**, no un
+    `expect`: el caso 2 del smoke no distingue ese rechazo de cualquier otro fallo (ficha **63**). Un test
+    no guarda lo que una persona leyó una vez. **La ficha sigue viva y con el mismo dueño.**
 
-59. **Nadie ha subido todavía un archivo real a una cuenta real de Cloudinary.** O5 del mismo review.
+59. ~~**Nadie ha subido todavía un archivo real a una cuenta real de Cloudinary.**~~ — **SALDADA** el
+    2026-08-05. Existe `src/__smoke__/cloudinary.smoke.test.ts`, guardado por su **flag propio
+    `SMOKE_CLOUDINARY`** (no reutiliza `SMOKE_NEON`: esta cadena **no toca la DB**, el `userId` sólo tiene
+    que ser un uuid válido, no existir en `users`). En la corrida hermética queda **skipped sin tocar red ni
+    leer `.env`** — verificado por el reviewer lanzando Vitest desde un cwd sin `.env`.
+    **Las dos preguntas de la ficha quedan respondidas, y las dos por medición:**
+    (a) *¿la firma es la que Cloudinary espera?* **Sí, y funcionó a la primera.** Un PNG real subió por la
+    cadena completa (Route Handler real → `uploadUserImage` → `uploadImage` → `fetch` real) → **201**.
+    (b) *¿la respuesta trae `secure_url` con la forma que asume `extractSecureUrl`?* **Sí:** la URL es
+    `https:` (que es justo lo que distingue `secure_url` de `url`) y **el `fetch(url)` devolvió 200
+    `image/png` con los mismos bytes subidos**. Sin ese `fetch` la deuda no estaría saldada.
+    El teardown borra lo subido con `/destroy` firmado por el mismo `buildUploadSignature`, así que la firma
+    queda ejercitada **por dos caminos distintos**.
+    **Condición doble ejecutada (regla 3):** con `.join("&")` → `.join(",")` en `buildUploadSignature`, el
+    caso 1 cae en rojo con `401 Invalid Signature` de Cloudinary; restaurado, verde. **Sólo el caso 1 es
+    sensible a la firma** — ver la ficha **63**.
+    **A diferencia de su hermana la deuda 6, NO destapó ningún bug de producción.** El único cambio en `src/`
+    es exportar `CLOUDINARY_API_BASE` para que el teardown no hardcodee la URL.
+    Pruebas: `progress/reports/impl_deuda59_cloudinary_smoke.md` y
+    `progress/reports/review_deuda59_cloudinary_smoke.md`. Informe: `progress/informs/13.informe-deuda59-smoke_cloudinary.md`.
+    Texto original de la ficha, conservado porque explica por qué se hizo: O5 del mismo review.
     Todo está medido contra `fetch` mockeado en el borde, que es la técnica correcta para tests unitarios,
     pero deja en pie la **regla 4** de `current.md`: *para lo que se sirve al navegador, medí contra un
     servidor real*. Es la misma regla que en #31 destapó los dos defectos más serios, que ningún test vio.
@@ -866,3 +892,116 @@ la tercera es un hallazgo colateral, medido.
     decisión del PRD §11.9 prohíbe, y por buenas razones (ver 61).
     **Escenario de fallo concreto:** una cuenta comprometida, o simplemente un bucle en un formulario, agota
     la cuota de Cloudinary del proyecto entero. Es la superficie de abuso que el endpoint abre por diseño.
+
+---
+
+## Nuevas del saldo de la deuda 59 (smoke real de Cloudinary, 2026-08-05)
+
+63. **El caso 2 del smoke de Cloudinary es un embudo: pasa aunque la petición nunca llegue a Cloudinary.**
+    Levantada por el implementer y **agravada por el reviewer**, que fue el que midió su alcance real. Se
+    asienta con la redacción del reviewer, no con la del informe: *"no distingue por qué falló"* suena a
+    matiz cuando lo cierto es más duro.
+    `src/__smoke__/cloudinary.smoke.test.ts` caso 2 asierta tres cosas (status 502, el mensaje exacto, y que
+    no venga `url`). El problema es que **cualquier** fallo aguas arriba desemboca en ese mismo 502: red
+    caída, credenciales equivocadas, firma rota, DNS, proveedor caído. **Medido:** con
+    `buildUploadSignature` rota a propósito, el caso 2 **siguió verde**.
+    **Escenario de fallo concreto:** el caso 2 no prueba ni siquiera que se haya contactado al proveedor, así
+    que **no guarda nada del rechazo de contenido de la deuda 58** — esa medición fue manual. Y como guardián
+    de regresión sólo cubre el contrato del endpoint (*algo falló arriba → 502 con este mensaje y sin `url`*),
+    que **ya está cubierto** sin gastar red en `src/app/api/uploads/uploads-routes.test.ts:310`. Gasta una
+    llamada a la cuenta real a cambio de nada que no estuviera cubierto.
+    **El único caso sensible a la firma es el 1.**
+    **Arreglo (barato, para quien vuelva a tocar el archivo):** asertar sobre el `reason` de
+    `CloudinaryUploadError` (`"rejected"`, no `"network"`) o sobre el mensaje del proveedor, para que deje de
+    ser un embudo. En la misma pasada: `expect(bytes).toBe(png.size)` en vez de `toBeGreaterThan(0)` — el
+    valor exacto es derivable y gratis (`png.size`), y convertiría en invariante ejecutable la frase del
+    informe que hoy sólo verificó un `console.log`. Es la **regla 5** aplicada.
+
+64. **Nadie mide todavía "cookie del navegador → `userId`" en una ruta privada.**
+    Levantada por el implementer del smoke de Cloudinary. Para construir la petición del smoke hubo que
+    doblar `cookies()` de `next/headers` con `vi.mock`, porque fuera del runtime de Next no existe. Es lo
+    correcto para ese test, pero deja al descubierto que **ese eslabón nunca se ejercita de verdad en
+    ninguna ruta privada**: la cookie que fabrica el login y la que lee `withSession` se verifican por
+    separado, nunca la una contra la otra a través del navegador.
+    **Escenario de fallo concreto:** un cambio en los atributos de la cookie (nombre, `path`, `sameSite`,
+    `secure`) puede dejar la suite entera en verde y aun así hacer que el navegador **no mande la cookie** en
+    la petición de subida — el usuario vería un 401 en un formulario recién logueado. Es de la familia de la
+    **regla 4**: lo que se sirve al navegador se mide contra un servidor real.
+    **Cuándo se cierra:** con el primer formulario que suba una foto de verdad desde el navegador (#22, #25 o
+    #28), que es justo cuando más caro sale descubrirlo.
+
+65. **Cada corrida del smoke deja una carpeta vacía en la cuenta real de Cloudinary.**
+    El teardown borra el **asset** (verificado: `resources` bajo `knit-crochet/users` = `[]`), pero no la
+    **carpeta** `knit-crochet/users/<uuid>` que la subida creó. Borrarlas exige la **Admin API**, que la app
+    de producción no usa ni necesita — meterla en el código sólo para limpiar tests sería peor.
+    **Escenario de fallo concreto:** es cosmético hoy, pero acumulativo: una carpeta huérfana por corrida de
+    smoke, para siempre, ensuciando la consola de Cloudinary de la persona que la mire. **No** es la deuda
+    **61**, que es del producto (imágenes reemplazadas que quedan huérfanas); ésta es del arnés de pruebas.
+    **Estado:** las dos carpetas que dejaron el implementer y el reviewer **ya están borradas** por el líder
+    con la Admin API vía `curl` (`{"deleted":[...]}`, y `knit-crochet/users` quedó en `total_count 0`).
+    **Arreglo:** o se acepta y se limpia a mano de vez en cuando (lo hecho hoy), o el teardown llama a la
+    Admin API con las mismas credenciales, sólo desde el test y nunca desde `src/` de producción.
+
+---
+
+## Nuevas de la feature #16 `dashboard_comparison_3metrics` (2026-08-05)
+
+> Las 66-70 las levantó el implementer y **el reviewer las suscribe las cinco**. La **71** la levantó el
+> reviewer y el implementer **no** la había visto.
+
+66. **La comparativa de `yarnMeters` es lifetime y no se mueve con el filtro, pero el payload no lo dice.**
+    Un consumidor recibe `comparison.yarnMeters` dentro de una respuesta que **sí** trae `year`/`type`
+    aplicados a las otras dos métricas, y **nada en el dato** marca que ésa no se filtra.
+    **Escenario de fallo concreto:** el usuario cambia el año en el Dashboard, ve **moverse dos comparativas
+    y quedarse una**, y no hay nada que se lo explique. Parece un bug y no lo es. Está en el PRD (§11.2) y
+    desde hoy también en un test (`metrics-service.test.ts`, el que asserta que metros no se mueve), pero
+    **no en el dato**.
+    **Arreglo:** una nota en la UI de #19, o antes marcando la entrada en el payload.
+    **⚠️ El reviewer pide cerrarla ANTES de escribir #19, no durante.**
+
+67. **El guardrail de no-hardcode lee texto plano y no distingue comentario de código.**
+    Ya provocó un rojo **legítimo pero incómodo** durante la implementación: un docstring que citaba la cifra
+    del puente de unidades disparó el guardrail. Daría un falso positivo si alguna semilla llegara a valer un
+    número que aparece de forma natural en el código (hoy ninguna vale `0` ni `1`, que son los únicos dígitos
+    del servicio).
+    **Arreglo:** parsear, o —más barato— escanear sólo las líneas que no empiezan por `*` o `//`.
+    Familia de la **40** y la **43** (escaneos de fuente). **No confundir con la 71**, que es otra cosa.
+
+68. **Nada obliga POR TIPOS a que una métrica nueva traiga su comparativa.**
+    `MetricComparisons` declara sus tres claves a mano. Si mañana `DashboardMetrics` gana una cuarta métrica,
+    **el compilador no dirá nada** y la UI recibirá un mapa incompleto.
+    **Escenario de fallo concreto:** el test del endpoint asserta las tres claves, así que caería en rojo —
+    pero **por un test, no por el tipo**, que es la red más débil y la que se descubre más tarde.
+    **Arreglo:** derivar las claves de un único origen (una constante de claves de métrica, o
+    `Record<MetricKey, Comparison>`).
+
+69. **`times` puede ser menor que 1 y nadie ha decidido cómo se lee.**
+    Con poco tejido la respuesta es del tipo *"0,41 colectivos"*, y con `times = 0` es *"0 partidos de
+    fútbol"*. **El backend está bien** —el cociente es correcto y el caso está testeado—; lo que falta es
+    decisión de producto: el PRD **no fija redondeo, ni plural, ni un texto alternativo para el caso vacío**,
+    y RFC-02 §4 sí define un estado vacío para la página.
+    **⚠️ El reviewer pide cerrarla ANTES de escribir #19**, junto con la 66. Lo va a chocar esa slice.
+
+70. **`pickComparison` ordena la lista en cada llamada.**
+    Son 5-6 elementos y tres llamadas por request, así que **hoy es irrelevante y no se propone tocarlo**.
+    Pero las listas ya vienen ordenadas de config (hay un invariante que lo exige) y el `sort` defensivo se
+    repite en cada petición. Ficha de higiene, **prioridad baja**. Si se toca, el test *"does not depend on
+    the order in which the list is written"* es el que protege el cambio.
+
+71. **El guardrail de no-hardcode del dashboard es de LISTA FIJA: CUARTA aparición del patrón de las 40/43.**
+    La levantó **el reviewer**; el implementer no la había visto. `comparison-service.test.ts` declara
+    `SERVICE_FILES = ["./comparison.ts", "./metrics.ts"]`. Es un clon estructural de
+    `src/shared/ui/primitives/no-hardcode.test.ts` (lista fija + `readFileSync` por `import.meta.url` +
+    regex), que es **exactamente** lo que la **43** ficha como patrón recurrente y lo que la **40** propone
+    sustituir por un **barrido por recorrido de directorios**, como ya hace
+    `canonical-tailwind-classes.test.ts` "para que un archivo nuevo quede cubierto solo".
+    **Aquí es PEOR que en la 43:** allí la lista fija cubría el **100%** de los archivos existentes de su
+    clase; aquí **no cubre** `store.ts`, `index.ts` ni `testing/in-memory-store.ts`, que **ya existen** en la
+    misma capa de servicio.
+    **Escenario de fallo concreto:** #19 añade `src/features/dashboard/api/comparison-labels.ts` con las
+    etiquetas escritas a mano, o cuela una etiqueta en `store.ts`; el guardrail **no lo mira**, la aceptación
+    #2 de la ficha #16 queda incumplida en el código y los 577 tests siguen verdes.
+    **Hoy no hay nada abierto** (el reviewer verificó que ninguno de esos archivos guarda datos de
+    referencia), pero **la clase está sin proteger**.
+    **Arreglo:** recorrer `src/features/dashboard/**` en vez de nombrar dos archivos. **Se tapa junto con la
+    40 y la 43: es la misma medicina, y ésta es la cuarta vez que se paga.**

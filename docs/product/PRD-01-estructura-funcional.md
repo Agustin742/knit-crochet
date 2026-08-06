@@ -376,6 +376,47 @@ Filtros: **año** + **tipo**. Métrica conmutable:
 
 Ej: "Tejiste 700 m ≈ 2 Obeliscos 🗼". La lista es editable en config.
 
+### 8.1 Comparativas para las **tres** métricas (decidido 2026-08-05, feature #16)
+
+El texto de arriba sólo cubría metros. **RFC-02 §1** decide que las comparativas son **para las tres
+métricas**, así que esta sección extiende el contrato. Decisiones cerradas por el usuario, **no se reabren**:
+
+- **`comparison` pasa de objeto suelto a MAPA por métrica.** La clave `comparison` de §9 se conserva; cambia
+  su contenido: `comparison: { hours, projects, yarnMeters }`, una entrada por métrica.
+- **`referenceMeters` se renombra a `referenceValue`.** El nombre viejo estaba atado a metros y no sirve para
+  horas ni proyectos. Cada entrada es `{ label, referenceValue, times }`.
+- **Es un cambio de forma (breaking) y se hace AHORA a propósito:** hoy no lo consume nadie (`#19
+  dashboard_ui` está `pending`, no hay UI). Hacerlo después obliga a tocar backend y UI a la vez.
+- **`referenceValue` viaja en la MISMA unidad que su métrica**, para que `times` sea un cociente puro:
+  **segundos** para `hours` (que es la unidad almacenada, ver §9 y el docstring de `DashboardMetrics.hours`),
+  **unidades** para `projects`, **metros** para `yarnMeters`.
+- **Las listas de referencia de horas y proyectos** (semilla nueva; la de metros no cambia):
+
+| Horas | Valor |
+|---|---|
+| Un partido de fútbol | 1,5 h |
+| Un vuelo a Bariloche | 2,3 h |
+| El Señor de los Anillos (extendida) | 11,4 h |
+| Un vuelo a Madrid | 12,5 h |
+| Una semana laboral | 45 h |
+| Un mes de trabajo | 180 h |
+
+| Proyectos | Valor |
+|---|---|
+| Un par | 2 |
+| Un equipo de fútbol | 11 |
+| Una docena | 12 |
+| Un aula | 30 |
+| Un colectivo lleno | 60 |
+
+Las tres listas viven en `shared/config` como **listas fijas y editables**, igual que `YARN_COMPARISONS`.
+**Nunca hardcodeadas en el servicio.**
+
+> ⚠️ **Trampa de unidades, fichada aquí porque muerde en silencio:** la lista de horas se escribe **en horas**
+> porque es lo que lee un humano que la edite, pero la métrica `hours` está **en segundos**. La conversión va
+> por una constante nombrada, nunca por un `3600` suelto, y tiene que haber un test que distinga las dos
+> unidades — un cruce aquí da un `times` equivocado por un factor de 3600 **sin romper ningún tipo**.
+
 ---
 
 ## 9. Endpoints (BFF · Route Handlers)
@@ -418,6 +459,8 @@ Todos requieren JWT válido (salvo `register`/`login`) y hacen scoping por `user
 
 ### Dashboard
 - `GET /api/dashboard/metrics` — `?year=&type=` → { hours, projects, yarnMeters, comparison }
+  donde `comparison` es un **mapa por métrica** `{ hours, projects, yarnMeters }` y cada entrada es
+  `{ label, referenceValue, times }` (ver **§8.1**, feature #16).
 
 ### Calculators (calculadoras)
 - Sin endpoints: lógica pura en `features/calculators`, se ejecuta en cliente (resultados efímeros).

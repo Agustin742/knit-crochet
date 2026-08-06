@@ -10,12 +10,29 @@ export type MetricsFilter = {
   type?: CraftType;
 };
 
-/** Comparativa graciosa elegida para `yarnMeters` (PRD §8). */
+/**
+ * Comparativa graciosa elegida para **una** métrica (PRD §8.1).
+ *
+ * `referenceValue` viaja en la MISMA unidad que la métrica que compara
+ * (segundos para `hours`, unidades para `projects`, metros para `yarnMeters`),
+ * de forma que `times` es un cociente puro y adimensional.
+ */
 export type Comparison = {
   label: string;
-  referenceMeters: number;
-  /** `yarnMeters / referenceMeters`. `0` cuando no se ha tejido nada. */
+  referenceValue: number;
+  /** `métrica / referenceValue`. `0` cuando la métrica vale 0. */
   times: number;
+};
+
+/**
+ * Una comparativa por métrica (PRD §8.1). Las claves son exactamente las de las
+ * métricas de `DashboardMetrics`, para que la UI pueda pedir la comparativa de
+ * la métrica que esté mostrando.
+ */
+export type MetricComparisons = {
+  hours: Comparison;
+  projects: Comparison;
+  yarnMeters: Comparison;
 };
 
 export type DashboardMetrics = {
@@ -29,5 +46,6 @@ export type DashboardMetrics = {
   projects: number;
   /** Σ (`usedQuantity` × `length`) en metros. Agregado lifetime. */
   yarnMeters: number;
-  comparison: Comparison;
+  /** Mapa por métrica, no una comparativa suelta (PRD §8.1, feature #16). */
+  comparison: MetricComparisons;
 };

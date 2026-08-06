@@ -1,10 +1,8 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-
 import { and, count, eq, inArray } from "drizzle-orm";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { resolveEnvValue } from "@/__smoke__/env";
 import { users } from "@/features/auth/schema";
 import { createAuthUserStore } from "@/features/auth/api/store";
 import { createProject } from "@/features/projects/api/create-project";
@@ -47,22 +45,6 @@ import type { CreateYarnInput } from "@/features/yarns/types";
  * (exporta `DATABASE_URL` desde `.env` si Vitest no lo inyecta).
  */
 
-/** Lee `DATABASE_URL` de `process.env` o, en su defecto, del `.env` del repo. */
-function resolveDatabaseUrl(): string {
-  if (process.env.DATABASE_URL) {
-    return process.env.DATABASE_URL;
-  }
-  const envPath = resolve(process.cwd(), ".env");
-  const raw = readFileSync(envPath, "utf8");
-  for (const line of raw.split(/\r?\n/)) {
-    const match = line.match(/^\s*DATABASE_URL\s*=\s*(.+)\s*$/);
-    if (match?.[1]) {
-      return match[1].trim().replace(/^["']|["']$/g, "");
-    }
-  }
-  throw new Error("DATABASE_URL no encontrada ni en env ni en .env");
-}
-
 const RUN_SMOKE = Boolean(process.env.SMOKE_NEON);
 const STAMP = Date.now();
 const TEST_EMAIL = `smoke+${STAMP}@knit.test`;
@@ -98,7 +80,7 @@ describe.skipIf(!RUN_SMOKE)("smoke: stores Drizzle contra Neon real", () => {
   let yarnStore: ReturnType<typeof createYarnStore>;
 
   beforeAll(async () => {
-    database = createDbClient(resolveDatabaseUrl());
+    database = createDbClient(resolveEnvValue("DATABASE_URL"));
     projectStore = createProjectStore(database);
     craftStore = createCraftSessionStore(database);
     patternStore = createPatternStore(database);

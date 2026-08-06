@@ -257,7 +257,7 @@
         "listas de referencia de las 3 métricas en shared/config (lista fija, no hardcode en el servicio)",
         "Tests: selección de comparativa por cada métrica y por año/tipo"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 17,

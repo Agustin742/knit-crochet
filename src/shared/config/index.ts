@@ -29,6 +29,38 @@ export const YARN_COMPARISONS = [
 ] as const;
 export type YarnComparison = (typeof YARN_COMPARISONS)[number];
 
+/**
+ * Segundos en una hora. La métrica `hours` del dashboard viaja en **segundos**
+ * (Σ `craft_sessions.duration`), pero `HOURS_COMPARISONS` se escribe **en
+ * horas** porque es lo que lee quien edite la lista: esta constante es el único
+ * puente entre las dos unidades (PRD §8.1). Nunca escribas `3600` suelto.
+ */
+export const SECONDS_PER_HOUR = 3600;
+
+// Comparativas graciosas sobre las horas tejidas (PRD §8.1). Ordenadas
+// ascendente por `hours`. ⚠️ El campo está EN HORAS; la métrica que se compara
+// contra ellas está en SEGUNDOS: la conversión va por `SECONDS_PER_HOUR`.
+export const HOURS_COMPARISONS = [
+  { label: "Un partido de fútbol", hours: 1.5 },
+  { label: "Un vuelo a Bariloche", hours: 2.3 },
+  { label: "El Señor de los Anillos (extendida)", hours: 11.4 },
+  { label: "Un vuelo a Madrid", hours: 12.5 },
+  { label: "Una semana laboral", hours: 45 },
+  { label: "Un mes de trabajo", hours: 180 },
+] as const;
+export type HoursComparison = (typeof HOURS_COMPARISONS)[number];
+
+// Comparativas graciosas sobre la cantidad de proyectos (PRD §8.1). El campo
+// está en unidades, la misma unidad que la métrica. Orden ascendente.
+export const PROJECTS_COMPARISONS = [
+  { label: "Un par", projects: 2 },
+  { label: "Un equipo de fútbol", projects: 11 },
+  { label: "Una docena", projects: 12 },
+  { label: "Un aula", projects: 30 },
+  { label: "Un colectivo lleno", projects: 60 },
+] as const;
+export type ProjectsComparison = (typeof PROJECTS_COMPARISONS)[number];
+
 export const COLOR_FAMILIES = [
   "red",
   "orange",

@@ -1,10 +1,8 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-
 import { count, like, sql } from "drizzle-orm";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { resolveEnvValue } from "@/__smoke__/env";
 import { POST as loginRoute } from "@/app/api/auth/login/route";
 import { POST as registerRoute } from "@/app/api/auth/register/route";
 import { users } from "@/features/auth/schema";
@@ -24,22 +22,6 @@ import { verifySessionToken } from "@/shared/lib/auth/jwt";
  *
  *   SMOKE_NEON=1 pnpm vitest run src/__smoke__/auth.smoke.test.ts
  */
-
-/** Lee una variable de `process.env` o, en su defecto, del `.env` del repo. */
-function resolveEnvValue(name: string): string {
-  const fromEnv = process.env[name];
-  if (fromEnv) {
-    return fromEnv;
-  }
-  const raw = readFileSync(resolve(process.cwd(), ".env"), "utf8");
-  for (const line of raw.split(/\r?\n/)) {
-    const match = line.match(new RegExp(`^\\s*${name}\\s*=\\s*(.+)\\s*$`));
-    if (match?.[1]) {
-      return match[1].trim().replace(/^["']|["']$/g, "");
-    }
-  }
-  throw new Error(`${name} no encontrada ni en env ni en .env`);
-}
 
 const RUN_SMOKE = Boolean(process.env.SMOKE_NEON);
 const STAMP = Date.now();

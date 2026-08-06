@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  type ComparisonReference,
+  HOURS_REFERENCES,
+  PROJECTS_REFERENCES,
+  YARN_METERS_REFERENCES,
+} from "@/features/dashboard/api/comparison";
 import type { DashboardStore } from "@/features/dashboard/api/store";
 import {
   createInMemoryDashboardStore,
@@ -44,6 +50,23 @@ function getRequest(query = ""): Request {
   return new Request(`${BASE_URL}${query}`);
 }
 
+/**
+ * Referencia MENOR de una lista, derivada de `shared/config` (nunca escrita a
+ * mano). Alimentando cada métrica con el valor exacto de su referencia menor,
+ * la comparativa esperada es esa misma referencia con `times = 1`, sin tener que
+ * reimplementar el criterio de selección aquí.
+ */
+function smallest(
+  references: readonly ComparisonReference[],
+): ComparisonReference {
+  const sorted = [...references].sort((a, b) => a.value - b.value);
+  const reference = sorted[0];
+  if (!reference) {
+    throw new Error("La lista de referencias no puede estar vacía.");
+  }
+  return reference;
+}
+
 async function signIn(userId: string): Promise<void> {
   cookieJar.set("kc_session", await signSessionToken({ userId }));
 }
@@ -69,30 +92,57 @@ describe("api/dashboard/metrics route handler", () => {
   });
 
   it("returns the metrics contract for the requested year and type", async () => {
-    store.projects.push({
-      id: "p1",
-      userId: "user-1",
-      type: "knitting",
-      startDate: new Date(2026, 5, 1),
-      endDate: null,
-    });
+    const hoursReference = smallest(HOURS_REFERENCES);
+    const projectsReference = smallest(PROJECTS_REFERENCES);
+    const yarnReference = smallest(YARN_METERS_REFERENCES);
+
+    for (let index = 0; index < projectsReference.value; index += 1) {
+      store.projects.push({
+        id: `p${index}`,
+        userId: "user-1",
+        type: "knitting",
+        startDate: new Date(2026, 5, 1),
+        endDate: null,
+      });
+    }
     store.sessions.push({
       userId: "user-1",
-      projectId: "p1",
+      projectId: "p0",
       start: new Date(2026, 5, 2),
-      duration: 3600,
+      // Segundos: la métrica `hours` es Σ duration (PRD §8.1).
+      duration: hoursReference.value,
     });
-    store.yarns.push({ userId: "user-1", usedQuantity: 2, length: 350 });
+    store.yarns.push({
+      userId: "user-1",
+      usedQuantity: 1,
+      length: yarnReference.value,
+    });
 
     const response = await metricsRoute(getRequest("?year=2026&type=knitting"));
     const body = (await response.json()) as DashboardMetrics;
 
     expect(response.status).toBe(200);
-    expect(body.hours).toBe(3600);
-    expect(body.projects).toBe(1);
-    expect(body.yarnMeters).toBe(700);
-    expect(body.comparison.label).toBe("La Torre Eiffel");
-    expect(body.comparison.times).toBeCloseTo(700 / 330);
+    expect(body.hours).toBe(hoursReference.value);
+    expect(body.projects).toBe(projectsReference.value);
+    expect(body.yarnMeters).toBe(yarnReference.value);
+    // Aceptación #1: `comparison` trae una entrada por métrica.
+    expect(body.comparison).toEqual({
+      hours: {
+        label: hoursReference.label,
+        referenceValue: hoursReference.value,
+        times: 1,
+      },
+      projects: {
+        label: projectsReference.label,
+        referenceValue: projectsReference.value,
+        times: 1,
+      },
+      yarnMeters: {
+        label: yarnReference.label,
+        referenceValue: yarnReference.value,
+        times: 1,
+      },
+    });
   });
 
   it("treats empty query params as no filter (defaults to current year)", async () => {

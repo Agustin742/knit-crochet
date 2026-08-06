@@ -1,4 +1,4 @@
-import { pickComparison } from "@/features/dashboard/api/comparison";
+import { pickMetricComparisons } from "@/features/dashboard/api/comparison";
 import {
   createDashboardStore,
   type DashboardStore,
@@ -20,8 +20,9 @@ export function yearRange(year: number): YearRange {
 /**
  * Arma las métricas del dashboard scopeadas por `userId`. Feature de solo
  * lectura: no muta nada. Si no llega `year`, usa el año actual del servidor.
- * `yarnMeters` es lifetime (ignora `year`/`type`, PRD §11.2); `comparison` se
- * deriva de él.
+ * `yarnMeters` es lifetime (ignora `year`/`type`, PRD §11.2), así que su
+ * comparativa tampoco se mueve con los filtros; las de `hours` y `projects` sí.
+ * `comparison` es un mapa con una entrada por métrica (PRD §8.1).
  */
 export async function getDashboardMetrics(
   userId: string,
@@ -41,6 +42,6 @@ export async function getDashboardMetrics(
     hours,
     projects,
     yarnMeters,
-    comparison: pickComparison(yarnMeters),
+    comparison: pickMetricComparisons({ hours, projects, yarnMeters }),
   };
 }

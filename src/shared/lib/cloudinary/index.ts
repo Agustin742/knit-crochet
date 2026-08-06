@@ -6,6 +6,7 @@ export {
 } from "@/shared/lib/cloudinary/config";
 export {
   buildUploadSignature,
+  CLOUDINARY_API_BASE,
   CloudinaryUploadError,
   uploadImage,
   type CloudinaryUploadFailureReason,

@@ -1,6 +1,7 @@
 import { getCloudinaryConfig } from "@/shared/lib/cloudinary/config";
 
-const CLOUDINARY_API_BASE = "https://api.cloudinary.com/v1_1";
+/** Raíz de la API REST de Cloudinary; el nombre de la cuenta cuelga de aquí. */
+export const CLOUDINARY_API_BASE = "https://api.cloudinary.com/v1_1";
 
 export type CloudinaryUploadFailureReason =
   | "network"

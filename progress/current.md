@@ -3,23 +3,37 @@
 > Este archivo se vacía al cerrar cada sesión y se mueve a `history.md`.
 > Mientras trabajas, **mantenlo actualizado en tiempo real**, no al final.
 
-- **Feature en curso:** ninguna. Última cerrada: **#15 `uploads_image`**, volcada a `progress/history.md`.
-  Informe de cierre: `progress/informs/12.informe-uploads_image.md`.
-- **Agente:** leader → 1 implementer → 1 reviewer (**CAMBIOS REQUERIDOS**, 2 bloqueantes) → implementer
-  (corrección) → reviewer (**APROBADO**, 0 bloqueantes).
+- **Feature en curso:** ninguna. Siguiente pendiente por id = **#17 `projects_detail_yarns`**.
+- **Cerrado hoy, en este orden:**
+  1. **Deuda 59** — primera subida real a Cloudinary. **No es una feature.** leader → implementer → reviewer
+     (**APROBADO a la primera**, 0 bloqueantes). Informe:
+     `progress/informs/13.informe-deuda59-smoke_cloudinary.md`.
+  2. **#16 `dashboard_comparison_3metrics`** → **`done`**. leader (cierra 2 decisiones con el usuario y
+     escribe el **PRD §8.1**) → implementer → reviewer (**APROBADO a la primera**, 0 bloqueantes). Informe:
+     `progress/informs/14.informe-dashboard_comparison_3metrics.md`.
+- **Lo más valioso de #16 no fue el código, fue el método:** el test que protegía la conversión de unidades
+  **pasaba en falso** (derivaba de la lista ya convertida, así que se movía *con* el bug). Lo destapó la
+  **regla 3** al no verlo caer en rojo. El reviewer lo re-verificó por su cuenta en las dos direcciones del
+  error, **sin tocar el árbol de trabajo** (copia al scratchpad + alias de módulo en un config alternativo de
+  Vitest — técnica reutilizable para mutar sin ensuciar el repo).
+- Última feature cerrada antes de hoy: **#15 `uploads_image`**, ya en `progress/history.md`. Informe:
+  `progress/informs/12.informe-uploads_image.md`.
 
 ## Estado del proyecto
 
 - **Fase 1 (PRD-01, features 1-11):** completa (`done`).
-- **Fase 2 (UI, features 12-32):** en curso. **#12, #13, #14, #15, #31 y #32 `done`**; siguiente pendiente
-  por id = **#16 `dashboard_comparison_3metrics`**.
-- `bash ./init.sh` VERDE: **547 passed | 11 skipped** (52 archivos + 2 skipped, que son los dos smokes).
-  `pnpm build` OK. **Verificado por el leader ejecutándolo**, no sólo reportado.
-- **Git limpio al arrancar la sesión:** el trabajo de #8-#14, #31 y #32 **ya está commiteado** (`e60b71d
-  feat: logout button` incluye #32). La nota de "bastante trabajo sin commitear" que arrastraba este archivo
-  **estaba desactualizada y queda corregida**. Sin commitear hoy: todo lo de **#15**
-  (`src/features/uploads/`, `src/app/api/uploads/`, los dos archivos de `src/shared/lib/http*`), el PRD,
-  `feature_list.json`, `progress/` y este cierre.
+- **Fase 2 (UI, features 12-32):** en curso. **#12, #13, #14, #15, #16, #31 y #32 `done`**; siguiente
+  pendiente por id = **#17 `projects_detail_yarns`** (saldar la deuda 5: `GET /api/projects/:id` no devuelve
+  las lanas enlazadas).
+- `bash ./init.sh` VERDE: **577 passed | 13 skipped** (**53** archivos + 3 skipped, que son los tres smokes:
+  Neon, auth y —desde hoy— Cloudinary). `pnpm build` OK. **Verificado ejecutándolo**: el leader al arrancar
+  (547/11) y el reviewer al cerrar la deuda 59 (547/13) y #16 (577/13).
+- **Git: #15 ESTÁ COMMITEADO** en `83ab95a feat: add upload image`, y el árbol arrancó la sesión **limpio**.
+  La nota anterior que decía "todo #15 está sin commitear" **estaba desactualizada y queda corregida**
+  (lo corrigió el usuario; verificado por el leader con `git status` + `git log`). **Sin commitear hoy:** la
+  **deuda 59** (`src/__smoke__/`, 2 líneas de `src/shared/lib/cloudinary/`) y **#16** (`src/shared/config/`,
+  `src/features/dashboard/`), más el PRD, `feature_list.json` y `progress/`. Son **dos commits coherentes**,
+  no uno.
 - **La app ya acepta fotos**, aunque todavía no haya formulario que las mande: la puerta existe y está
   probada.
 
@@ -41,6 +55,12 @@
   RFC-01), rige en **todos** los anchos y **no toca `BottomNav`**. `--bp-archive` sigue en 1180px.
 - **Para el envío de los formularios de auth se compró el arreglo mínimo** (declarar POST), no la Server
   Action. El resto es la **deuda 39**.
+- **Comparativas del Dashboard para las 3 métricas (PRD §8.1, feature #16):** `comparison` es un **mapa**
+  `{ hours, projects, yarnMeters }` y cada entrada es `{ label, referenceValue, times }`. **`referenceMeters`
+  ya no existe** — el cambio de forma es **breaking a propósito**, y se hizo ahora porque **no lo consume
+  nadie** (#19 está `pending`). `referenceValue` viaja en la **unidad de su métrica** (segundos / unidades /
+  metros) para que `times` sea un cociente puro. Las **semillas de horas y proyectos** están en la tabla del
+  PRD §8.1; las tres listas viven en `src/shared/config`.
 
 ## ⚠️ REGLAS vigentes para todos los agentes
 
@@ -80,20 +100,33 @@ externo (plataforma, proveedor, navegador), atalo con un test que lo exprese**, 
 **6. Los subagentes `Explore` son de SOLO LECTURA: no pueden escribir su informe.** Para la regla
 anti-teléfono-descompuesto de `CLAUDE.md`, usá **`general-purpose`**, o asumí el volcado desde el leader.
 
-## PRÓXIMA — feature #16 `dashboard_comparison_3metrics`
+## PRÓXIMA — feature #17 `projects_detail_yarns`
 
-Extender `comparison` de `GET /api/dashboard/metrics` para dar comparativas graciosas de las **3** métricas
-(horas, proyectos, metros), no sólo metros: hoy `pickComparison` sólo cubre `yarnMeters`. Las listas de
-referencia de las tres van en `shared/config` (lista fija, **no hardcode en el servicio**). Tests: selección
-de comparativa por cada métrica y por año/tipo. Fuente: RFC-02 §3/§8 + PRD §8. Es una slice de **backend**:
-no aplica el checklist visual del SDD §9.
+Saldar la **deuda 5**: hoy `GET /api/projects/:id` **no devuelve las lanas enlazadas** al proyecto. El
+detalle (tab Lanas) las necesita con datos suficientes para el swatch: color, marca, tipo, `colorName`.
+Scoping por `userId`; **sin romper el contrato existente** del resto del payload. Tests: `:id` con lanas las
+devuelve, sin lanas devuelve lista vacía, acceso ajeno 404/401. Fuente: RFC-03 §3/§8 + PRD §9(Projects).
+Es una slice de **backend**: no aplica el checklist visual del SDD §9.
 
-Después de #16 arranca el bloque de páginas. **Ojo con #19 `dashboard_ui`**, que trae tres decisiones de
-scope que hay que cerrar **antes** de empezar (están en su ficha): la protección de `/` (deuda 1/13), si el
-hero del Dashboard reemplaza el ovillo de fondo o monta una segunda instancia, y la a11y del modo
-interactivo.
+Después van **#18** (`patterns_used_by`, backend) y ahí arranca el bloque de páginas.
 
-## Notas para consumidores del design system (acumulado #12-#15, #31, #32)
+**⚠️ ANTES de #19 `dashboard_ui` hay que cerrar CINCO decisiones, no tres.** Las tres viejas de su ficha —la
+protección de `/` (deudas 1/13), si el hero del Dashboard reemplaza el ovillo de fondo o monta una segunda
+instancia, y la a11y del modo interactivo— **más dos que dejó #16 y que esa slice va a chocar de frente**:
+la **deuda 66** (el payload no marca que la comparativa de metros es lifetime: el usuario cambiará el año,
+verá moverse dos comparativas y quedarse una, y va a parecer un bug) y la **deuda 69** (nadie decidió cómo se
+lee un `times` menor que 1: *"0,41 colectivos"*, y con cero *"0 partidos de fútbol"* — falta redondeo, plural
+y texto del caso vacío). **Las pide el reviewer de #16 y el leader lo suscribe: cerralas antes, no durante.**
+
+## Notas para consumidores del design system (acumulado #12-#16, #31, #32)
+
+- **⚠️ CONTRATO DE `GET /api/dashboard/metrics` (#16) — leelo antes de escribir #19.** `comparison` **ya no
+  es un objeto suelto**: es un **mapa** `{ hours, projects, yarnMeters }` y cada entrada es
+  `{ label, referenceValue, times }`. **`referenceMeters` no existe.** `referenceValue` viaja en la **unidad
+  de su métrica**: **segundos** para `hours` (¡no horas!), unidades para `projects`, metros para
+  `yarnMeters`. `times` es un **cociente puro** y **puede ser menor que 1, o exactamente 0** — cómo se
+  redondea y se pluraliza **no está decidido** (deuda 69). Y `comparison.yarnMeters` **no se mueve** con
+  `year`/`type`, porque metros es lifetime (deuda 66).
 
 - **Layout listo:** `src/shared/ui/layout/` (AppShell, **AccountBand**, ArchiveNav, BottomNav) — presentación
   pura. `AppShell` acepta `user`/`onLogout` y **son reales**. `ArchiveNav` **ya no las declara**.
@@ -115,6 +148,11 @@ interactivo.
     JWT. Nada del body puede influir en la ruta de destino.
   - El mensaje de error del tamaño **deriva** de la constante, así que la cifra que ve el usuario no puede
     desincronizarse del tope real.
+  - **Ya está MEDIDO contra la cuenta real de Cloudinary** (deuda 59 saldada, 2026-08-05): la firma se acepta
+    y la URL devuelta sirve la imagen. Antes esto era una suposición apoyada en `fetch` mockeado. Para
+    reproducirlo: `SMOKE_CLOUDINARY=1 pnpm vitest run src/__smoke__/cloudinary.smoke.test.ts`. **Lo que
+    sigue SIN medir es tu mitad:** que la cookie del navegador llegue al endpoint en una petición real
+    (deuda **64**) — el primer formulario que cablee la foto es quien lo va a descubrir.
 - **Piezas de auth reutilizables** (`src/features/auth/ui/`): `AuthPanel`, `AuthFormError` (**es el `Alert`
   que el SDD §6 lista como pendiente**; candidato a promover a `shared/ui` con un segundo consumidor),
   `focus-first-invalid.ts`, `next-path.ts` (**guarda de seguridad: todo redirect construido desde un valor de
@@ -144,27 +182,48 @@ interactivo.
 
 ## Deuda técnica acumulada
 
-> Vive en **`progress/deudas.md`** — libro mayor, **no se vacía nunca**. Hoy: **62 fichas**; saldadas y
-> tachadas 1, 2, 4, 8, 13, 17, 19, 21, 29, 30, 32, 36, 37, 38, 46 y —por **#15**— la **3** y la **55**.
-> La **45** está **recalificada** (de deuda de datos a deuda de presentación), no saldada.
-> Nuevas de #15: **55** (nace tachada), **56**, **57**, **58**, **59**, **60**, **61** y **62**.
+> Vive en **`progress/deudas.md`** — libro mayor, **no se vacía nunca**. Hoy: **71 fichas**; saldadas y
+> tachadas 1, 2, 4, 8, 13, 17, 19, 21, 29, 30, 32, 36, 37, 38, 46, la **3** y la **55** (por #15) y —hoy— la
+> **59**. La **45** está **recalificada** (de deuda de datos a deuda de presentación), no saldada.
+> Nuevas del saldo de la 59: **63**, **64** y **65**. Nuevas de **#16**: **66-71**.
 >
-> **La más viva de las nuevas es la 59:** nadie ha subido todavía un archivo a una cuenta **real** de
-> Cloudinary — todo está contra `fetch` mockeado. Es la **regla 4**, y es la hermana de la **deuda 6**, que
-> se saldó exactamente así contra Neon y **destapó un bug de producción**. Se cierra con #22/#25/#28, o antes
-> con un `curl` manual con cookie de sesión.
+> **De #16, las dos que hay que cerrar ANTES de #19** (lo pide el reviewer y el leader lo suscribe): la
+> **66** (el payload no marca que la comparativa de metros es lifetime → el usuario verá moverse dos
+> comparativas y quedarse una, y parecerá un bug) y la **69** (`times` menor que 1 sin redondeo, plural ni
+> texto del caso vacío decididos). Las otras: **67** (el guardrail no distingue comentario de código),
+> **68** (nada obliga *por tipos* a que una métrica nueva traiga su comparativa; hoy sólo lo protege un
+> test), **70** (higiene, prioridad baja).
+>
+> **La 71 merece leerse aparte: es la CUARTA aparición del mismo patrón.** El guardrail de no-hardcode del
+> dashboard funciona **nombrando dos archivos a mano**, como el de la **43**, que ya era la tercera de la
+> **40**. Y aquí es **peor**: allí la lista fija cubría el 100% de los archivos de su clase; aquí **no
+> cubre** `store.ts` ni `index.ts` ni el doble en memoria, que ya existen en la misma capa. Hoy no hay nada
+> abierto (verificado), pero un archivo nuevo se le escapa con los 577 tests en verde. **Misma medicina que
+> la 40 y la 43 — tapalas juntas.**
+>
+> **La 59 quedó SALDADA (2026-08-05) y sin sorpresa:** existe `src/__smoke__/cloudinary.smoke.test.ts`
+> (flag propio `SMOKE_CLOUDINARY`) que subió un PNG real a la cuenta real por la cadena completa → **201**,
+> y el `GET` de la URL devolvió la imagen. **La firma de `buildUploadSignature` funcionó a la primera y la
+> respuesta real sí trae `secure_url`.** A diferencia de su hermana la deuda 6, **no destapó ningún bug de
+> producción**. La **58** queda **matizada**: el rechazo real de Cloudinary se midió **una vez, a ojo**, no
+> lo guarda un `expect` — ver la **63**.
+>
+> **Las tres nuevas, en una línea cada una:** la **63** dice que el caso 2 de ese smoke es un embudo (pasa
+> aunque la petición nunca llegue a Cloudinary; **con la firma rota siguió verde**); la **64**, que nadie
+> mide todavía *cookie del navegador → `userId`* en una ruta privada (se cierra con #22/#25/#28); la **65**,
+> que cada corrida deja una carpeta vacía en la cuenta real (hoy limpiadas a mano, cuenta en `total_count 0`).
 >
 > **Tres que sólo se cierran con una pantalla delante, y conviene mirarlas juntas:** la **26** (la escalera
 > del archivero en las 6 rutas), la **51** (la banda con una sesión real) y la **53**. Hoy son imposibles:
 > sólo existe la ruta `/`.
 >
-> **Dos que conviene taparse juntas:** la **40** y la **43** piden la misma medicina (barrido por recorrido
-> de directorios sobre `src/**` en vez de lista fija). La **43** es la **tercera** aparición de ese patrón.
+> **TRES que conviene taparse juntas:** la **40**, la **43** y —desde #16— la **71** piden la misma medicina
+> (barrido por recorrido de directorios en vez de lista fija). La **71** es la **cuarta** aparición.
 >
 > **Dos caveats honestos de #31:** la deuda **39** pide verificarse **con el JavaScript desactivado**; y la
 > **41** está **razonada pero no medida con un lector de pantalla real**.
 >
-> **De #15 quedan vivas** además de la 59: **56** (el cuerpo se carga entero en memoria antes de mirar el
+> **De #15 quedan vivas**: **56** (el cuerpo se carga entero en memoria antes de mirar el
 > tamaño; muy mitigada por el corte de Vercel), **57** (rama redundante que ningún test distingue), **58**
 > (se confía en el `Content-Type` declarado, no se miran los *magic bytes*), **60** (el contrato de respuesta
 > no está donde lo vean sus tres consumidores — mitigado por el bloque de arriba), **61** (las imágenes
@@ -174,8 +233,10 @@ interactivo.
 
 ## Pendiente operativo (no bloquea)
 
-- **Todo #15 está sin commitear**, junto con el PRD, `feature_list.json` y `progress/`. El repo arrancó la
-  sesión limpio, así que **esto es un único commit coherente**: la feature completa más su documentación.
+- **#15 ya está commiteado** (`83ab95a`). Lo único sin commitear es el saldo de la **deuda 59**:
+  `src/__smoke__/cloudinary.smoke.test.ts`, `src/__smoke__/env.ts`, las 2 líneas de
+  `src/shared/lib/cloudinary/`, los 2 smokes de Neon refactorizados y `progress/`. Es **un único commit
+  coherente**.
 - El destrackeo de `tsconfig.tsbuildinfo` dejó una **eliminación preparada en el índice** de git: entra en el
   próximo commit. El archivo sigue en disco.
 - **`next-env.d.ts` aparece modificado y NO es trabajo de nadie:** lo regenera `pnpm build` (reescribe su
