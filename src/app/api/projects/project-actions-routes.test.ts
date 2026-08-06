@@ -4,6 +4,7 @@ import type { ProjectStore } from "@/features/projects/api/store";
 import {
   createInMemoryProjectStore,
   type InMemoryProjectStore,
+  type InMemoryYarnRow,
 } from "@/features/projects/api/testing/in-memory-store";
 import type { ProjectRecord } from "@/features/projects/types";
 import { signSessionToken } from "@/shared/lib/auth/jwt";
@@ -51,6 +52,18 @@ const { DELETE: unlinkYarnRoute } = await import(
 const BASE_URL = "https://test.local/api/projects";
 const YARN_ID = "22222222-2222-4222-8222-222222222222";
 const OTHER_YARN_ID = "33333333-3333-4333-8333-333333333333";
+
+/** El enlace sólo mira id y dueño; los campos del swatch los fija el detalle. */
+function yarnRow(id: string, userId: string): InMemoryYarnRow {
+  return {
+    id,
+    userId,
+    colorName: "Azul Profundo",
+    colorFamily: "blue",
+    brandName: "Malabrigo",
+    typeName: "Rios",
+  };
+}
 
 function plainRequest(): Request {
   return new Request(BASE_URL);
@@ -120,8 +133,8 @@ describe("api/projects action route handlers", () => {
     cookieJar.clear();
     vi.stubEnv("JWT_SECRET", SECRET);
     await signIn("user-1");
-    store.yarns.push({ id: YARN_ID, userId: "user-1" });
-    store.yarns.push({ id: OTHER_YARN_ID, userId: "user-2" });
+    store.yarns.push(yarnRow(YARN_ID, "user-1"));
+    store.yarns.push(yarnRow(OTHER_YARN_ID, "user-2"));
   });
 
   afterEach(() => {

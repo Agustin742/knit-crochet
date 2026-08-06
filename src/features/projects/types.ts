@@ -1,9 +1,29 @@
 import type { projects, projectYarns } from "@/features/projects/schema";
-import type { CraftType, ProjectStatus } from "@/shared/config";
+import type { ColorFamily, CraftType, ProjectStatus } from "@/shared/config";
 
 export type ProjectRecord = typeof projects.$inferSelect;
 export type NewProjectRecord = typeof projects.$inferInsert;
 export type ProjectYarnRecord = typeof projectYarns.$inferSelect;
+
+/**
+ * Lana enlazada a un proyecto, aplanada para el tab Lanas (RFC-03 §2): el
+ * swatch se pinta con `colorFamily` y la etiqueta es "marca·tipo·colorName".
+ * Exactamente cinco campos (PRD §9.1): `brandName`/`typeName` no están en la
+ * fila de `yarns` (son FKs), así que salen de un JOIN.
+ */
+export type LinkedYarn = {
+  id: string;
+  colorName: string;
+  colorFamily: ColorFamily;
+  brandName: string;
+  typeName: string;
+};
+
+/** Payload de `GET /api/projects/:id`: `project` intacto + clave hermana. */
+export type ProjectDetail = {
+  project: ProjectRecord;
+  yarns: LinkedYarn[];
+};
 
 /** Campos que el cliente puede enviar. `progress` NUNCA entra: se calcula. */
 export type CreateProjectInput = {

@@ -4,8 +4,9 @@ import type { ProjectStore } from "@/features/projects/api/store";
 import {
   createInMemoryProjectStore,
   type InMemoryProjectStore,
+  type InMemoryYarnRow,
 } from "@/features/projects/api/testing/in-memory-store";
-import type { ProjectRecord } from "@/features/projects/types";
+import type { LinkedYarn, ProjectRecord } from "@/features/projects/types";
 import { signSessionToken } from "@/shared/lib/auth/jwt";
 
 const SECRET = "test-secret-suficientemente-largo-para-hs256";
@@ -97,6 +98,25 @@ function seed(
   };
   store.rows.push(record);
   return record;
+}
+
+/** Siembra una lana del usuario y la enlaza al proyecto. */
+function seedLinkedYarn(
+  projectId: string,
+  overrides: Partial<InMemoryYarnRow> = {},
+): InMemoryYarnRow {
+  const yarn: InMemoryYarnRow = {
+    id: crypto.randomUUID(),
+    userId: "user-1",
+    colorName: "Azul Profundo",
+    colorFamily: "blue",
+    brandName: "Malabrigo",
+    typeName: "Rios",
+    ...overrides,
+  };
+  store.yarns.push(yarn);
+  store.links.push({ projectId, yarnId: yarn.id });
+  return yarn;
 }
 
 describe("api/projects route handlers", () => {
@@ -353,6 +373,61 @@ describe("api/projects route handlers", () => {
 
       expect(response.status).toBe(200);
       expect(body.project.id).toBe(project.id);
+    });
+
+    // ANCLA del contrato (regla 2a, PRD §9.1): el literal de estas dos listas
+    // ES el contrato. Un test que sólo comprobara que los cinco campos están
+    // seguiría en verde si sobrara `colorCode` o `image`.
+    it("serializes the payload with exactly {project, yarns} and five keys per yarn", async () => {
+      const project = seed("user-1");
+      seedLinkedYarn(project.id);
+
+      const response = await getProjectRoute(getRequest(), context(project.id));
+      const body = (await response.json()) as Record<string, unknown>;
+      const yarns = body.yarns as Record<string, unknown>[];
+
+      expect(Object.keys(body).sort()).toEqual(["project", "yarns"]);
+      expect(yarns).toHaveLength(1);
+      expect(Object.keys(yarns[0] ?? {}).sort()).toEqual([
+        "brandName",
+        "colorFamily",
+        "colorName",
+        "id",
+        "typeName",
+      ]);
+    });
+
+    it("returns the linked yarns without changing the project payload", async () => {
+      const project = seed("user-1", { name: "Bufanda" });
+      const yarn = seedLinkedYarn(project.id);
+
+      const response = await getProjectRoute(getRequest(), context(project.id));
+      const body = (await response.json()) as {
+        project: ProjectRecord;
+        yarns: LinkedYarn[];
+      };
+
+      expect(response.status).toBe(200);
+      // El `project` es exactamente la fila serializada, como antes de #17.
+      expect(body.project).toEqual(JSON.parse(JSON.stringify(project)));
+      expect(body.yarns).toEqual([
+        {
+          id: yarn.id,
+          colorName: yarn.colorName,
+          colorFamily: yarn.colorFamily,
+          brandName: yarn.brandName,
+          typeName: yarn.typeName,
+        },
+      ]);
+    });
+
+    it("returns an empty yarn list when the project has no linked yarns", async () => {
+      const project = seed("user-1");
+
+      const response = await getProjectRoute(getRequest(), context(project.id));
+      const body = (await response.json()) as { yarns: LinkedYarn[] };
+
+      expect(body.yarns).toEqual([]);
     });
 
     it("answers 404 for an unknown or malformed id", async () => {

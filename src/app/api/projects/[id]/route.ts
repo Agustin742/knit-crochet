@@ -35,8 +35,8 @@ export const GET = withSession(
     }
 
     try {
-      const project = await getProject(userId, id);
-      return NextResponse.json({ project }, { status: 200 });
+      const { project, yarns } = await getProject(userId, id);
+      return NextResponse.json({ project, yarns }, { status: 200 });
     } catch (error) {
       if (error instanceof ProjectNotFoundError) {
         return errorResponse(error.message, 404);

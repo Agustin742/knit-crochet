@@ -6,7 +6,12 @@ import { ProjectNotFoundError } from "@/features/projects/api/errors";
 import { getProject } from "@/features/projects/api/get-project";
 import { calculateProgress } from "@/features/projects/api/progress";
 import { updateProject } from "@/features/projects/api/update-project";
-import { createInMemoryProjectStore } from "@/features/projects/api/testing/in-memory-store";
+import {
+  createInMemoryProjectStore,
+  type InMemoryProjectStore,
+  type InMemoryYarnRow,
+} from "@/features/projects/api/testing/in-memory-store";
+import type { LinkedYarn } from "@/features/projects/types";
 
 describe("features/projects calculateProgress", () => {
   it("returns the rounded percentage of rounds over targetRounds", () => {
@@ -128,7 +133,7 @@ describe("features/projects services", () => {
     );
 
     await expect(getProject("user-1", created.id, store)).resolves.toMatchObject(
-      { id: created.id },
+      { project: { id: created.id } },
     );
     await expect(getProject("user-2", created.id, store)).rejects.toBeInstanceOf(
       ProjectNotFoundError,
@@ -177,5 +182,163 @@ describe("features/projects services", () => {
 
     expect(store.rows).toHaveLength(0);
     expect(store.links).toHaveLength(0);
+  });
+});
+
+describe("features/projects getProject linked yarns", () => {
+  /** La lana tal y como la espera el payload: la fila sin su dueño. */
+  function swatchOf(yarn: InMemoryYarnRow): LinkedYarn {
+    return {
+      id: yarn.id,
+      colorName: yarn.colorName,
+      colorFamily: yarn.colorFamily,
+      brandName: yarn.brandName,
+      typeName: yarn.typeName,
+    };
+  }
+
+  function yarnRow(
+    id: string,
+    overrides: Partial<InMemoryYarnRow> = {},
+  ): InMemoryYarnRow {
+    return {
+      id,
+      userId: "user-1",
+      colorName: "Azul Profundo",
+      colorFamily: "blue",
+      brandName: "Malabrigo",
+      typeName: "Rios",
+      ...overrides,
+    };
+  }
+
+  async function seedProject(store: InMemoryProjectStore): Promise<string> {
+    const project = await createProject(
+      "user-1",
+      { name: "Bufanda", type: "knitting" },
+      store,
+    );
+    return project.id;
+  }
+
+  /** Enlaza en el orden dado: el orden del resultado no puede depender de él. */
+  function linkAll(
+    store: InMemoryProjectStore,
+    projectId: string,
+    ...rows: InMemoryYarnRow[]
+  ): void {
+    for (const row of rows) {
+      store.links.push({ projectId, yarnId: row.id });
+    }
+  }
+
+  it("returns the linked yarns next to the project, not inside it", async () => {
+    const store = createInMemoryProjectStore();
+    const projectId = await seedProject(store);
+    const yarn = yarnRow("22222222-2222-4222-8222-222222222222");
+    store.yarns.push(yarn);
+    linkAll(store, projectId, yarn);
+
+    const detail = await getProject("user-1", projectId, store);
+
+    expect(detail.project).toEqual(store.rows[0]);
+    expect(detail.yarns).toEqual([swatchOf(yarn)]);
+  });
+
+  it("returns an empty list when the project has no linked yarns", async () => {
+    const store = createInMemoryProjectStore();
+    const projectId = await seedProject(store);
+    store.yarns.push(yarnRow("22222222-2222-4222-8222-222222222222"));
+
+    const detail = await getProject("user-1", projectId, store);
+
+    expect(detail.yarns).toEqual([]);
+  });
+
+  // Un enlace a una lana ajena no se puede crear por la API (link comprueba los
+  // dos extremos), pero `project_yarns` no tiene dueño: si la consulta filtrase
+  // sólo por `projectId`, cualquier fila así filtraría inventario de otro.
+  it("never leaks a yarn owned by another user through the link table", async () => {
+    const store = createInMemoryProjectStore();
+    const projectId = await seedProject(store);
+    const own = yarnRow("22222222-2222-4222-8222-222222222222");
+    const foreign = yarnRow("33333333-3333-4333-8333-333333333333", {
+      userId: "user-2",
+      brandName: "Marca Ajena",
+    });
+    store.yarns.push(own, foreign);
+    linkAll(store, projectId, foreign, own);
+
+    const detail = await getProject("user-1", projectId, store);
+
+    expect(detail.yarns).toEqual([swatchOf(own)]);
+  });
+
+  it("hides another user's project even when it has linked yarns", async () => {
+    const store = createInMemoryProjectStore();
+    const projectId = await seedProject(store);
+    const yarn = yarnRow("22222222-2222-4222-8222-222222222222");
+    store.yarns.push(yarn);
+    linkAll(store, projectId, yarn);
+
+    await expect(getProject("user-2", projectId, store)).rejects.toBeInstanceOf(
+      ProjectNotFoundError,
+    );
+  });
+
+  it("orders the yarns by brand, then type, then color name", async () => {
+    const store = createInMemoryProjectStore();
+    const projectId = await seedProject(store);
+    const alpacaDoble = yarnRow("11111111-1111-4111-8111-111111111111", {
+      brandName: "Alpaca Sur",
+      typeName: "Doble",
+      colorName: "Zafiro",
+    });
+    const alpacaFinaAzul = yarnRow("22222222-2222-4222-8222-222222222222", {
+      brandName: "Alpaca Sur",
+      typeName: "Fina",
+      colorName: "Azul",
+    });
+    const alpacaFinaRojo = yarnRow("33333333-3333-4333-8333-333333333333", {
+      brandName: "Alpaca Sur",
+      typeName: "Fina",
+      colorName: "Rojo",
+    });
+    const bergamota = yarnRow("44444444-4444-4444-8444-444444444444", {
+      brandName: "Bergamota",
+      typeName: "Aguja",
+      colorName: "Ambar",
+    });
+    store.yarns.push(bergamota, alpacaFinaRojo, alpacaDoble, alpacaFinaAzul);
+    linkAll(
+      store,
+      projectId,
+      bergamota,
+      alpacaFinaRojo,
+      alpacaDoble,
+      alpacaFinaAzul,
+    );
+
+    const detail = await getProject("user-1", projectId, store);
+
+    expect(detail.yarns).toEqual([
+      swatchOf(alpacaDoble),
+      swatchOf(alpacaFinaAzul),
+      swatchOf(alpacaFinaRojo),
+      swatchOf(bergamota),
+    ]);
+  });
+
+  it("breaks a tie between identical labels with the yarn id", async () => {
+    const store = createInMemoryProjectStore();
+    const projectId = await seedProject(store);
+    const first = yarnRow("11111111-1111-4111-8111-111111111111");
+    const second = yarnRow("22222222-2222-4222-8222-222222222222");
+    store.yarns.push(second, first);
+    linkAll(store, projectId, second, first);
+
+    const detail = await getProject("user-1", projectId, store);
+
+    expect(detail.yarns.map((yarn) => yarn.id)).toEqual([first.id, second.id]);
   });
 });

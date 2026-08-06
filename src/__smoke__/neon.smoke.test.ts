@@ -186,7 +186,25 @@ describe.skipIf(!RUN_SMOKE)("smoke: stores Drizzle contra Neon real", () => {
     await linkProjectYarn(userId, project.id, yarn.id, projectStore);
     await startSession(userId, project.id, craftStore, new Date());
 
+    // #17: el JOIN real (project_yarns → yarns → brands/yarn_types) devuelve
+    // exactamente las cinco claves del contrato, y todas como string (no hay
+    // agregado numeric que llegue como texto del driver, deuda 7).
+    const linked = await projectStore.listLinkedYarns(userId, project.id);
+    expect(linked).toEqual([
+      {
+        id: yarn.id,
+        colorName: yarn.colorName,
+        colorFamily: yarn.colorFamily,
+        brandName: brand.name,
+        typeName: type.name,
+      },
+    ]);
+    for (const value of Object.values(linked[0] ?? {})) {
+      expect(typeof value).toBe("string");
+    }
+
     await deleteProject(userId, project.id, projectStore);
+    expect(await projectStore.listLinkedYarns(userId, project.id)).toEqual([]);
 
     const [pyCount] = await database
       .select({ n: count() })

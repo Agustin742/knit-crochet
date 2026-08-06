@@ -432,12 +432,34 @@ Todos requieren JWT válido (salvo `register`/`login`) y hacen scoping por `user
 ### Projects (proyectos)
 - `GET    /api/projects` — filtros: `?active=&type=&needle=&yarnId=&from=&to=`
 - `POST   /api/projects`
-- `GET    /api/projects/:id`
+- `GET    /api/projects/:id` — responde `{ project, yarns }` con las lanas enlazadas (ver **§9.1**, feature #17)
 - `PATCH  /api/projects/:id` — recalcula `progress` si cambia `rounds`/`targetRounds`
 - `DELETE /api/projects/:id`
 - `POST   /api/projects/:id/rounds` — incrementa/decrementa contador ({ delta })
 - `PATCH  /api/projects/:id/steps` — marca pasos completados ({ completedSteps })
 - `POST   /api/projects/:id/yarns` / `DELETE /api/projects/:id/yarns/:yarnId` — enlace N:N
+
+#### 9.1 `GET /api/projects/:id` incluye las lanas enlazadas (decidido 2026-08-06, feature #17)
+
+Salda la **deuda técnica 5**. Decisiones cerradas por el usuario, **no se reabren**:
+
+- **Las lanas cuelgan de una clave HERMANA, no de dentro de `project`:** la respuesta pasa de `{ project }` a
+  **`{ project, yarns }`**. `project` queda **byte a byte como hoy** y sigue siendo exactamente un
+  `ProjectRecord` (la fila de la tabla), sin mentir en los tipos. Es además el estilo que ya usa la sub-ruta
+  hermana `POST /api/projects/:id/yarns`, que devuelve `{ yarnIds }` al mismo nivel. **Es puramente
+  aditivo:** nada de lo que hoy lee `project` se entera del cambio.
+- **Cada lana lleva exactamente cinco campos, planos:**
+  `{ id, colorName, colorFamily, brandName, typeName }`.
+  - `colorFamily` es lo que pinta el **swatch** de RFC-03 §2; `brandName`, `typeName` y `colorName` son el
+    texto *"marca·tipo·colorName"* de esa misma sección.
+  - **`id` va porque sin él la UI no puede desenlazar** (`DELETE /api/projects/:id/yarns/:yarnId`).
+  - **`brandName` y `typeName` no están en la fila de `yarns`**: son FKs a `brands` y `yarn_types`, así que
+    esto **exige un JOIN**. Es el motivo de que la deuda 5 siguiera abierta.
+  - Se descartó a propósito incluir `colorCode` e `image`: el RFC no los pide y añadirlos hoy sería alcance
+    inventado. **Añadir un campo después es aditivo y barato**; quitarlo, no.
+- **Sin lanas enlazadas, `yarns` es una lista vacía**, nunca `null` ni ausente.
+- **`GET /api/projects` (la lista) NO las lleva.** La ficha habla sólo de `:id`, y RFC-03 §1 fija que la card
+  es *"solo foto, nombre, progress, tiempo"*.
 
 ### Sessions (cronómetro)
 - `POST  /api/projects/:id/sessions/start` — crea sesión (`end = null`)

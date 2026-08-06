@@ -14,10 +14,23 @@ import { setCompletedSteps } from "@/features/projects/api/set-completed-steps";
 import {
   createInMemoryProjectStore,
   type InMemoryProjectStore,
+  type InMemoryYarnRow,
 } from "@/features/projects/api/testing/in-memory-store";
 
 const YARN_ID = "22222222-2222-4222-8222-222222222222";
 const OTHER_YARN_ID = "33333333-3333-4333-8333-333333333333";
+
+/** El enlace sólo mira id y dueño; los campos del swatch los fija el detalle. */
+function yarnRow(id: string, userId: string): InMemoryYarnRow {
+  return {
+    id,
+    userId,
+    colorName: "Azul Profundo",
+    colorFamily: "blue",
+    brandName: "Malabrigo",
+    typeName: "Rios",
+  };
+}
 
 async function seedProject(
   store: InMemoryProjectStore,
@@ -118,8 +131,8 @@ describe("features/projects setCompletedSteps", () => {
 describe("features/projects project yarns", () => {
   function storeWithYarn(): InMemoryProjectStore {
     const store = createInMemoryProjectStore();
-    store.yarns.push({ id: YARN_ID, userId: "user-1" });
-    store.yarns.push({ id: OTHER_YARN_ID, userId: "user-2" });
+    store.yarns.push(yarnRow(YARN_ID, "user-1"));
+    store.yarns.push(yarnRow(OTHER_YARN_ID, "user-2"));
     return store;
   }
 
@@ -176,7 +189,7 @@ describe("features/projects project yarns", () => {
   it("rejects a project owned by another user with ProjectNotFoundError", async () => {
     const store = storeWithYarn();
     const id = await seedProject(store);
-    store.yarns.push({ id: OTHER_YARN_ID, userId: "user-2" });
+    store.yarns.push(yarnRow(OTHER_YARN_ID, "user-2"));
 
     await expect(
       linkProjectYarn("user-2", id, OTHER_YARN_ID, store),

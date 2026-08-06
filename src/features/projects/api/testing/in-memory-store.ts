@@ -1,5 +1,6 @@
 import type { ProjectStore } from "@/features/projects/api/store";
 import type {
+  LinkedYarn,
   NewProjectRecord,
   ProjectFilters,
   ProjectPatch,
@@ -9,12 +10,20 @@ import type {
 import type { CraftSessionRecord } from "@/features/time-tracking/types";
 import { ACTIVE_PROJECT_STATUSES } from "@/shared/config";
 
+/**
+ * Lo que el doble ve de una lana: el dueño (scoping cruzado) más los campos
+ * que el JOIN real trae de `yarns`, `brands` y `yarn_types`. Son obligatorios a
+ * propósito: si el doble los inventase, un test podría pasar sobre datos que la
+ * consulta real nunca devuelve.
+ */
+export type InMemoryYarnRow = LinkedYarn & { userId: string };
+
 export type InMemoryProjectStore = ProjectStore & {
   rows: ProjectRecord[];
   /** Enlace N:N; lo alimenta la sub-tarea de yarns. */
   links: ProjectYarnRecord[];
-  /** Lanas visibles para el scoping cruzado (solo id + dueño). */
-  yarns: { id: string; userId: string }[];
+  /** Lanas visibles para el scoping cruzado y para el JOIN del detalle. */
+  yarns: InMemoryYarnRow[];
   /** Sesiones de tejido; las comparte el doble de time-tracking (FK del DELETE). */
   sessions: CraftSessionRecord[];
   /** Últimos filtros recibidos por `list` (para verificar el parseo del query). */
@@ -61,10 +70,21 @@ function cascadeDelete<T>(items: T[], matches: (item: T) => boolean): void {
  * `userId` y los filtros de `list`. No es código de producción; vive junto al
  * feature para que todos sus tests (y los de las rutas) compartan un solo doble.
  */
+/** Mismo criterio que el `ORDER BY` del store real (marca·tipo·colorName·id). */
+function compareLinkedYarns(a: LinkedYarn, b: LinkedYarn): number {
+  const keys = ["brandName", "typeName", "colorName", "id"] as const;
+  for (const key of keys) {
+    if (a[key] !== b[key]) {
+      return a[key] < b[key] ? -1 : 1;
+    }
+  }
+  return 0;
+}
+
 export function createInMemoryProjectStore(): InMemoryProjectStore {
   const rows: ProjectRecord[] = [];
   const links: ProjectYarnRecord[] = [];
-  const yarns: { id: string; userId: string }[] = [];
+  const yarns: InMemoryYarnRow[] = [];
   const sessions: CraftSessionRecord[] = [];
 
   const store: InMemoryProjectStore = {
@@ -177,6 +197,30 @@ export function createInMemoryProjectStore(): InMemoryProjectStore {
       return links
         .filter((link) => link.projectId === projectId)
         .map((link) => link.yarnId);
+    },
+
+    // Réplica del JOIN del store real: sólo lanas del usuario (el enlace no
+    // tiene dueño) y proyección de exactamente los cinco campos del contrato.
+    async listLinkedYarns(userId, projectId) {
+      return links
+        .filter((link) => link.projectId === projectId)
+        .flatMap((link) => {
+          const yarn = yarns.find(
+            (row) => row.id === link.yarnId && row.userId === userId,
+          );
+          return yarn
+            ? [
+                {
+                  id: yarn.id,
+                  colorName: yarn.colorName,
+                  colorFamily: yarn.colorFamily,
+                  brandName: yarn.brandName,
+                  typeName: yarn.typeName,
+                },
+              ]
+            : [];
+        })
+        .sort(compareLinkedYarns);
     },
 
     async linkYarn(projectId, yarnId) {

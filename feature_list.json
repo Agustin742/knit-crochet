@@ -271,7 +271,7 @@
         "scoping por userId; sin romper el contrato existente del resto del payload",
         "Tests: :id con lanas enlazadas las devuelve; sin lanas devuelve lista vacía; acceso ajeno 404/401"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 18,

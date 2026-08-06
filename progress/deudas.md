@@ -42,7 +42,19 @@
    `git ls-files | grep tsbuildinfo` ya no devuelve nada. **Ojo al commitear:** el `git rm --cached` deja
    una **eliminación preparada en el índice** (`D ` en `git status`), que es lo que registra el
    destrackeo. Informe: `progress/reports/impl_deudas_21_17_13_04.md`.
-5. **`GET /api/projects/:id` no devuelve las lanas enlazadas** (#6): **la salda #17 `projects_detail_yarns`**.
+5. ~~**`GET /api/projects/:id` no devuelve las lanas enlazadas**~~ (#6) → **SALDADA** el 2026-08-06 por
+   **#17 `projects_detail_yarns`**. El endpoint responde `{ project, yarns }` (clave **hermana**: `project`
+   queda byte a byte como estaba y sigue siendo un `ProjectRecord`), con cada lana en **cinco campos planos**
+   `{ id, colorName, colorFamily, brandName, typeName }` y `[]` cuando no hay enlaces. Contrato en **PRD
+   §9.1**. `brandName`/`typeName` **exigen un JOIN** (son FKs a `brands`/`yarn_types`): eso era lo que
+   mantenía la ficha abierta. **Una sola consulta**, sin N+1, con `WHERE` por `projectId` **y** por
+   `yarns.userId`, y `ORDER BY` **total** (marca → tipo → colorName → id como desempate).
+   Lo que eleva el saldo: no se confió en el doble en memoria. Se añadió
+   `src/features/projects/api/store.test.ts`, que asierta el **SQL realmente emitido** por Drizzle, así que
+   las cinco columnas, el `WHERE` del scoping, el `ORDER BY` y el tipo de JOIN quedan fijados **sobre
+   producción**, no sobre la réplica. Es la lección de la **deuda 6** aplicada por adelantado.
+   Pruebas: `progress/reports/impl_17_projects_detail_yarns.md` y `review_17_projects_detail_yarns.md`.
+   Informe: `progress/informs/15.informe-projects_detail_yarns.md`.
 6. **Orden de firma de Cloudinary** (#5): `localeCompare`; migrar a comparador binario si se firman más params.
 7. **`sum()`/agregados → `numeric` (string por el driver):** `Number(...)` en cualquier agregado nuevo.
 8. ~~**`frameloop="always"` en el ovillo** (#14)~~ → **SALDADA** por el port de D2-bis: con
@@ -1005,3 +1017,71 @@ la tercera es un hallazgo colateral, medido.
     referencia), pero **la clase está sin proteger**.
     **Arreglo:** recorrer `src/features/dashboard/**` en vez de nombrar dos archivos. **Se tapa junto con la
     40 y la 43: es la misma medicina, y ésta es la cuarta vez que se paga.**
+
+---
+
+## Nuevas de la feature #17 `projects_detail_yarns` (2026-08-06)
+
+> Las 72-77 las levantó el implementer y **el reviewer las suscribe las seis**, sin encontrar que ninguna
+> tapara un fallo que debiera haberse arreglado en la slice. La **78** y la **79** las levantó el reviewer.
+
+72. **El orden determinista se apoya en DOS criterios de comparación distintos, y nadie los ha enfrentado.**
+    Postgres ordena `text` con la **colación de la base** (en Neon, típicamente `en_US.UTF-8`: insensible a
+    mayúsculas y a signos), mientras el doble en memoria compara por ***code point*** (`"Z" < "a"`,
+    `"a" < "á"`). Con los datos de prueba (ASCII, iniciales distintas) los dos coinciden.
+    **Escenario de fallo concreto:** una marca *"álamo"* o *"ZARA"* sale en un orden en producción y en otro
+    en los tests. **El test verde no prueba que coincidan siempre**: lo que está indeterminado no es el orden
+    —que es determinista en las dos implementaciones— sino su **coincidencia** en un caso que hoy ningún test
+    ejerce.
+    **Arreglo:** medirlo con `SMOKE_NEON=1` sobre nombres con acento y mayúsculas mezcladas, o forzar
+    `COLLATE "C"` en el `ORDER BY`.
+
+73. **La corrida hermética NUNCA ejecuta el JOIN contra Postgres.** *(El reviewer la señala como la que más
+    merece atención del leader.)* `store.test.ts` asierta el SQL **emitido** (resuelve con cero filas) y el
+    doble asierta el **comportamiento**; que ese SQL **devuelva filas** sólo se comprueba en el smoke de
+    Neon, que está `skipped` por defecto.
+    **Escenario de fallo concreto:** un SQL sintácticamente perfecto puede fallar contra la DB real. **Es el
+    mismo patrón que destapó la deuda 6.** Mitigado hoy porque el smoke ya trae la aserción, pero **nadie la
+    ejecuta**. Hermana de la **59** y la **64**: la familia de la **regla 4**.
+
+74. **Dos formas distintas de "las lanas de un proyecto" en el mismo recurso.**
+    `GET /api/projects/:id` devuelve `yarns` (objetos de cinco campos) y
+    `POST`/`DELETE /api/projects/:id/yarns[/:yarnId]` devuelven `{ yarnIds }` (**sólo ids**).
+    **Escenario de fallo concreto:** la tab Lanas de #21 va a enlazar una lana y necesitar sus **nombres al
+    instante**. O re-fetchea el detalle entero en cada enlace, o mantiene **dos representaciones** en el
+    estado y las sincroniza a mano. **Decidirlo ANTES de #21, no durante.**
+
+75. **El doble en memoria APLANA los catálogos.** `InMemoryYarnRow` guarda `brandName`/`typeName` **copiados
+    en cada lana**, no tablas `brands`/`yarn_types`.
+    **Escenario de fallo concreto:** dos lanas de la misma marca pueden quedar con **nombres distintos** en
+    un test, y no hay forma de escribir un test tipo *"renombro la marca y las dos lanas cambian"*. El día
+    que el detalle necesite `brandId` (p. ej. para filtrar el selector) el doble se queda corto.
+
+76. **Asimetría de scoping DENTRO del mismo store.** `listLinkedYarns` recibe `userId` y lo aplica;
+    `listYarnIds(projectId)` **sigue sin dueño** y confía en que el servicio llamó antes a
+    `findById`/`findYarn`.
+    **Escenario de fallo concreto:** hoy es inofensivo (los dos llamadores lo hacen), pero es **exactamente
+    la asimetría que abre un agujero** cuando alguien reutiliza el método más barato sin saber que arrastra
+    esa precondición. **Arreglo:** unificar el criterio.
+
+77. **El *recording database* de `store.test.ts` depende de internos de Drizzle.** Intercepta `then` y usa
+    `toSQL()`, y asume que los métodos del query builder devuelven un objeto encadenable. Es la técnica que
+    hace posible testear el SQL real sin DB — y que es lo mejor de esta slice — pero **una versión mayor de
+    `drizzle-orm` puede romperla de forma poco legible**. Fichada para que quien vea ese fallo sepa que es
+    **infraestructura de test, no producción**.
+
+78. **El JOIN a `brands`/`yarn_types` no filtra por `userId`: el scoping de los catálogos es una invariante
+    de ESCRITURA, no un filtro de LECTURA.** La levantó el reviewer. **Hoy no es explotable, y lo verificó en
+    el código, no lo supuso:** `src/features/yarns/api/assert-yarn-refs.ts` obliga, en cada `create`/`update`
+    de lana, a que `brandId` sea una marca **del usuario** y `typeId` un tipo **de esa marca**. Así que
+    `brandName` y `typeName` sólo pueden salir del catálogo propio.
+    **Escenario de fallo concreto:** el día que alguien inserte una lana por otro camino que no pase por
+    `assert-yarn-refs.ts` (una migración, un seed, un endpoint nuevo), la lectura **no tiene red propia**.
+    **Arreglo: un `AND`.** `eq(brands.userId, userId)` en el `WHERE`. Cuesta una línea y hace la lectura
+    independiente de la invariante de escritura. **Defensa en profundidad.**
+
+79. **`PATCH /api/projects/:id` sigue respondiendo `{ project }` sin `yarns`.** La levantó el reviewer.
+    Es **correcto respecto al PRD** (§9.1 habla sólo del `GET`), así que no es un defecto de #17.
+    **Escenario de fallo concreto:** tras editar un proyecto, la UI se queda **sin las lanas** y tiene que
+    re-fetchear el detalle entero para recuperarlas. Emparenta con la **74**: son la misma pregunta vista
+    desde dos verbos. **Conviene decidirlas juntas y ANTES de #21.**

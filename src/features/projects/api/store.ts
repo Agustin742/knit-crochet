@@ -1,9 +1,21 @@
-import { and, desc, eq, exists, gte, inArray, lte, not, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  exists,
+  gte,
+  inArray,
+  lte,
+  not,
+  sql,
+} from "drizzle-orm";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 
 import { projects, projectYarns } from "@/features/projects/schema";
-import { yarns } from "@/features/yarns";
+import { brands, yarns, yarnTypes } from "@/features/yarns";
 import type {
+  LinkedYarn,
   NewProjectRecord,
   ProjectFilters,
   ProjectPatch,
@@ -31,6 +43,12 @@ export type ProjectStore = {
   /** Comprueba que la lana existe Y es del usuario (scoping cruzado). */
   findYarn(userId: string, yarnId: string): Promise<YarnRef | undefined>;
   listYarnIds(projectId: string): Promise<string[]>;
+  /**
+   * Lanas enlazadas con los datos del swatch (PRD §9.1). Filtra **también** por
+   * `yarns.userId`: `project_yarns` no tiene dueño, así que el scoping no puede
+   * depender sólo de que el servicio haya comprobado antes el proyecto.
+   */
+  listLinkedYarns(userId: string, projectId: string): Promise<LinkedYarn[]>;
   /** `false` si el enlace ya existía (PK compuesta): enlazar es idempotente. */
   linkYarn(projectId: string, yarnId: string): Promise<boolean>;
   /** `false` si no había enlace que borrar. */
@@ -142,6 +160,36 @@ export function createProjectStore(
         .from(projectYarns)
         .where(eq(projectYarns.projectId, projectId));
       return rows.map((row) => row.yarnId);
+    },
+
+    // Una sola consulta (nada de N+1): el enlace se une a la lana y a sus dos
+    // catálogos. Los tres JOIN son `inner` porque `yarn_id`, `brand_id` y
+    // `type_id` son FKs NOT NULL: no pueden dejar una lana enlazada fuera.
+    // El orden es total y sale del propio texto que pinta el tab Lanas
+    // ("marca·tipo·colorName"), con `id` de desempate porque ese trío no es
+    // único; sin él Postgres podría devolver dos lanas gemelas alternando.
+    async listLinkedYarns(userId, projectId) {
+      return database
+        .select({
+          id: yarns.id,
+          colorName: yarns.colorName,
+          colorFamily: yarns.colorFamily,
+          brandName: brands.name,
+          typeName: yarnTypes.name,
+        })
+        .from(projectYarns)
+        .innerJoin(yarns, eq(yarns.id, projectYarns.yarnId))
+        .innerJoin(brands, eq(brands.id, yarns.brandId))
+        .innerJoin(yarnTypes, eq(yarnTypes.id, yarns.typeId))
+        .where(
+          and(eq(projectYarns.projectId, projectId), eq(yarns.userId, userId)),
+        )
+        .orderBy(
+          asc(brands.name),
+          asc(yarnTypes.name),
+          asc(yarns.colorName),
+          asc(yarns.id),
+        );
     },
 
     async linkYarn(projectId, yarnId) {
