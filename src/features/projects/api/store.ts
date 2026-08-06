@@ -94,6 +94,12 @@ export function createProjectStore(
           ),
         );
       }
+      // PRD §9.2: `patternId` es una columna directa (FK 1→N), no un enlace
+      // N:N, así que basta un `eq` — nada de `exists` como `yarnId`. Y como
+      // `pattern_id` es nullable, `= $n` descarta solo los NULL en SQL.
+      if (filters.patternId !== undefined) {
+        conditions.push(eq(projects.patternId, filters.patternId));
+      }
       if (filters.from !== undefined) {
         conditions.push(gte(projects.startDate, filters.from));
       }

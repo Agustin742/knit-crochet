@@ -132,6 +132,15 @@ export function createInMemoryProjectStore(): InMemoryProjectStore {
           ) {
             return false;
           }
+          // Réplica del `eq(projects.pattern_id, …)` del store real: un
+          // proyecto sin patrón (`patternId === null`) nunca casa, igual que
+          // `NULL = $n` en Postgres.
+          if (
+            filters.patternId !== undefined &&
+            row.patternId !== filters.patternId
+          ) {
+            return false;
+          }
           if (filters.from !== undefined && row.startDate < filters.from) {
             return false;
           }

@@ -285,7 +285,7 @@
         "scoping por userId",
         "Tests: patrón usado en N proyectos los lista; patrón sin uso devuelve vacío"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 19,

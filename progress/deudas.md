@@ -1085,3 +1085,86 @@ la tercera es un hallazgo colateral, medido.
     **Escenario de fallo concreto:** tras editar un proyecto, la UI se queda **sin las lanas** y tiene que
     re-fetchear el detalle entero para recuperarlas. Emparenta con la **74**: son la misma pregunta vista
     desde dos verbos. **Conviene decidirlas juntas y ANTES de #21.**
+
+---
+
+## Nuevas de la feature #18 `patterns_used_by` (2026-08-06)
+
+> Las 80-83 las levantó el implementer y **el reviewer las suscribe las cuatro**, calificándolas de "las
+> correctas, bien argumentadas, con escenario de fallo y coste de arreglo". La **84** y la **85** las levantó
+> el reviewer.
+>
+> **⚠️ La 81 es la más valiosa del lote, y no por sí sola: por lo que #18 MIDIÓ.** Ver el recuadro de abajo.
+
+### 📌 Lo que #18 midió, y que da contexto a la 81
+
+Al borrar el filtro **de producción**, la suite entera quedó en **`2 failed | 600 passed | 13 skipped`**.
+Los **32 tests de ruta siguieron verdes**, y los otros 568 también. **Los únicos dos rojos fueron los de
+`store.test.ts`**, el archivo que asierta el **SQL realmente emitido** por Drizzle.
+
+**Por qué:** el doble en memoria **implementa el filtro por su cuenta**
+(`in-memory-store.ts:138-143`), así que sigue acotando aunque producción haya dejado de hacerlo. Es la
+**deuda 6 exacta, reproducida en vivo** — y esta vez medida, no argumentada. Confirmado de forma
+independiente por el reviewer. **No es un defecto de #18: es un defecto del método de testing**, y es el
+argumento más fuerte que tiene el proyecto para el patrón de `store.test.ts` que introdujo #17.
+
+80. **El filtro `?patternId=` no puede distinguir "sin uso" de "no existe" ni de "ajeno" — y la UI tampoco.**
+    Los tres casos responden `200` + `[]`.
+    **Es coherente A PROPÓSITO con `?yarnId=`** (verificado: el filtro de lanas tampoco consulta la tabla
+    `yarns`), y esa ambigüedad **es la mitad buena de la propiedad de seguridad**: es justo lo que impide que
+    el endpoint funcione como **oráculo de existencia** de patrones ajenos.
+    **Escenario de fallo concreto:** el drawer de patrón de RFC-05 §2 pinta "usado en". Si el patrón se borró
+    en otra pestaña, el drawer dirá *"no se usa en ningún proyecto"* en vez de *"ese patrón ya no existe"*. El
+    usuario lee **un dato falso, no un error**.
+    **Arreglo posible sin romper S1:** el servicio `listProjects` puede comprobar el patrón antes (projects
+    **sí** puede depender de patterns — es la dirección legal del DAG) y devolver `404`.
+    **Es una decisión de producto, no un bug:** decidirla cuando se implemente el drawer (**#26**).
+
+81. **El ancla de SQL emitido sólo cubre 2 de los 7 filtros de `list`, y los 3 que faltan son los MÁS
+    FRÁGILES.** *(La que más valor tiene del lote, según el reviewer, y hay que leerla junto al recuadro de
+    arriba.)* `store.test.ts` fija hoy el `WHERE` de `patternId` (y de rebote `type` y el scoping). **Siguen
+    sin ancla de SQL:** el `@>` de jsonb de `needle`, el `exists(...)` correlacionado de `yarnId`, y el rango
+    `gte`/`lte` de fechas.
+    **Escenario de fallo concreto:** son **justo los que el doble en memoria traduce peor** a JavaScript
+    —`Array.includes` **no es** `@>`; un `some()` **no es** un subquery correlacionado—, o sea los que más se
+    parecen a la deuda 6. Y acabamos de medir que, sin ancla de SQL, borrar un filtro de producción deja 600
+    tests en verde.
+    **Arreglo: ~30 líneas**, reutilizando el `recordListQuery` que esta slice **ya dejó escrito**. Es barato
+    y el andamio está puesto.
+
+82. **La deuda 73 queda ADELANTADA sólo para `list` con `patternId`, y sigue abierta para el resto.**
+    El smoke de Neon ahora ejecuta el filtro nuevo **contra Postgres real** (filas de verdad, no SQL bien
+    formado) e incluye el scoping cruzado. Pero **sigue `skipped` por defecto** y **el resto de `list` nunca
+    se ejecuta contra el motor**.
+    **Se ficha aparte para que nadie lea "el smoke ya cubre `list`" y dé la 73 por saldada.**
+    **Arreglo:** ampliar el caso 3 del smoke con `needle`, `yarnId` y el rango de fechas, en una sola corrida.
+
+83. **Nada impide que un proyecto apunte al `patternId` de OTRO usuario, porque la ESCRITURA no lo comprueba.**
+    Verificado leyendo el código, no supuesto: `createProject`/`updateProject` pasan `patternId` al store
+    **sin validarlo**, mientras que enlazar una lana **sí** exige `findYarn(userId, yarnId)` antes. Hoy sólo
+    lo tapa que la FK obliga a que el patrón **exista** — no a que sea **del usuario**.
+    **NO es un agujero del filtro de #18** —la lectura sólo devuelve proyectos propios, jamás filas ajenas, y
+    el reviewer lo verificó buscando un camino de fuga y no encontrándolo—, **pero sí es un agujero del
+    modelo**: un cliente puede grabar en su proyecto una referencia a un patrón que **no puede ni leer**, y
+    cuando ese patrón ajeno se borre, **su proyecto cambiará solo** (`set null`).
+    **Es deuda PREEXISTENTE de #5/#10, no introducida por #18** (juzgado y confirmado por el reviewer). Se
+    levanta aquí porque **esta slice es la primera que hace de `projects.pattern_id` una superficie pública
+    de consulta**.
+    **Hermana de la 78:** allí una invariante de escritura no replicada en lectura; aquí una invariante de
+    escritura **directamente ausente**. **Arreglo: un `assert-pattern-ref.ts` calcado de
+    `assert-yarn-refs.ts`.**
+
+84. **La línea del PRD §9 que enumera los filtros no está anclada por ningún test.** La levantó el reviewer.
+    El ancla de contrato fija las claves del **esquema zod**, pero nada ata esa lista a la línea del PRD.
+    **Escenario de fallo concreto:** alguien añade un filtro, actualiza el esquema **y el ancla**, y **olvida
+    el PRD**. Nada lo detecta, y el PRD —que es la fuente de verdad funcional— empieza a mentir.
+    Aplica por igual a los 7 filtros y es **preexistente**, pero el ancla nueva lo deja **a un paso**: un test
+    que lea la línea del PRD y la compare con las claves del esquema cerraría el círculo. Deuda **menor**.
+
+85. **Un parámetro de query desconocido se ignora en silencio.** La levantó el reviewer.
+    `projectFiltersSchema` es un `z.object` **no estricto**, así que `?patternID=` o `?patern_id=` responden
+    **200 con la lista entera** en vez de 400.
+    **Escenario de fallo concreto:** quien escriba el cliente y se equivoque de mayúscula verá **todos** los
+    proyectos y creerá que el filtro no acota, en vez de recibir un error que le diga dónde está el fallo.
+    **Preexistente y fuera del alcance de #18.** Se ficha porque el ancla nueva vive justo al lado de ese
+    hueco. **Arreglo:** `.strict()` en el esquema — pero decidir antes si romper clientes tolerantes.

@@ -44,6 +44,7 @@ export const projectFiltersSchema = z.object({
     .positive("La aguja debe ser un número en mm.")
     .optional(),
   yarnId: z.uuid("La lana no es válida.").optional(),
+  patternId: z.uuid("El patrón no es válido.").optional(),
   from: z.coerce.date("La fecha 'from' no es válida.").optional(),
   to: z.coerce.date("La fecha 'to' no es válida.").optional(),
 });

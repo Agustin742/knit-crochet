@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { projectFiltersSchema } from "@/features/projects";
 import type { ProjectStore } from "@/features/projects/api/store";
 import {
   createInMemoryProjectStore,
@@ -69,6 +70,8 @@ async function signIn(userId: string): Promise<void> {
 }
 
 const OTHER_UUID = "11111111-1111-4111-8111-111111111111";
+const PATTERN_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const PATTERN_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
 function seed(
   userId: string,
@@ -299,6 +302,30 @@ describe("api/projects route handlers", () => {
       expect(body.projects[0]?.name).toBe("Con lana");
     });
 
+    // ANCLA del contrato (regla 2a, PRD §9): `readFilters` vuelca la query
+    // string tal cual en este esquema, así que sus claves SON los nombres de
+    // los parámetros. El literal se escribe a mano UNA vez, aquí, porque aquí
+    // el literal es el contrato; el resto de tests derivan. `toEqual` falla en
+    // las dos direcciones: si falta un filtro y si sobra uno.
+    it("accepts exactly the filter names of the documented query string", () => {
+      expect(Object.keys(projectFiltersSchema.shape).sort()).toEqual([
+        "active",
+        "from",
+        "needle",
+        "patternId",
+        "to",
+        "type",
+        "yarnId",
+      ]);
+    });
+
+    it("rejects a malformed patternId with the message of the contract", () => {
+      const parsed = projectFiltersSchema.safeParse({ patternId: "no-uuid" });
+
+      expect(parsed.success).toBe(false);
+      expect(parsed.error?.issues[0]?.message).toBe("El patrón no es válido.");
+    });
+
     it("filters by a startDate range", async () => {
       seed("user-1", {
         name: "Enero",
@@ -336,7 +363,7 @@ describe("api/projects route handlers", () => {
       seed("user-1", { name: "Única" });
 
       const response = await listProjectsRoute(
-        getRequest("?active=&type=&needle=&yarnId=&from=&to="),
+        getRequest("?active=&type=&needle=&yarnId=&patternId=&from=&to="),
       );
       const body = (await response.json()) as { projects: ProjectRecord[] };
 
@@ -350,6 +377,7 @@ describe("api/projects route handlers", () => {
       const badType = await listProjectsRoute(getRequest("?type=macrame"));
       const badNeedle = await listProjectsRoute(getRequest("?needle=gorda"));
       const badYarn = await listProjectsRoute(getRequest("?yarnId=123"));
+      const badPattern = await listProjectsRoute(getRequest("?patternId=123"));
       const badDate = await listProjectsRoute(getRequest("?from=ayer"));
 
       for (const response of [
@@ -357,10 +385,150 @@ describe("api/projects route handlers", () => {
         badType,
         badNeedle,
         badYarn,
+        badPattern,
         badDate,
       ]) {
         expect(response.status).toBe(400);
       }
+    });
+  });
+
+  /**
+   * "En qué proyectos se usa este patrón" (PRD §9.2, feature #18). Se expone
+   * como filtro de la lista —no como `usedBy` en el patrón— así que se prueba
+   * exactamente igual que `?yarnId=`.
+   */
+  describe("GET /api/projects?patternId= ('usado en')", () => {
+    it("lists the N projects that use the pattern, without those of another pattern or without pattern", async () => {
+      const newest = seed("user-1", {
+        name: "Usa A (marzo)",
+        patternId: PATTERN_A,
+        startDate: new Date("2026-03-01T00:00:00Z"),
+      });
+      const oldest = seed("user-1", {
+        name: "Usa A (febrero)",
+        patternId: PATTERN_A,
+        startDate: new Date("2026-02-01T00:00:00Z"),
+      });
+      seed("user-1", { name: "Usa B", patternId: PATTERN_B });
+      // Trampa del NULL: `pattern_id` es nullable y no puede colarse.
+      seed("user-1", { name: "Sin patrón", patternId: null });
+
+      const response = await listProjectsRoute(
+        getRequest(`?patternId=${PATTERN_A}`),
+      );
+      const body = (await response.json()) as { projects: ProjectRecord[] };
+
+      expect(response.status).toBe(200);
+      expect(store.lastFilters).toMatchObject({ patternId: PATTERN_A });
+      // Se conserva el orden de la lista: `startDate` descendente.
+      expect(body.projects.map((project) => project.id)).toEqual([
+        newest.id,
+        oldest.id,
+      ]);
+    });
+
+    // Coherente con `?yarnId=`: el filtro no consulta la tabla `patterns`, así
+    // que "sin uso" y "no existe" son indistinguibles a propósito. Ninguno es
+    // un error.
+    it("answers an empty list, never an error, for a pattern with no projects", async () => {
+      const owned = seed("user-1", { patternId: PATTERN_A });
+      seed("user-1", { patternId: null });
+
+      const unused = await listProjectsRoute(
+        getRequest(`?patternId=${PATTERN_B}`),
+      );
+      const unknown = await listProjectsRoute(
+        getRequest(`?patternId=${crypto.randomUUID()}`),
+      );
+      const unusedBody = (await unused.json()) as { projects: ProjectRecord[] };
+      const unknownBody = (await unknown.json()) as {
+        projects: ProjectRecord[];
+      };
+
+      expect(unused.status).toBe(200);
+      expect(unknown.status).toBe(200);
+      expect(unusedBody.projects).toEqual([]);
+      expect(unknownBody.projects).toEqual([]);
+      // La fila sigue ahí: la lista vacía es del filtro, no de un store vacío.
+      expect(store.rows.map((row) => row.id)).toContain(owned.id);
+    });
+
+    it("never lists another user's project that uses the same pattern", async () => {
+      const own = seed("user-1", { name: "Mía", patternId: PATTERN_A });
+      seed("user-2", { name: "Ajena", patternId: PATTERN_A });
+
+      const response = await listProjectsRoute(
+        getRequest(`?patternId=${PATTERN_A}`),
+      );
+      const body = (await response.json()) as { projects: ProjectRecord[] };
+
+      expect(body.projects.map((project) => project.id)).toEqual([own.id]);
+    });
+
+    it("cannot discover anything through a pattern used only by another user", async () => {
+      seed("user-2", { name: "Ajena", patternId: PATTERN_B });
+      seed("user-1", { name: "Mía", patternId: PATTERN_A });
+
+      const response = await listProjectsRoute(
+        getRequest(`?patternId=${PATTERN_B}`),
+      );
+      const body = (await response.json()) as { projects: ProjectRecord[] };
+
+      expect(response.status).toBe(200);
+      expect(body.projects).toEqual([]);
+    });
+
+    it("composes with the other filters, narrowing instead of replacing them", async () => {
+      const target = seed("user-1", {
+        name: "A · crochet · activa",
+        patternId: PATTERN_A,
+        type: "crochet",
+        status: "paused",
+      });
+      seed("user-1", {
+        name: "A · knitting · activa",
+        patternId: PATTERN_A,
+        type: "knitting",
+        status: "paused",
+      });
+      seed("user-1", {
+        name: "B · crochet · activa",
+        patternId: PATTERN_B,
+        type: "crochet",
+        status: "paused",
+      });
+      seed("user-1", {
+        name: "A · crochet · terminada",
+        patternId: PATTERN_A,
+        type: "crochet",
+        status: "finished",
+      });
+
+      const response = await listProjectsRoute(
+        getRequest(`?patternId=${PATTERN_A}&type=crochet&active=true`),
+      );
+      const body = (await response.json()) as { projects: ProjectRecord[] };
+
+      expect(store.lastFilters).toMatchObject({
+        patternId: PATTERN_A,
+        type: "crochet",
+        active: true,
+      });
+      expect(body.projects.map((project) => project.id)).toEqual([target.id]);
+    });
+
+    it("answers 400 with the schema message for a malformed patternId", async () => {
+      const malformed = "no-es-un-uuid";
+      const parsed = projectFiltersSchema.safeParse({ patternId: malformed });
+
+      const response = await listProjectsRoute(
+        getRequest(`?patternId=${malformed}`),
+      );
+      const body = (await response.json()) as { error: string };
+
+      expect(response.status).toBe(400);
+      expect(body.error).toBe(parsed.error?.issues[0]?.message);
     });
   });
 

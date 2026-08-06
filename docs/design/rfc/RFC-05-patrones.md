@@ -26,7 +26,7 @@
 ## 3. Datos / backend
 
 - `GET/POST/PATCH/DELETE /api/patterns` (filtros `?type=&inLibrary=`). Publicar a biblioteca = `PATCH { inLibrary: true }`.
-- **"Usado en proyectos":** hoy no hay query directa. **Cambio de backend (nuevo):** exponer los proyectos con `patternId = :id` — vía filtro `?patternId=` en `GET /api/projects`, o `usedBy` en `GET /api/patterns/:id`. (Definir en el slice de backend.)
+- **"Usado en proyectos": DECIDIDO (2026-08-06, feature #18) → filtro `GET /api/projects?patternId=<id>`.** `GET /api/patterns/:id` **no cambia**. Se descartó `usedBy` porque invertiría la dirección del grafo de FKs (`projects.patternId → patterns`), que `architecture.md` §S1 obliga a tratar como un DAG, y porque `?yarnId=` ya contesta la pregunta idéntica para lanas. **Precio aceptado:** el drawer hace dos peticiones. Contrato completo en **PRD §9.2**.
 - Borrado: `DELETE /api/patterns/:id` → 204; los proyectos que lo usaban quedan con `patternId=null` (FK `set null`, ya resuelto). **NO** 409, **NO** force.
 - **Cambio de backend (nuevo):** parte del `POST /api/uploads/image` para la foto del patrón.
 

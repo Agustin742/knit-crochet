@@ -3,8 +3,10 @@
 > Este archivo se vacía al cerrar cada sesión y se mueve a `history.md`.
 > Mientras trabajas, **mantenlo actualizado en tiempo real**, no al final.
 
-- **Feature en curso:** ninguna. Siguiente pendiente por id = **#18 `patterns_used_by`**.
-- **Cerrado en esta sesión, en este orden — las tres APROBADAS A LA PRIMERA, 0 bloqueantes:**
+- **Feature en curso:** ninguna. **LA FASE DE BACKEND ESTÁ COMPLETA.** Siguiente pendiente por id =
+  **#19 `dashboard_ui`**, que arranca el bloque de páginas y **trae CINCO decisiones que cerrar antes de
+  empezar** (abajo).
+- **Cerrado en esta sesión, en este orden — las CUATRO APROBADAS A LA PRIMERA, 0 bloqueantes:**
   1. **Deuda 59** — primera subida real a Cloudinary. **No es una feature.** Informe:
      `progress/informs/13.informe-deuda59-smoke_cloudinary.md`.
   2. **#16 `dashboard_comparison_3metrics`** → **`done`**. leader (cierra 2 decisiones con el usuario y
@@ -13,6 +15,9 @@
   3. **#17 `projects_detail_yarns`** → **`done`**, y con ella **la deuda 5 SALDADA**. leader (cierra 2
      decisiones con el usuario y escribe el **PRD §9.1**) → implementer → reviewer. Informe:
      `progress/informs/15.informe-projects_detail_yarns.md`.
+  4. **#18 `patterns_used_by`** → **`done`**. **Última slice de backend.** leader (cierra la decisión de
+     forma con el usuario y escribe el **PRD §9.2**) → implementer → reviewer. Informe:
+     `progress/informs/16.informe-patterns_used_by.md`.
 - **Lo más valioso de #16 no fue el código, fue el método:** el test que protegía la conversión de unidades
   **pasaba en falso** (derivaba de la lista ya convertida, así que se movía *con* el bug). Lo destapó la
   **regla 3** al no verlo caer en rojo. El reviewer lo re-verificó por su cuenta en las dos direcciones del
@@ -24,23 +29,34 @@
   la lección de la **deuda 6** aplicada **antes** de que mordiera: las 5 columnas, el `WHERE` del scoping, el
   `ORDER BY` y el tipo de JOIN quedan fijados **sobre producción**, no sobre la réplica. **Copiá el patrón
   cuando toques el store.** Su precio está fichado como deuda **77**.
+- **#18 MIDIÓ por qué ese patrón hace falta, y el número da miedo:** al borrar el filtro **de producción**, la
+  suite entera quedó en **`2 failed | 600 passed | 13 skipped`**. Los 32 tests de ruta **siguieron verdes**,
+  porque el **doble en memoria implementa el filtro por su cuenta** y sigue acotando aunque producción no lo
+  haga. **Los únicos dos rojos fueron los del SQL emitido.** Es la **deuda 6 exacta, medida en vivo** y
+  confirmada de forma independiente por el reviewer. → **REGLA 7** y deuda **81**.
 - Última feature cerrada antes de hoy: **#15 `uploads_image`**, ya en `progress/history.md`. Informe:
   `progress/informs/12.informe-uploads_image.md`.
 
 ## Estado del proyecto
 
 - **Fase 1 (PRD-01, features 1-11):** completa (`done`).
-- **Fase 2 (UI, features 12-32):** en curso. **#12, #13, #14, #15, #16, #17, #31 y #32 `done`**; siguiente
-  pendiente por id = **#18 `patterns_used_by`**.
-- `bash ./init.sh` VERDE: **590 passed | 13 skipped** (**54** archivos + 3 skipped, que son los tres smokes:
-  Neon, auth y Cloudinary). `pnpm build` OK. **Verificado ejecutándolo**: el leader al arrancar (547/11) y
-  antes de #17 (577/13); los reviewers al cerrar la deuda 59 (547/13), #16 (577/13) y #17 (590/13).
+- **Fase 2 (UI, features 12-32):** en curso. **#12, #13, #14, #15, #16, #17, #18, #31 y #32 `done`**;
+  siguiente pendiente por id = **#19 `dashboard_ui`**.
+- **🎉 TODO EL BACKEND ESTÁ CERRADO.** Las features de datos/BFF (1-11) y las cuatro slices de backend de la
+  fase 2 (**15, 16, 17, 18**) están `done`. **Lo que queda es UI**: #19-#30 más lo que quede de #20-#28.
+- `bash ./init.sh` VERDE: **602 passed | 13 skipped** (**54** archivos + 3 skipped, que son los tres smokes:
+  Neon, auth y Cloudinary). `pnpm build` OK. **Verificado ejecutándolo**: el leader al arrancar (547/11),
+  antes de #17 (577/13) y antes de #18 (590/13); los reviewers al cerrar la deuda 59 (547/13), #16 (577/13),
+  #17 (590/13) y #18 (602/13).
 - **Git: #15 ESTÁ COMMITEADO** en `83ab95a feat: add upload image`, y el árbol arrancó la sesión **limpio**.
   La nota anterior que decía "todo #15 está sin commitear" **estaba desactualizada y queda corregida**
   (lo corrigió el usuario; verificado por el leader con `git status` + `git log`). **Sin commitear:** la
   **deuda 59** (`src/__smoke__/`, 2 líneas de `src/shared/lib/cloudinary/`), **#16** (`src/shared/config/`,
-  `src/features/dashboard/`) y **#17** (`src/features/projects/`, `src/app/api/projects/`), más el PRD,
-  `feature_list.json` y `progress/`. Son **tres commits coherentes**, no uno.
+  `src/features/dashboard/`) y **#17** (`src/features/projects/`). **Ya están commiteados los tres** por el
+  usuario en `0351c4d` (#16) y `2cbfa00` (#17); la nota anterior que hablaba de "cuatro commits pendientes"
+  **quedó desactualizada y se corrige aquí**. **Sin commitear queda SÓLO #18** (`src/features/projects/`
+  —validación, tipos, store, doble, tests—, `src/app/api/projects/`, el smoke de Neon) más el PRD, el
+  RFC-05, `feature_list.json` y `progress/`. Es **un único commit coherente**.
 - **La app ya acepta fotos**, aunque todavía no haya formulario que las mande: la puerta existe y está
   probada.
 
@@ -74,6 +90,12 @@
   `{ id, colorName, colorFamily, brandName, typeName }`; **`colorCode` e `image` se descartaron a propósito**
   (el RFC no los pide; añadir después es aditivo y barato, quitar no). Sin enlaces, `yarns` es **`[]`**, nunca
   `null` ni ausente. **`GET /api/projects` (la lista) NO las lleva.**
+- **"Usado en proyectos" de un patrón (PRD §9.2, feature #18):** se expone como **filtro**,
+  `GET /api/projects?patternId=<id>`. **`GET /api/patterns/:id` NO cambia.** Se descartó `usedBy` porque
+  invertiría la dirección del grafo de FKs (`projects.patternId → patterns`), que `architecture.md` §S1
+  obliga a tratar como **DAG** —es la forma exacta que esa regla salió a prohibir tras el ciclo de #7— y
+  porque `?yarnId=` ya contesta la pregunta idéntica para lanas. **Precio aceptado:** el drawer del patrón
+  hace **dos peticiones**. **Corolario vigente: `src/features/patterns/` no consulta `projects`.**
 
 ## ⚠️ REGLAS vigentes para todos los agentes
 
@@ -113,15 +135,28 @@ externo (plataforma, proveedor, navegador), atalo con un test que lo exprese**, 
 **6. Los subagentes `Explore` son de SOLO LECTURA: no pueden escribir su informe.** Para la regla
 anti-teléfono-descompuesto de `CLAUDE.md`, usá **`general-purpose`**, o asumí el volcado desde el leader.
 
-## PRÓXIMA — feature #18 `patterns_used_by`
+**7. NUEVA (#18) — UN GATE QUE SÓLO CORRE SOBRE EL DOBLE NO MIDE PRODUCCIÓN.** Es la regla 3 llevada un paso
+más allá, y esta vez está **medida, no argumentada**. En #18 se borró un filtro **del código de producción** y
+la suite entera quedó en **`2 failed | 600 passed | 13 skipped`**: los **32 tests de ruta siguieron verdes**,
+porque el **doble en memoria implementa el filtro por su cuenta** y sigue acotando aunque producción haya
+dejado de hacerlo. Los únicos rojos fueron los del **SQL realmente emitido** (`store.test.ts`, patrón que
+introdujo #17). **Es la deuda 6 exacta.**
+**Qué hacer:** cuando toques el store, **anclá el SQL emitido**, no sólo el comportamiento del doble. El
+andamio (`recordListQuery`) **ya está escrito** — cuesta unas líneas. Hoy el ancla cubre **2 de los 7 filtros**
+de `list`, y los tres que faltan (`@>` de jsonb, `exists` correlacionado, rango de fechas) son **justo los que
+el doble traduce peor**: deuda **81**.
+**Corolario:** *"los tests pasan"* no es lo mismo que *"el código funciona"* cuando el sujeto de la frase es
+una réplica escrita a mano. Familia: deudas **6**, **73**, **81**, **82**.
 
-Exponer **en qué proyectos se usa un patrón** (`patternId = :id`), para el "usado en" del detalle. **Trae una
-decisión de scope que hay que cerrar antes de empezar**, y la ficha lo dice explícitamente: o un filtro
-`?patternId=` en `GET /api/projects`, o un `usedBy` dentro de `GET /api/patterns/:id`. Scoping por `userId`.
-Tests: patrón usado en N proyectos los lista; patrón sin uso devuelve vacío. Fuente: RFC-05 §3/§8 + PRD
-§9(Patterns). Es una slice de **backend**: no aplica el checklist visual del SDD §9.
+## PRÓXIMA — feature #19 `dashboard_ui` (⚠️ NO ARRANCAR SIN CERRAR CINCO DECISIONES)
 
-**Es la última de backend.** Después arranca el bloque de páginas.
+**Cambia el modo de trabajo: se acabó el backend, empieza la UI.** A partir de aquí **SÍ aplica el checklist
+visual del SDD §9** (RTL + axe + smoke + `init.sh` + `build`), que las cuatro últimas slices no usaron.
+
+La página Dashboard: hero con el ovillo + selector de métrica conmutable **y superponible** (horas/proyectos/
+metros, default horas) + las comparativas de las 3 + filtros de año y tipo + lista de activos con orden y
+"ver todos" + modal de creación con el tipo preseleccionado. Página en `src/app/(app)/page.tsx`, UI en
+`src/features/dashboard/ui/`, **reusando la card de proyecto de RFC-03**. Fuente: **RFC-02** entero.
 
 **⚠️ ANTES de #19 `dashboard_ui` hay que cerrar CINCO decisiones, no tres.** Las tres viejas de su ficha —la
 protección de `/` (deudas 1/13), si el hero del Dashboard reemplaza el ovillo de fondo o monta una segunda
@@ -195,10 +230,29 @@ y texto del caso vacío). **Las pide el reviewer de #16 y el leader lo suscribe:
 
 ## Deuda técnica acumulada
 
-> Vive en **`progress/deudas.md`** — libro mayor, **no se vacía nunca**. Hoy: **79 fichas**; saldadas y
+> Vive en **`progress/deudas.md`** — libro mayor, **no se vacía nunca**. Hoy: **85 fichas**; saldadas y
 > tachadas 1, 2, 4, 8, 13, 17, 19, 21, 29, 30, 32, 36, 37, 38, 46, la **3** y la **55** (por #15), la **59**
 > y —por **#17**— la **5**. La **45** está **recalificada** (de deuda de datos a deuda de presentación), no
 > saldada. Nuevas del saldo de la 59: **63-65**. Nuevas de **#16**: **66-71**. Nuevas de **#17**: **72-79**.
+> Nuevas de **#18**: **80-85**.
+>
+> **De #18, la más valiosa es la 81, y hay que leerla con el recuadro que la precede en `deudas.md`:** el
+> ancla de SQL emitido cubre hoy **2 de los 7 filtros** de `list`, y los tres que faltan (`@>` de jsonb,
+> `exists` correlacionado, rango de fechas) son **justo los que el doble traduce peor**. Ya sabemos qué pasa
+> sin ancla: **600 tests en verde con el filtro borrado de producción** (→ **REGLA 7**). **Arreglo ~30
+> líneas** con el andamio ya escrito.
+>
+> **La 83 merece mirada:** `createProject`/`updateProject` **no comprueban que `patternId` sea del usuario**
+> (enlazar una lana sí). **No es agujero de lectura** —el reviewer buscó camino de fuga y no lo hay— pero sí
+> **del modelo**: se puede grabar una referencia a un patrón que no se puede leer, y al borrarse ese patrón
+> ajeno el proyecto **cambia solo**. **Preexistente de #5/#10.** Hermana de la **78**. Arreglo: un
+> `assert-pattern-ref.ts` calcado del de lanas.
+>
+> **Las otras de #18:** **80** (el filtro no distingue *sin uso* / *no existe* / *ajeno* — los tres dan `[]`;
+> es **coherente a propósito** con `?yarnId=` y esa ambigüedad **es la mitad buena de la seguridad**, pero el
+> drawer dirá "no se usa" de un patrón borrado → decisión de producto para **#26**), **82** (la 73 queda
+> adelantada **sólo** para este filtro), **84** (la línea del PRD que enumera los filtros no está anclada por
+> ningún test) y **85** (un parámetro de query mal escrito devuelve **todos** los proyectos, no un 400).
 >
 > **De #17, la que más merece atención (lo dice el reviewer): la 73** — *la corrida hermética nunca ejecuta
 > el JOIN contra Postgres*. El test del SQL comprueba la consulta **emitida** (resuelve con cero filas) y el

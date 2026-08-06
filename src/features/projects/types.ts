@@ -57,6 +57,12 @@ export type ProjectFilters = {
   needle?: number;
   /** Filtra por el enlace N:N `project_yarns`. */
   yarnId?: string;
+  /**
+   * "En qué proyectos se usa este patrón" (PRD §9.2). A diferencia de `yarnId`,
+   * es la columna `projects.pattern_id`, una FK 1→N: no hay tabla de enlace.
+   * `pattern_id` es NULLABLE, así que un proyecto sin patrón nunca casa.
+   */
+  patternId?: string;
   /** Rango sobre `startDate`. */
   from?: Date;
   to?: Date;

@@ -430,7 +430,8 @@ Todos requieren JWT válido (salvo `register`/`login`) y hacen scoping por `user
 - `GET  /api/auth/me` — usuario actual
 
 ### Projects (proyectos)
-- `GET    /api/projects` — filtros: `?active=&type=&needle=&yarnId=&from=&to=`
+- `GET    /api/projects` — filtros: `?active=&type=&needle=&yarnId=&patternId=&from=&to=`
+  (`patternId` = **"en qué proyectos se usa este patrón"**, ver **§9.2**, feature #18)
 - `POST   /api/projects`
 - `GET    /api/projects/:id` — responde `{ project, yarns }` con las lanas enlazadas (ver **§9.1**, feature #17)
 - `PATCH  /api/projects/:id` — recalcula `progress` si cambia `rounds`/`targetRounds`
@@ -460,6 +461,27 @@ Salda la **deuda técnica 5**. Decisiones cerradas por el usuario, **no se reabr
 - **Sin lanas enlazadas, `yarns` es una lista vacía**, nunca `null` ni ausente.
 - **`GET /api/projects` (la lista) NO las lleva.** La ficha habla sólo de `:id`, y RFC-03 §1 fija que la card
   es *"solo foto, nombre, progress, tiempo"*.
+
+#### 9.2 "En qué proyectos se usa este patrón" (decidido 2026-08-06, feature #18)
+
+RFC-05 §3 dejaba la forma **abierta al slice de backend** ("vía filtro `?patternId=` en `GET /api/projects`,
+o `usedBy` en `GET /api/patterns/:id`"). Decisión cerrada por el usuario, **no se reabre**:
+
+- **Se expone como filtro: `GET /api/projects?patternId=<id>`.** `GET /api/patterns/:id` **no cambia**: sigue
+  respondiendo `{ pattern }`.
+- **Por qué el filtro y no `usedBy`:**
+  - Es **el mismo mecanismo ya probado** que `?yarnId=`, que contesta la pregunta **idéntica** para lanas.
+    Con `usedBy` la app respondería *la misma pregunta de dos maneras distintas* según la entidad, que es la
+    asimetría que después nadie recuerda.
+  - **Respeta la dirección del grafo de FKs**, que la arquitectura obliga a tratar como un DAG
+    (`architecture.md` §S1): `projects.patternId → patterns`, o sea **projects depende de patterns**. Con
+    `usedBy`, el `PatternStore` tendría que consultar la tabla `projects` e invertir esa dirección — que es
+    **exactamente la forma que la regla S1 salió a prohibir** tras el ciclo que destapó el reviewer de #7.
+  - **No inventa contrato:** devuelve proyectos con la forma que ya tienen.
+- **Precio aceptado a propósito:** el drawer de detalle del patrón hace **dos peticiones** (el patrón y sus
+  proyectos) en vez de una. Se prefirió eso a invertir una dependencia entre features.
+- **Scoping por `userId`**, como todos los filtros. Un patrón ajeno no puede usarse para descubrir proyectos.
+- **Patrón sin uso → lista vacía**, nunca error.
 
 ### Sessions (cronómetro)
 - `POST  /api/projects/:id/sessions/start` — crea sesión (`end = null`)

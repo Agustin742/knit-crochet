@@ -239,7 +239,33 @@ describe.skipIf(!RUN_SMOKE)("smoke: stores Drizzle contra Neon real", () => {
     );
     expect(project.patternId).toBe(pattern.id);
 
+    // Filtro `?patternId=` (PRD §9.2, feature #18) contra Postgres real: la
+    // corrida hermética comprueba el SQL *emitido* y el doble en memoria el
+    // comportamiento; aquí se comprueba que esa consulta devuelve FILAS.
+    // Adelanto parcial sobre la deuda 73, que sigue abierta para el resto.
+    const withoutPattern = await createProject(
+      userId,
+      { name: "P3 sin patrón", type: "knitting" },
+      projectStore,
+    );
+    expect(withoutPattern.patternId).toBeNull();
+
+    const used = await projectStore.list(userId, { patternId: pattern.id });
+    expect(used.map((row) => row.id)).toEqual([project.id]);
+
+    // El `userId` del WHERE es real: con el mismo patrón, otro dueño no
+    // descubre nada.
+    const foreign = await projectStore.list(crypto.randomUUID(), {
+      patternId: pattern.id,
+    });
+    expect(foreign).toEqual([]);
+
     await deletePattern(userId, pattern.id, patternStore);
+
+    // Tras el `set null`, el patrón borrado ya no lista ningún proyecto.
+    expect(await projectStore.list(userId, { patternId: pattern.id })).toEqual(
+      [],
+    );
 
     const rows = await database
       .select({ id: projects.id, patternId: projects.patternId })
@@ -250,6 +276,7 @@ describe.skipIf(!RUN_SMOKE)("smoke: stores Drizzle contra Neon real", () => {
     expect(rows[0]?.patternId).toBeNull();
 
     await deleteProject(userId, project.id, projectStore);
+    await deleteProject(userId, withoutPattern.id, projectStore);
   });
 
   it("4. UNIQUE (brandId, colorCode) → DuplicateColorCodeError desde el driver real", async () => {
