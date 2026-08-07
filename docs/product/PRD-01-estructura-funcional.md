@@ -374,7 +374,13 @@ Filtros: **año** + **tipo**. Métrica conmutable:
 | Un campo de fútbol | 105 |
 | El Everest | 8849 |
 
-Ej: "Tejiste 700 m ≈ 2 Obeliscos 🗼". La lista es editable en config.
+Ej: "Tejiste 700 m ≈ 10,4 veces El Obelisco". La lista es editable en config.
+
+> **⚠️ Este ejemplo se corrigió el 2026-08-06 (enmienda E1.4 del RFC-02) y antes decía *"≈ 2 Obeliscos"*.**
+> Era **imposible de producir**: las etiquetas de `shared/config` están escritas como frases con artículo
+> (`"El Obelisco"`), no como sustantivos pluralizables, así que concatenar un número delante da *"≈ 2,1 El
+> Obelisco"*. El formato real antepone **"veces"**. Se conserva la nota porque el ejemplo viejo sigue siendo
+> la primera cosa que alguien va a intentar escribir.
 
 ### 8.1 Comparativas para las **tres** métricas (decidido 2026-08-05, feature #16)
 

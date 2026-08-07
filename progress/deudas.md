@@ -1168,3 +1168,89 @@ argumento más fuerte que tiene el proyecto para el patrón de `store.test.ts` q
     proyectos y creerá que el filtro no acota, en vez de recibir un error que le diga dónde está el fallo.
     **Preexistente y fuera del alcance de #18.** Se ficha porque el ancla nueva vive justo al lado de ese
     hueco. **Arreglo:** `.strict()` en el esquema — pero decidir antes si romper clientes tolerantes.
+
+---
+
+## Nuevas de la feature #33 `ui_primitives_2` (2026-08-06)
+
+> Las 86-93 las levantó el implementer. La **94** la levantó el reviewer **corrigiendo** al implementer.
+>
+> **📌 En esta slice se SALDÓ UNA DEUDA que nadie había pedido saldar: el guardrail de no-hardcode pasó de
+> lista fija a barrido por recorrido de directorios.** Ver el recuadro de abajo, y la ficha **91**.
+
+### 📌 El guardrail de no-hardcode: lista fija → barrido (medicina de las 40/43/71)
+
+`no-hardcode.test.ts` se movió de `src/shared/ui/primitives/` a `src/shared/ui/` y pasó de **lista fija de 18
+archivos** a **recorrido de directorios**. Es la medicina que las deudas **40**, **43** y **71** llevaban
+pidiendo, aplicada por fin a uno de los tres guardrails.
+
+**Verificado por el reviewer, que es lo que lo hace creíble** (reescribir un guardrail es la clase de cambio
+que lo debilita sin que se note):
+- Barre **54 archivos** donde antes había 18, y **los 18 viejos siguen dentro** (`MISSING FROM SWEEP: []`).
+- **Las regexes de detección son byte a byte idénticas**: no se relajó el criterio para que pasara.
+- **Sin allowlist ni excepciones.**
+- Inyectó hardcode en **3 archivos de la lista vieja y 2 nuevos** → **5/5 rojos**. Rompió la recursión → los
+  2 tests de integridad en rojo.
+
+**Cubre estrictamente más y detecta lo mismo.** Un componente nuevo en `shared/ui/**` queda vigilado solo, sin
+registrarlo en ningún sitio. **Quedan dos guardrails de lista fija: las deudas 40 y 43** (ficha **91**).
+
+86. **La animación del `Skeleton` no sale de los tokens de movimiento.** `animate-pulse` es un valor por
+    defecto de Tailwind: el CSS compilado dice `pulse 2s cubic-bezier(.4,0,.6,1) infinite`, y **ni esa
+    duración ni esa curva son `--dur-*` / `--ease-*`**. El guardrail **no lo ve** porque no hay `px` ni color.
+    **Y hay más:** el template pedía un *shimmer* de gradiente, no un latido de opacidad — la fidelidad visual
+    queda **pendiente de revisión humana**.
+    **Arreglo:** declarar un `--animate-skeleton` en `globals.css` con los tokens de movimiento del sistema.
+
+87. **El `Dialog` no bloquea el scroll del fondo ni oculta el resto del árbol.** `aria-modal` basta para los
+    lectores de pantalla que lo honran, pero **con el modal abierto la página de detrás sigue haciendo
+    scroll** con la rueda o con las flechas.
+    **Escenario de fallo concreto:** el usuario abre el modal de creación de proyecto (#19), gira la rueda
+    para ver un campo de abajo, y lo que se mueve es el Dashboard de detrás.
+    **Arreglo:** bloquear `overflow` en el elemento raíz mientras esté abierto (con su contrapartida al
+    cerrar), o `inert` sobre el resto.
+
+88. **La trampa de foco no cubre el foco robado desde fuera.** El ciclo de `Tab` está atrapado, pero si un
+    script externo llama a `.focus()` sobre un elemento de detrás, **el foco se va y nadie lo devuelve**.
+    **Prioridad baja: hoy nada del repo hace eso.** **Arreglo:** escuchar `focusin` en el documento mientras
+    esté abierto.
+
+89. **`focusableWithin` no distingue lo visible de lo oculto por CSS.** Filtra `disabled` y el atributo
+    `hidden`, pero **un control con `display:none` desde una clase seguiría contando** como parada del ciclo
+    de tabulación — o sea, `Tab` se detendría en algo que no se ve.
+    **No se puede medir en happy-dom**, que no aplica hojas de estilo. **Arreglo real: medirlo con un
+    navegador de verdad.** Familia de la **regla 4**, hermana de las **26**, **51** y **53**.
+
+90. **El `Dialog` no ofrece foco inicial configurable.** Siempre enfoca el panel.
+    **Escenario concreto y ya a la vista:** para el modal de creación de proyecto de **#19**, lo correcto
+    sería enfocar el primer campo del formulario, no el contenedor.
+    **Arreglo:** un `initialFocusRef` opcional; el valor por defecto se queda como está.
+
+91. **Quedan DOS guardrails de lista fija: las deudas 40 y 43.** Esta slice convirtió el tercero (no-hardcode)
+    a barrido de directorios — ver el recuadro de arriba — y **la medicina de los otros dos es idéntica**.
+    **Arreglo: ~15 líneas cada uno**, con el recorrido que esta slice ya dejó escrito y verificado.
+    **Es la cuarta vez que se nombra este patrón** (40 → 43 → 71 → aquí); ahora, por primera vez, hay una
+    implementación de referencia que copiar.
+
+92. **Ningún gate obliga a que un primitivo nuevo traiga su test de `axe`.** Hoy es **disciplina**: los seis
+    de esta slice lo traen, pero **el séptimo puede no traerlo con los 756 tests en verde**.
+    **Arreglo:** un test que recorra `shared/ui/**` y exija que cada carpeta de componente tenga un archivo de
+    test que mencione `axe`. **Mismo patrón de barrido** que el guardrail que esta slice acaba de escribir.
+
+93. **El ancla de la superficie pública no cubre `layout/` ni `three/`.** `public-api.test.ts` fija al literal
+    lo que exportan `primitives/` y `feedback/`; **las otras dos capas quedan sin ancla** y se les puede caer
+    un export sin que nada lo note.
+    **Arreglo:** dos listas más en el mismo test.
+
+94. **La justificación escrita del portal del `Dialog` señala la causa EQUIVOCADA.** La levantó el reviewer,
+    **corrigiendo al implementer**. La conclusión es correcta —**el portal al `body` es obligatorio, no una
+    preferencia**— pero la prosa que la explica culpa a un `transform` del archivero, y **ahí no hay ningún
+    `transform`**: el archivero crea contexto de apilamiento con `filter: drop-shadow(...)`
+    (`archive-nav.variants.ts:72` y `:133`), y además **sus hojas son hermanas del `main`, no ancestros**.
+    **La jaula real es el `main`**, que lleva `relative z-(--z-base)` en `AppShell.tsx:67`: `--z-base` vale
+    **1**, mientras `ArchiveNav` y `BottomNav` pintan en `--z-nav` = **100** desde fuera, así que el panel
+    quedaría **debajo del nav aunque `--z-modal` valga 300**.
+    **Escenario de fallo concreto:** alguien lee el comentario, comprueba que el archivero no tiene
+    `transform`, concluye que la razón ya no aplica y **quita el portal**. El modal se va detrás del nav.
+    **Arreglo:** corregir el comentario para que nombre el `main` y su `--z-base`. **Es prosa, pero es la
+    prosa que evita que mañana lo "arreglen".**

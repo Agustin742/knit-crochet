@@ -3,10 +3,10 @@
 > Este archivo se vacía al cerrar cada sesión y se mueve a `history.md`.
 > Mientras trabajas, **mantenlo actualizado en tiempo real**, no al final.
 
-- **Feature en curso:** ninguna. **LA FASE DE BACKEND ESTÁ COMPLETA.** Siguiente pendiente por id =
-  **#19 `dashboard_ui`**, que arranca el bloque de páginas y **trae CINCO decisiones que cerrar antes de
-  empezar** (abajo).
-- **Cerrado en esta sesión, en este orden — las CUATRO APROBADAS A LA PRIMERA, 0 bloqueantes:**
+- **Feature en curso:** ninguna. **LA FASE DE BACKEND ESTÁ COMPLETA** y las primitivas que #19 necesitaba ya
+  existen. Siguiente = **#19 `dashboard_ui`**, con **sus cinco decisiones ya cerradas** en la enmienda **E1
+  del RFC-02 (§7-bis)**.
+- **Cerrado en esta sesión, en este orden — las CINCO APROBADAS A LA PRIMERA, 0 bloqueantes:**
   1. **Deuda 59** — primera subida real a Cloudinary. **No es una feature.** Informe:
      `progress/informs/13.informe-deuda59-smoke_cloudinary.md`.
   2. **#16 `dashboard_comparison_3metrics`** → **`done`**. leader (cierra 2 decisiones con el usuario y
@@ -18,6 +18,10 @@
   4. **#18 `patterns_used_by`** → **`done`**. **Última slice de backend.** leader (cierra la decisión de
      forma con el usuario y escribe el **PRD §9.2**) → implementer → reviewer. Informe:
      `progress/informs/16.informe-patterns_used_by.md`.
+  5. **#33 `ui_primitives_2`** → **`done`**. **Slice NUEVA**, abierta hoy: la ficha de #19 asumía seis piezas
+     del SDD §6 que **no existían**. leader (detecta el problema, lo lleva al usuario, cierra las **cinco
+     decisiones de #19** en la enmienda **E1 del RFC-02**, abre la slice) → implementer → reviewer. Informe:
+     `progress/informs/17.informe-ui_primitives_2.md`. **+154 tests: la slice con más cobertura del proyecto.**
 - **Lo más valioso de #16 no fue el código, fue el método:** el test que protegía la conversión de unidades
   **pasaba en falso** (derivaba de la lista ya convertida, así que se movía *con* el bug). Lo destapó la
   **regla 3** al no verlo caer en rojo. El reviewer lo re-verificó por su cuenta en las dos direcciones del
@@ -34,20 +38,29 @@
   porque el **doble en memoria implementa el filtro por su cuenta** y sigue acotando aunque producción no lo
   haga. **Los únicos dos rojos fueron los del SQL emitido.** Es la **deuda 6 exacta, medida en vivo** y
   confirmada de forma independiente por el reviewer. → **REGLA 7** y deuda **81**.
+- **#33 SALDÓ, sin que nadie se lo pidiera, la deuda que llevaba CUATRO apariciones:** el guardrail de
+  no-hardcode pasó de **lista fija de 18 archivos** a **barrido por recorrido de directorios** (medicina de
+  las **40/43/71**). El reviewer lo verificó a fondo porque reescribir un guardrail es la clase de cambio que
+  lo debilita sin que se note: barre **54** archivos, **los 18 viejos siguen dentro**, las regexes son **byte
+  a byte idénticas**, **sin allowlist**, y **5/5 rojos** al inyectar hardcode en archivos viejos y nuevos.
+  **Quedan dos guardrails de lista fija (40 y 43) y ahora hay implementación de referencia: ~15 líneas cada
+  uno** → deuda **91**.
 - Última feature cerrada antes de hoy: **#15 `uploads_image`**, ya en `progress/history.md`. Informe:
   `progress/informs/12.informe-uploads_image.md`.
 
 ## Estado del proyecto
 
 - **Fase 1 (PRD-01, features 1-11):** completa (`done`).
-- **Fase 2 (UI, features 12-32):** en curso. **#12, #13, #14, #15, #16, #17, #18, #31 y #32 `done`**;
-  siguiente pendiente por id = **#19 `dashboard_ui`**.
+- **Fase 2 (UI, features 12-33):** en curso. **#12, #13, #14, #15, #16, #17, #18, #31, #32 y #33 `done`**;
+  siguiente = **#19 `dashboard_ui`**.
 - **🎉 TODO EL BACKEND ESTÁ CERRADO.** Las features de datos/BFF (1-11) y las cuatro slices de backend de la
-  fase 2 (**15, 16, 17, 18**) están `done`. **Lo que queda es UI**: #19-#30 más lo que quede de #20-#28.
-- `bash ./init.sh` VERDE: **602 passed | 13 skipped** (**54** archivos + 3 skipped, que son los tres smokes:
+  fase 2 (**15, 16, 17, 18**) están `done`. **Lo que queda es UI**: #19-#30.
+- **`feature_list.json` tiene ahora 33 features**, no 32: **#33 `ui_primitives_2` es nueva**, la abrió el
+  leader el 2026-08-06 con el usuario. Es la única añadida fuera del plan original.
+- `bash ./init.sh` VERDE: **756 passed | 13 skipped** (**60** archivos + 3 skipped, que son los tres smokes:
   Neon, auth y Cloudinary). `pnpm build` OK. **Verificado ejecutándolo**: el leader al arrancar (547/11),
-  antes de #17 (577/13) y antes de #18 (590/13); los reviewers al cerrar la deuda 59 (547/13), #16 (577/13),
-  #17 (590/13) y #18 (602/13).
+  antes de #17 (577/13), de #18 (590/13) y de #33 (602/13); los reviewers al cerrar la deuda 59 (547/13),
+  #16 (577/13), #17 (590/13), #18 (602/13) y #33 (756/13).
 - **Git: #15 ESTÁ COMMITEADO** en `83ab95a feat: add upload image`, y el árbol arrancó la sesión **limpio**.
   La nota anterior que decía "todo #15 está sin commitear" **estaba desactualizada y queda corregida**
   (lo corrigió el usuario; verificado por el leader con `git status` + `git log`). **Sin commitear:** la
@@ -148,25 +161,51 @@ el doble traduce peor**: deuda **81**.
 **Corolario:** *"los tests pasan"* no es lo mismo que *"el código funciona"* cuando el sujeto de la frase es
 una réplica escrita a mano. Familia: deudas **6**, **73**, **81**, **82**.
 
-## PRÓXIMA — feature #19 `dashboard_ui` (⚠️ NO ARRANCAR SIN CERRAR CINCO DECISIONES)
+## PRÓXIMA — feature #19 `dashboard_ui` (decisiones YA cerradas, se puede arrancar)
 
-**Cambia el modo de trabajo: se acabó el backend, empieza la UI.** A partir de aquí **SÍ aplica el checklist
-visual del SDD §9** (RTL + axe + smoke + `init.sh` + `build`), que las cuatro últimas slices no usaron.
+**Cambia el modo de trabajo: se acabó el backend, empieza la UI.** Aplica el checklist visual del **SDD §9**
+(RTL + axe + smoke + `init.sh` + `build`).
 
 La página Dashboard: hero con el ovillo + selector de métrica conmutable **y superponible** (horas/proyectos/
 metros, default horas) + las comparativas de las 3 + filtros de año y tipo + lista de activos con orden y
 "ver todos" + modal de creación con el tipo preseleccionado. Página en `src/app/(app)/page.tsx`, UI en
-`src/features/dashboard/ui/`, **reusando la card de proyecto de RFC-03**. Fuente: **RFC-02** entero.
+`src/features/dashboard/ui/`. Fuente: **RFC-02** entero **+ su enmienda E1 (§7-bis)**.
 
-**⚠️ ANTES de #19 `dashboard_ui` hay que cerrar CINCO decisiones, no tres.** Las tres viejas de su ficha —la
-protección de `/` (deudas 1/13), si el hero del Dashboard reemplaza el ovillo de fondo o monta una segunda
-instancia, y la a11y del modo interactivo— **más dos que dejó #16 y que esa slice va a chocar de frente**:
-la **deuda 66** (el payload no marca que la comparativa de metros es lifetime: el usuario cambiará el año,
-verá moverse dos comparativas y quedarse una, y va a parecer un bug) y la **deuda 69** (nadie decidió cómo se
-lee un `times` menor que 1: *"0,41 colectivos"*, y con cero *"0 partidos de fútbol"* — falta redondeo, plural
-y texto del caso vacío). **Las pide el reviewer de #16 y el leader lo suscribe: cerralas antes, no durante.**
+**✅ LAS CINCO DECISIONES ESTÁN CERRADAS** (RFC-02 §7-bis, enmienda E1, 2026-08-06). Resumen:
+**E1.1** `/` pasa a **privada**, sin landing (salda deudas **1** y **13**) · **E1.2** el hero **reemplaza** al
+fondo global en `/`, **nunca dos ovillos vivos** · **E1.3** el hero **no** será operable por teclado, a
+propósito, y **hay que documentarlo en el código** · **E1.4** formato `≈ 2,1 veces <etiqueta>`, con frase
+propia si `times < 1` y **sin comparativa** si `times = 0` (salda la **69**) · **E1.5** la tarjeta de metros
+lleva marca de **"total histórico"** (salda la **66**).
 
-## Notas para consumidores del design system (acumulado #12-#16, #31, #32)
+**⚠️ LO QUE SIGUE ABIERTO EN #19, y hay que decidirlo al planificarla:** la ficha dice *"reusa la card de
+proyecto de RFC-03"*, y **esa card NO existe** — la crea **#20**, que va después. O #19 la crea (y #20 la
+reusa), o la lista de activos se cae a #20. **#33 NO la incluyó a propósito.**
+
+**Tres deudas de #33 que #19 va a chocar de inmediato:** la **87** (el `Dialog` no bloquea el scroll del
+fondo), la **90** (no permite elegir el foco inicial, y un formulario quiere el primer campo) y la **94** (el
+comentario del portal señala la causa equivocada).
+
+## Notas para consumidores del design system (acumulado #12-#18, #31, #32, #33)
+
+- **⚠️ SEIS PIEZAS NUEVAS (#33) — leelo antes de escribir cualquier página.** `ProgressBar`, `Skeleton`,
+  `Toggle`/`ToggleGroup` y `Dialog` en `shared/ui/primitives/`; `EmptyState` y `ErrorState` en
+  **`shared/ui/feedback/`** (carpeta nueva). Todas por `@/shared/ui`. **`StatePanel` NO es pública.**
+  - **`Toggle` es CONTROLADO y SUPERPONIBLE** (varios activos a la vez, `aria-pressed`) — **no es un `Tabs`**,
+    que tendría exactamente uno activo. El estado vive en la página. **Envolvelos en `ToggleGroup` con
+    etiqueta**, o el conjunto se anuncia como botones sueltos.
+  - **`ProgressBar` EXIGE `label`.** Sin él `axe` cae. Acota los valores imposibles **también en
+    `aria-valuenow`**, no sólo en el ancho.
+  - **`Dialog` es controlado (`open` + `onClose`) y se monta en PORTAL al `body`.** Para buscarlo en un test
+    usá `screen`/`document.body`, **no el `container` de `render()`**. El portal es **obligatorio**: el `main`
+    lleva `--z-base` = 1 y el nav pinta en `--z-nav` = 100 desde fuera, así que sin portal el modal queda
+    debajo del nav **aunque `--z-modal` valga 300**. (El comentario del código culpa a un `transform` del
+    archivero que **no existe** → deuda **94**.)
+  - **`Skeleton` es `aria-hidden`:** si montás varios, **anunciá la carga UNA vez** desde el contenedor.
+- **El guardrail de no-hardcode YA NO TIENE LISTA:** barre `shared/ui/**` por recorrido de directorios, así
+  que un componente nuevo queda vigilado **solo**. No hace falta registrarlo en ningún sitio.
+- **`public-api.test.ts` VA A CAER** cuando añadas un export a `primitives/` o `feedback/`. **Es lo que tiene
+  que pasar:** actualizá la lista **a conciencia**, es el contrato del template portable.
 
 - **⚠️ CONTRATO DE `GET /api/dashboard/metrics` (#16) — leelo antes de escribir #19.** `comparison` **ya no
   es un objeto suelto**: es un **mapa** `{ hours, projects, yarnMeters }` y cada entrada es
@@ -234,7 +273,24 @@ y texto del caso vacío). **Las pide el reviewer de #16 y el leader lo suscribe:
 > tachadas 1, 2, 4, 8, 13, 17, 19, 21, 29, 30, 32, 36, 37, 38, 46, la **3** y la **55** (por #15), la **59**
 > y —por **#17**— la **5**. La **45** está **recalificada** (de deuda de datos a deuda de presentación), no
 > saldada. Nuevas del saldo de la 59: **63-65**. Nuevas de **#16**: **66-71**. Nuevas de **#17**: **72-79**.
-> Nuevas de **#18**: **80-85**.
+> Nuevas de **#18**: **80-85**. Nuevas de **#33**: **86-94**. **Total: 94 fichas.**
+>
+> **La 66 y la 69 quedan CERRADAS por decisión** (enmienda E1.4/E1.5 del RFC-02), no por código: se
+> implementan en #19.
+>
+> **De #33, tres las choca #19 de inmediato:** la **87** (el `Dialog` no bloquea el scroll del fondo), la
+> **90** (no permite elegir el foco inicial, y un formulario quiere el primer campo) y la **94** (el
+> comentario del portal señala la causa equivocada, que es justo el comentario que evita que lo quiten).
+>
+> **Dos de método, las dos son barridos:** la **91** (quedan los guardrails **40** y **43** con lista fija, y
+> ahora hay implementación de referencia: **~15 líneas cada uno**) y la **92** (**ningún gate obliga a que un
+> componente nuevo traiga su test de `axe`** — hoy es sólo disciplina).
+>
+> **Las otras de #33:** **86** (la animación del skeleton no sale de los tokens y el guardrail no lo ve;
+> además el template pedía otro efecto → **pendiente de revisión humana**), **88** (foco robado por script
+> externo; prioridad baja), **89** (el ciclo de tabulación no distingue lo oculto por CSS y **no se puede
+> medir sin navegador real** — familia de la regla 4, hermana de 26/51/53) y **93** (el ancla de superficie
+> pública no cubre `layout/` ni `three/`).
 >
 > **De #18, la más valiosa es la 81, y hay que leerla con el recuadro que la precede en `deudas.md`:** el
 > ancla de SQL emitido cubre hoy **2 de los 7 filtros** de `list`, y los tres que faltan (`@>` de jsonb,

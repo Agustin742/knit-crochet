@@ -499,6 +499,23 @@
         "Verificación SDD §9 + init.sh + build, y validación visual en navegador de la geometría en las 6 rutas (la escalera del archivero cambia de forma según cuál esté activa: deuda 26)"
       ],
       "status": "done"
+    },
+    {
+      "id": 33,
+      "name": "ui_primitives_2",
+      "title": "Segunda tanda de primitivas del design system (SDD §6)",
+      "rfc_ref": "SDD-01 §6, §9",
+      "description": "SLICE NUEVA, abierta el 2026-08-06 por decisión del usuario al arrancar #19. MOTIVO MEDIDO: la ficha de #19 asume piezas que NO EXISTEN. Hoy el design system sólo tiene Button, Card, Field, Input, el layout (AppShell/AccountBand/ArchiveNav/BottomNav) y AsciiYarn. RFC-02 necesita además barra de progreso, skeleton, estado vacío, estado de error, un control conmutable/superponible y un modal — y ninguno está. Construirlas enterradas dentro de una página es como se pierden (es el argumento que justificó #12 con los tokens), y además LAS NECESITAN TODAS LAS PÁGINAS SIGUIENTES (#19 a #30), no sólo el Dashboard. Por eso salen a slice propia y #19 pasa a ensamblar piezas ya probadas. NO incluye la card de proyecto de RFC-03 (eso es de #19/#20) ni ninguna página.",
+      "acceptance": [
+        "ProgressBar en src/shared/ui/primitives/: valor 0-100, accesible (role/aria-valuenow o <progress>), tolera valores fuera de rango sin romper",
+        "Skeleton en src/shared/ui/primitives/: bloque de carga, aria-hidden, respeta prefers-reduced-motion",
+        "EmptyState y ErrorState en src/shared/ui/feedback/ (carpeta nueva, SDD §6): título + descripción + slot de acción; ErrorState admite reintentar",
+        "Toggle conmutable Y superponible (varios activos a la vez) con aria-pressed: es lo que RFC-02 §1 pide para el selector de métrica y para los botones de tipo. NO es un Tabs (un Tabs tiene exactamente uno activo)",
+        "Dialog/Modal en src/shared/ui/primitives/: foco atrapado, cierre con Escape, aria-modal, devuelve el foco al disparador al cerrar",
+        "cero hardcode (tokens de globals.css); todas exportadas por el barrel de shared/ui",
+        "Verificación SDD §9 por componente: RTL + axe + init.sh + build. NO hay página que montar, así que no aplica smoke de ruta"
+      ],
+      "status": "done"
     }
   ]
 }
