@@ -38,20 +38,20 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const requestedNext = params.next;
 
   return (
-    <>
-      <div
-        aria-hidden="true"
-        data-slot="bg-3d"
-        className="pointer-events-none absolute inset-0 z-(--z-bg-3d)"
-      >
-        <AsciiYarn />
-      </div>
-
+    <div className="grid grid-cols-2 px-20">
       <LoginForm
         next={resolveNextPath(
           typeof requestedNext === "string" ? requestedNext : null,
         )}
       />
-    </>
+
+      <div
+        aria-hidden="true"
+        data-slot="bg-3d"
+        className=""
+      >
+        <AsciiYarn interactive={true} />
+      </div>
+    </div>
   );
 }

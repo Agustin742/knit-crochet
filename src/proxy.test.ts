@@ -53,12 +53,36 @@ describe("proxy", () => {
   });
 
   it("lets public pages through without token", async () => {
-    // Sin sesión, las tres siguen siendo públicas: lo que cambia con la cookie
-    // puesta son las dos de auth (deuda 36), no ésta.
-    for (const path of ["/", "/login", "/register"]) {
+    // Invariante de bloqueo total: la puerta de entrada tiene que poder abrirse
+    // SIN sesión. Desde la enmienda E1.1 son sólo estas dos —`/` es el Dashboard
+    // y pasó a privada (deuda 1)—, y si alguien las quitara de la allowlist o la
+    // vaciara, nadie podría llegar nunca a autenticarse. Lo que cambia con la
+    // cookie puesta es que estas dos sobran (deuda 36), no que dejen de ser
+    // públicas sin ella.
+    for (const path of ["/login", "/register"]) {
       const response = await proxy(buildRequest(path));
-      expect(response.status).toBe(200);
+      expect(response.status, path).toBe(200);
     }
+  });
+
+  /**
+   * GATE DE LA DEUDA 1, y la mitad que de verdad impide la regresión. El test de
+   * arriba sólo **enumera** páginas públicas: nunca falla cuando alguien vuelve
+   * a añadir `/` a `PUBLIC_PAGES`, sólo cuando alguien la quita de la lista del
+   * test. Este es positivo, así que sí cae en ese caso: exige que el Dashboard
+   * esté DENTRO del mecanismo de rebote a la pantalla de acceso, exactamente
+   * igual que cualquier otra página privada.
+   *
+   * El `?next=/` cierra el circuito de vuelta: `resolveNextPath` lo acepta como
+   * ruta interna y el formulario de acceso navega ahí tras entrar.
+   */
+  it("redirects the Dashboard to login when there is no session", async () => {
+    const response = await proxy(buildRequest("/"));
+
+    expect(response.status).toBe(307);
+    const location = new URL(response.headers.get("location") ?? "");
+    expect(location.pathname).toBe("/login");
+    expect(location.searchParams.get("next")).toBe("/");
   });
 
   it("protects auth endpoints that are not in the public allowlist", async () => {
@@ -124,7 +148,16 @@ describe("proxy", () => {
       }
     });
 
-    it("deja entrar al Dashboard, que es una página como cualquier otra", async () => {
+    /**
+     * El DESTINO del redirect de arriba es alcanzable con sesión, y por eso no
+     * hay bucle. Este test decía "el Dashboard es una página como cualquier
+     * otra": era cierto cuando `/` era pública y lo único que probaba es que el
+     * rebote de la deuda 36 no se pasaba de frenada. Desde la enmienda E1.1 `/`
+     * es privada Y es el destino de ese rebote, así que ahora sostiene un
+     * eslabón mucho más frágil: si `/` dejara de entrar con sesión, `/login`
+     * mandaría a `/`, `/` mandaría a `/login`, y el rebote sería infinito.
+     */
+    it("deja entrar al Dashboard, destino del rebote: sin esto habría bucle", async () => {
       const token = await signSessionToken({ userId: "user-1" });
 
       expect((await proxy(buildRequest("/", token))).status).toBe(200);

@@ -10,8 +10,16 @@ import { JWT_COOKIE_NAME, verifySessionToken } from "@/shared/lib/auth/jwt";
 /** Endpoints de auth accesibles sin sesión. */
 const PUBLIC_API_ROUTES = ["/api/auth/register", "/api/auth/login"];
 
-/** Páginas accesibles sin sesión (igualdad exacta: todo lo demás es privado). */
-const PUBLIC_PAGES = ["/", "/login", "/register"];
+/**
+ * Páginas accesibles sin sesión (igualdad exacta: todo lo demás es privado).
+ *
+ * `/` **no** está: es el Dashboard, y no hay landing pública (RFC-02 §7-bis,
+ * enmienda E1.1; salda la deuda 1). Sin sesión rebota a `/login?next=/`.
+ *
+ * Hoy coincide elemento a elemento con `AUTH_PAGES`, y **es una coincidencia,
+ * no una identidad**: no las unifiques. Ver el JSDoc de `AUTH_PAGES`.
+ */
+const PUBLIC_PAGES = ["/login", "/register"];
 
 /**
  * Páginas que sólo tienen sentido SIN sesión (deuda 36). La allowlist de arriba
@@ -19,6 +27,12 @@ const PUBLIC_PAGES = ["/", "/login", "/register"];
  * no los endpoints: redirigir un `POST /api/auth/login` rompería el propio
  * acceso, y el reemplazo de sesión que hace el alta es una decisión del endpoint,
  * no del proxy.
+ *
+ * Que desde la enmienda E1.1 tenga **el mismo contenido** que `PUBLIC_PAGES` no
+ * autoriza a fundirlas: son dos preguntas distintas y coinciden sólo porque hoy
+ * las dos únicas páginas públicas son de auth. El día que exista una pública que
+ * no lo sea (términos, recuperar contraseña), la fusión redirigiría a quien ya
+ * tiene sesión fuera de una página que sí quería ver.
  */
 const AUTH_PAGES = ["/login", "/register"];
 

@@ -3,6 +3,174 @@
 > Este archivo se vacía al cerrar cada sesión y se mueve a `history.md`.
 > Mientras trabajas, **mantenlo actualizado en tiempo real**, no al final.
 
+## ✅ CERRADO — Feature #19 `dashboard_ui` (2026-08-07)
+
+> **Feature `done`. Reviewer APROBÓ en la ronda 2.** Cadena: leader → 3 exploradores en paralelo →
+> implementer → reviewer (**CAMBIOS REQUERIDOS, 1 bloqueante**) → ronda 2 → **APROBADO**.
+> **Informe de cierre: `progress/informs/19.informe-dashboard_ui.md`.**
+>
+> `bash ./init.sh` **exit 0**: `1200 passed | 13 skipped` en **69 archivos** (partida: 788/13 en 62)
+> → **+412 tests**. `pnpm build` OK. `pnpm lint` sin una sola línea de salida.
+>
+> **Es la primera página de contenido del proyecto**, y con ella nace `src/features/projects/ui/`
+> con la card que **#20 va a reusar** (E2.1).
+
+### Detalle del implementer
+
+- **Feature:** 19 — `dashboard_ui`.
+- **Baseline medido al arrancar** (`bash ./init.sh`, exit 0): `62 passed | 3 skipped` archivos,
+  **`788 passed | 13 skipped`** tests.
+- **Informe:** `progress/reports/impl_dashboard_ui.md`.
+
+**Plan:**
+- **E1.1** — `src/proxy.ts:14` deja de listar `/`; reescribir `src/proxy.test.ts:55-62` (sin recortarlo) y
+  **añadir el gate positivo** que hoy no existe (sin token, `/` → 307 a `/login` con `next=/`); reescribir el
+  enunciado de `:127-131`, que cambia de significado.
+- **E1.2** — `AppShellClient` decide el fondo por `usePathname()`: en `/` no monta el fondo global (el hero
+  es el único ovillo). Partir `AppShellClient.test.tsx:98-106` en el par, y **gate nuevo** en la página:
+  `queryAllByTestId("ascii-yarn")` con longitud **exactamente 1** y `data-interactive="true"`.
+- **UI** — `src/features/dashboard/ui/` (hero, selector conmutable/superponible, panel de métricas con
+  comparativas E1.4/E1.5, filtros año+tipo, lista de activos por `updatedAt` con etiqueta honesta E2.2,
+  estados loading/vacío/error, modal de creación con el `type`) y **`src/features/projects/ui/ProjectCard`**
+  (E2.1: foto + nombre + progreso + tiempo, **sin quick-start**).
+- **E2.3** — ampliar el barrido de `src/shared/ui/no-hardcode.test.ts` de `src/shared/ui/` a `src/`,
+  ampliando también su seguro anti-barrido-roto.
+- **Verificación** — `bash ./init.sh` + `pnpm build`, con **condición doble** (REGLA 3) en cada gate nuevo.
+
+**✅ IMPLEMENTACIÓN TERMINADA — a la espera del reviewer.** `bash ./init.sh` **verde** (`EXIT=0`):
+`68 passed | 3 skipped` archivos, **`1194 passed | 13 skipped`** tests (baseline 62/788).
+`pnpm build` OK. Las ocho decisiones (E1.1-E1.5, E2.1-E2.3) implementadas, cada gate nuevo con su
+**condición doble ejecutada en las dos direcciones y la salida pegada**. Además, **medido contra
+servidor real**: sin sesión `/` → 307 a `/login?next=%2F`; con sesión → 200 y el HTML servido lleva
+**un solo host de ovillo**, el hero (`data-interactive="true"`), con el slot `bg-3d` del caparazón
+**vacío**. Informe: `progress/reports/impl_dashboard_ui.md`.
+
+**Aviso de método de esta sesión (va en el informe §7):** mi primera sonda contra el servidor daba 307
+con sesión y estuve a punto de ficharlo como fallo de entorno del proxy. **Era mío**: firmaba el token
+con un secreto mal extraído de `.env`, y una comparación que hice para diagnosticarlo devolvió "104"
+que **no era la longitud del secreto sino la del mensaje de error** de un `require` fallido capturado
+en un `try`. Con la sonda bien montada (mismo secreto conocido en los dos lados) la ruta respondió 200
+a la primera. **No hay ningún defecto de entorno que fichar.** *(El reviewer midió la causa real y es
+mejor que la mía: el `JWT_SECRET` local está entre comillas y lleva un `$`, y `@next/env` **expande
+variables**, así que el servidor usa 18 caracteres de los 24 escritos. Ficha de deuda en su §7.2.)*
+
+### ✅ RONDA 2 — bloqueante B1 del review, RESUELTO (a la espera del segundo pase)
+
+**El review dio CAMBIOS REQUERIDOS con 1 bloqueante, y NO era un bug de código: era una afirmación
+falsa sobre el arnés en un comentario de producción.** `DashboardHero.tsx` decía que un test de tokens
+obligaba a moverse juntos a la variante responsive de tablet y a `--bp-tablet`. **No existía**: el
+único que ataba los dos namespaces era `archive-nav.tokens.test.ts:257-262`, y es del par `archive`.
+El reviewer lo demostró desincronizando los tokens en `globals.css` y corriendo la suite entera:
+**1194 passed, exit 0, cero rojos**.
+
+**Resuelto por la vía 1 — se escribió el test que faltaba, y para los CUATRO pares:**
+`src/shared/ui/breakpoint-tokens.test.ts`. **Los pares se DESCUBREN del propio `globals.css`, no se
+enumeran** (una lista a mano dejaría suelto el quinto breakpoint el día que exista: patrón de las
+deudas 40/43/71), se comparan **como conjuntos** (falla al añadir y al quitar) y hay **seguro
+anti-descubrimiento-roto**, porque dos conjuntos vacíos son iguales entre sí, o sea verde con el
+guardrail apagado. **Esto salda de nacimiento la deuda 1 de la §7 del review** ("sólo un par está
+atado; los otros tres no").
+
+**Condición doble, con la mutación EXACTA del reviewer sobre la suite entera:** de `exit 0` a
+**`VITEST_EXIT=1`**. Los cuatro pares enrojecen uno a uno; la pertenencia enrojece en las dos
+direcciones. `globals.css` restaurado y verificado por `md5sum` (`9aa85707662c00471d8a315c9fff7bfc`,
+el mismo hash que anotó el reviewer). Salidas pegadas en el informe **§11**.
+
+- `bash ./init.sh` **verde** (`EXIT=0`, sin tubería): `69 passed | 3 skipped` archivos,
+  **`1200 passed | 13 skipped`** tests. `pnpm build` OK.
+- **Ni una línea de producción cambiada en esta ronda**: +1 archivo de test (+6 tests) y **dos
+  comentarios** (`DashboardHero.tsx`, que ahora **nombra el archivo** en vez de aludir a un test
+  anónimo; y `NewProjectDialog.tsx:5`, con el motivo del import por ruta interna).
+- Higiene del review cerrada: el informe corrige la afirmación falsa **dejando escrito qué decía
+  antes**, corrige "54" → **55** archivos barridos, y reescribe en prosa las clases de Tailwind que
+  citaba literalmente.
+- **La feature sigue en `in_progress`.** No la marco `done`.
+
+> **Veredicto final (reviewer, ronda 2): APROBADO.** Verificó los cuatro pares con **cuatro mutaciones
+> independientes** —cada uno cae por separado— y, lo que se negó a dar por supuesto, **rompió el
+> descubrimiento a propósito**: el bucle genera cero tests pero el ancla de inventario pone el archivo
+> en rojo. **No hay verde silencioso.** Confirmó además que la ronda 2 no tocó ni una línea ejecutable
+> de producción (comparación byte a byte contra sus copias de la ronda 1).
+
+### Cómo se llegó hasta aquí — decisiones, mediciones y correcciones (leader)
+
+**Gate de arranque:** `bash ./init.sh` **verde** — `788 passed | 13 skipped`, 62 archivos, lint ✓, typecheck ✓.
+Ojo: la **primera** corrida salió en rojo por un timeout de `src/shared/db/index.test.ts` (5929ms contra un
+techo de 5000ms). Aislado pasa en 3.12s y la segunda corrida completa salió verde sin tocar nada. **Es flaky,
+no roto** → fichado como **deuda 103**.
+
+### ⚠️ TRAMPA DE MÉTODO descubierta al verificar el gate
+
+`bash ./init.sh | tail -40` **devuelve el código de salida de `tail`, no el del script**, así que el arnés
+reportó `exit code 0` sobre una corrida que había **fallado**. `init.sh` hace `exit $EXIT_CODE` correctamente
+(línea 117): el defecto era de la invocación, no del script. **Si vas a leer el código de salida de
+`init.sh`, no lo pases por una tubería** — redirigí a archivo y leelo después.
+
+### Informes de exploración (medidos, con archivo y línea) — NO repitas ese trabajo
+
+- `progress/reports/explore_19_hero_fondo.md` — E1.2: cómo desmontar el fondo global sólo en `/`.
+- `progress/reports/explore_19_proxy_ruta_privada.md` — E1.1: la línea del proxy y el test que cae.
+- `progress/reports/explore_19_datos_y_primitivas.md` — contratos de datos, API de primitivas, patrones.
+
+### 🔴 CORRECCIÓN DE LIBRO MAYOR: la enmienda E1.1 citaba una deuda que no existe
+
+E1.1 decía *"Salda las deudas 1 y 13"*. **Falso.** La **deuda 13** es el interlineado del botón perdido por
+`twMerge`, **saldada el 2026-07-31** con gate propio en `button.variants.test.ts`. No tiene nada que ver con
+el proxy. El error nació de leer el `(#13)` del título de la deuda 1 —que por convención del libro mayor es
+**el id de la FEATURE donde se detectó**, no otra deuda; la deuda 2 lleva el mismo `(#13)` y trata de otra
+cosa— como si fuera un número de deuda. De ahí se propagó a `feature_list.json` #19 (dos sitios) y de ahí a
+la enmienda.
+
+**Corregido en los tres sitios, con la corrección escrita, no borrada.** **NO tachar la deuda 13 al cerrar
+#19.** Verificado de forma independiente por el leader, no heredado del explorador.
+
+> **Es la misma familia que el bloqueante de la sesión anterior**, pero por otra vía: allí un dato inventado
+> se presentó como medición; acá una **procedencia** se leyó como **deuda** y se propagó por copia a través
+> de tres archivos. Las dos comparten la raíz: **nadie volvió a la fuente a comprobarlo.**
+
+### Las TRES decisiones que quedaban abiertas, cerradas por el usuario → enmienda **E2** (RFC-02 §7-ter)
+
+E1 había cerrado cinco, pero quedaban tres. **Ninguna se reabre.**
+
+- **E2.1 — la card de proyecto la crea #19, en `src/features/projects/ui/`, SIN quick-start.** La ficha decía
+  "reusa la card de RFC-03" y **esa card no existía** (la carpeta tampoco). La versión de RFC-02 es
+  **subconjunto estricto** de la de RFC-03, así que **#20 la extiende de forma aditiva** en vez de
+  reescribirla. Se descartó dejar un slot de acción "preparado": un slot sin consumidor es código muerto que
+  no se puede probar contra un consumidor real.
+- **E2.2 — Q14 cerrada: orden por `updatedAt`, y la etiqueta DEJA de decir "último tejido".** El RFC
+  recomendaba `updatedAt` apoyándose en que *"ya se bumpea al parar una sesión"*. **Medido: cierto pero
+  incompleto.** También lo bumpean `PATCH` (renombrar, nota, foto, estado), sumar vueltas y marcar pasos; y
+  **no** lo bumpea arrancar una sesión. O sea `updatedAt` es **"último toque"**, un superconjunto. Se compra
+  el coste cero y **se corrige la etiqueta** para que no mienta. El camino de backend (`lastSessionAt` con un
+  `MAX`) queda como deuda.
+- **E2.3 — el guardrail de no-hardcode amplía su barrido de `src/shared/ui/` a `src/`.** Medido: hoy
+  `no-hardcode.test.ts:27` sólo vigila `shared/ui`, así que `features/dashboard/ui/` y `features/projects/ui/`
+  **nacerían sin red**. Es la medicina de las deudas **40/43/71**. **Los rojos preexistentes se fichan, no se
+  arreglan aquí.**
+
+### Lo que el implementer tiene encargado además, y que hoy NO existe
+
+- **El gate de E1.2.** No hay **nada** que impida los dos ovillos: los cinco tests que mencionan el ovillo
+  usan `getByTestId` **en singular**, y un singular **no falla con dos instancias**. Hoy E1.2 es **prosa, no
+  invariante**.
+- **El gate positivo de la deuda 1.** Sin token, `/` → 307 a `/login?next=/`. Sin él, un test que sólo
+  enumera páginas públicas **nunca falla cuando alguien vuelve a añadir `/` a la lista**.
+
+### Hechos medidos que el implementer NO debe re-derivar
+
+- **`hours` viaja en SEGUNDOS**, y su `referenceValue` también → `SECONDS_PER_HOUR` de `@/shared/config`,
+  nunca `3600` a mano. `Project.time` también en segundos.
+- **Asimetría real:** `/api/dashboard/metrics` devuelve el objeto **plano**; `/api/projects` devuelve
+  **`{ projects }`** envuelto.
+- **⚠️ `ProjectRecord` MIENTE al cruzar la red:** declara `Date` y el JSON entrega **string ISO**.
+  `p.updatedAt.getTime()` **compila y explota en runtime**, y afecta justo al orden de E2.2. No hay ninguna
+  utilidad en el repo para esto.
+- **Por debajo de `--bp-tablet` el ovillo no se monta:** el bloque de hero debe sostenerse sin él.
+- **Zustand NO está instalado**, aunque `CLAUDE.md` lo nombre en el stack. No hay cliente HTTP de navegador:
+  el único precedente es `src/features/auth/ui/auth-client.ts`.
+
+---
+
 ## ✅ CERRADO — lote de deudas 86 / 87 / 90 / 94 (enablers de #19)
 
 **NO es una feature de `feature_list.json`** (ese archivo **no se tocó**). Lote de deuda técnica sobre
@@ -118,8 +286,11 @@ La corrección quedó **escrita en los dos sitios, no borrada.**
 ## Estado del proyecto
 
 - **Fase 1 (PRD-01, features 1-11):** completa (`done`).
-- **Fase 2 (UI, features 12-33):** en curso. **#12, #13, #14, #15, #16, #17, #18, #31, #32 y #33 `done`**;
-  siguiente = **#19 `dashboard_ui`**.
+- **Fase 2 (UI, features 12-33):** en curso. **22 de 33 features `done`** — #12, #13, #14, #15, #16, #17,
+  #18, **#19**, #31, #32 y #33. **Siguiente = #20 `projects_list_ui`.**
+- **`/` ya no es pública** (deuda 1 saldada). Quedan públicas **sólo** `/login` y `/register`.
+- **Ya existe la primera página de contenido.** Lo que queda es #20-#30: proyectos (3 slices), lanas (3),
+  patrones (3), calculadoras y stash.
 - **🎉 TODO EL BACKEND ESTÁ CERRADO.** Las features de datos/BFF (1-11) y las cuatro slices de backend de la
   fase 2 (**15, 16, 17, 18**) están `done`. **Lo que queda es UI**: #19-#30.
 - **`feature_list.json` tiene ahora 33 features**, no 32: **#33 `ui_primitives_2` es nueva**, la abrió el
@@ -228,7 +399,27 @@ el doble traduce peor**: deuda **81**.
 **Corolario:** *"los tests pasan"* no es lo mismo que *"el código funciona"* cuando el sujeto de la frase es
 una réplica escrita a mano. Familia: deudas **6**, **73**, **81**, **82**.
 
-## PRÓXIMA — feature #19 `dashboard_ui` (decisiones YA cerradas, se puede arrancar)
+## PRÓXIMA — feature #20 `projects_list_ui`
+
+**La card de proyecto YA EXISTE**: la creó #19 en `src/features/projects/ui/ProjectCard.tsx`
+(enmienda **E2.1**). **NO la reescribas** — reusala y **añadile el quick-start** del cronómetro, que es
+aditivo: la versión que hizo #19 (foto + nombre + progreso + tiempo) es **subconjunto estricto** de la que
+pide RFC-03 §2. El cableado de `POST /:id/sessions/start` es trabajo de #20, no de #19.
+
+**Lo que #20 hereda gratis de #19:** el cliente HTTP de navegador (`dashboard-client.ts` como molde), el
+formateo de números y duraciones (`src/shared/lib/format.ts`), el tipo de proyecto **serializado**
+(`features/projects/ui/types.ts`) y el guardrail de no-hardcode **ya vigilando `src/features/**/ui/`**.
+
+**Tres avisos antes de empezar:**
+- **La deuda 109**: el tipo de la card es un `Pick`, así que un proyecto entero encaja igual. Nada impide
+  que #20 empiece a leer campos que no le tocan. **Es justo el momento de la tentación.**
+- **La deuda 111**: el gate de "un solo ovillo" existe para `/` **porque el implementer lo escribió**.
+  `/proyectos` puede nacer sin su test de composición dentro del caparazón. Hermana de la 92 y la 101.
+- **Las deudas 74 y 79** hay que decidirlas **antes de #21**, y son la misma pregunta desde dos verbos:
+  hay **dos formas** de "las lanas de un proyecto" en el mismo recurso, y `PATCH :id` devuelve el proyecto
+  **sin** `yarns`.
+
+## ~~PRÓXIMA — feature #19 `dashboard_ui`~~ (CERRADA el 2026-08-07 — se conserva el contexto)
 
 **Cambia el modo de trabajo: se acabó el backend, empieza la UI.** Aplica el checklist visual del **SDD §9**
 (RTL + axe + smoke + `init.sh` + `build`).
@@ -338,6 +529,24 @@ movimiento reducido.
 
 ## Deuda técnica acumulada
 
+> ### ⚠️ ESTE RESUMEN ESTÁ DESFASADO — el libro mayor manda
+>
+> **Hoy son 115 fichas**, no 94. Nuevas de **#19**: **104-115**, más la **103** (flaky del gate de
+> arranque). **Saldada la deuda 1** (`/` deja de ser pública). **Una nació saldada** (los cuatro pares de
+> breakpoints). ⚠️ **NO se tacha la 13**: la enmienda E1.1 la citaba por error — era una **procedencia**
+> (el id de la feature donde se detectó la deuda 1), no un número de deuda. Corregido en los tres sitios.
+>
+> **Las tres de #19 que piden la misma medicina y conviene tapar juntas:** **104** (no hay primitivo de
+> enlace), **105** (ni de `select`), **106** (el componente de alerta sigue sin promover) — **las tres ya
+> tienen su segundo consumidor**, que es el umbral que este repo se puso para promover algo a `shared/ui`.
+>
+> **La 112 ya costó tiempo a dos agentes:** el `JWT_SECRET` **local** está entre comillas y lleva un `$`,
+> y el cargador de entorno de Next **expande variables** — de 24 caracteres escritos, el servidor usa
+> **18**. Cualquiera que monte una sonda contra el servidor real vuelve a tropezar.
+>
+> El resto de lo que sigue es de sesiones anteriores y **no se ha revisado**: contrastá contra
+> `progress/deudas.md` antes de citarlo.
+>
 > Vive en **`progress/deudas.md`** — libro mayor, **no se vacía nunca**. Hoy: **85 fichas**; saldadas y
 > tachadas 1, 2, 4, 8, 13, 17, 19, 21, 29, 30, 32, 36, 37, 38, 46, la **3** y la **55** (por #15), la **59**
 > y —por **#17**— la **5**. La **45** está **recalificada** (de deuda de datos a deuda de presentación), no

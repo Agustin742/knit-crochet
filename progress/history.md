@@ -957,3 +957,63 @@ construir lo que la propia medición señaló como el arreglo de fondo.
   Salió de que un reviewer fuera a contrastar un valor ya cerrado contra el entorno real de despliegue. Y se
   **elevó al usuario en vez de enterrarse como ficha de deuda**, porque contradecía una decisión suya — una
   ficha habría dejado el error vivo con apariencia de estar gestionado.
+
+## 2026-08-06 — #16, #17, #18 y #33 DONE + deuda 59 (ENTRADA RETROACTIVA)
+
+> ⚠️ **Esta entrada se escribió el 2026-08-07, al cerrar #19.** Faltaba: el cierre de sesión de `AGENTS.md`
+> §5 tiene cuatro pasos y el de `history.md` es el que se salta, porque **nada lo verifica** (`init.sh`
+> valida `feature_list.json`, no el historial). Lo levantó el reviewer de #19 como C5 en sus dos rondas.
+> Fichado como deuda **115**. Se reconstruye desde `progress/current.md` y los informes 13-17.
+
+- **Deuda 59 SALDADA** — primera subida real a Cloudinary por la cadena completa: **201**, y el `GET` de la
+  URL devolvió la imagen. **La firma funcionó a la primera**, a diferencia de su hermana la deuda 6, que al
+  medirse contra Neon destapó un bug de producción. Informe: `13.informe-deuda59-smoke_cloudinary.md`.
+- **#16 `dashboard_comparison_3metrics` DONE.** `comparison` pasa a ser un **mapa** de las 3 métricas;
+  `referenceMeters` **desaparece** — breaking a propósito, y se hizo entonces porque **no lo consumía nadie**.
+  Informe: `14.informe-dashboard_comparison_3metrics.md`.
+  **Lo más valioso no fue el código:** el test que protegía la conversión de unidades **pasaba en falso**
+  (derivaba de la lista ya convertida, así que se movía *con* el bug). Lo destapó la **regla 3**.
+- **#17 `projects_detail_yarns` DONE**, y con ella la **deuda 5 saldada**. Informe:
+  `15.informe-projects_detail_yarns.md`. El implementer **no se conformó con el doble en memoria** y ancló
+  el **SQL realmente emitido** por Drizzle. Precio fichado como deuda 77.
+- **#18 `patterns_used_by` DONE — última slice de backend.** Informe: `16.informe-patterns_used_by.md`.
+  **Midió por qué hace falta ese patrón, y el número da miedo:** al borrar el filtro **de producción**, la
+  suite quedó en `2 failed | 600 passed`. Los 32 tests de ruta **siguieron verdes**, porque el doble
+  implementa el filtro por su cuenta. → **REGLA 7** y deuda 81.
+- **#33 `ui_primitives_2` DONE — slice NUEVA**, abierta ese día: la ficha de #19 asumía seis piezas del
+  SDD §6 que **no existían**. Informe: `17.informe-ui_primitives_2.md`. **+154 tests.** Saldó además, sin
+  que nadie se lo pidiera, el guardrail de no-hardcode: de **lista fija de 18 archivos** a **barrido por
+  directorios** (medicina de las 40/43/71).
+
+## 2026-08-07 — Lote de deudas 86/87/90/94 + Feature #19 `dashboard_ui` DONE
+
+**Lote de deudas 86/87/90/94** (enablers de #19, **no es una feature**). Informe:
+`18.informe-deudas_86_87_90_94.md`. El `Dialog` pasa a bloquear el scroll del fondo solo y a aceptar
+`initialFocusRef`; el `Skeleton` anima con el shimmer del template, todo por token.
+**Su único bloqueante fue un DATO INVENTADO en el libro mayor**: el informe afirmaba como medido que
+happy-dom enfoca un `input` deshabilitado. Es falso. El código era correcto; **lo que estaba mal era la
+justificación**.
+
+**Feature #19 `dashboard_ui` DONE.** La primera página de contenido del proyecto. Cadena:
+leader → **3 exploradores en paralelo** → implementer → reviewer (**CAMBIOS REQUERIDOS, 1 bloqueante**) →
+ronda 2 → **APROBADO**. Informe de cierre: `progress/informs/19.informe-dashboard_ui.md`.
+
+- **Verificación:** `bash ./init.sh` exit 0 — **1200 passed | 13 skipped** en **69 archivos** (partida:
+  788/13 en 62). **+412 tests.** `pnpm build` OK. Verificado por los tres (leader al arrancar, implementer,
+  reviewer ×3) sin discrepancias.
+- **Ocho decisiones de scope cerradas ANTES de empezar**: las cinco de la enmienda **E1** y las tres de la
+  **E2**, escrita en esta sesión (§7-ter del RFC-02). E2.1 la card de proyecto la crea #19 y #20 la reusa ·
+  E2.2 el orden se apoya en `updatedAt` **pero la etiqueta deja de decir "último tejido"** · E2.3 el
+  guardrail de no-hardcode se amplía a `src/`.
+- **Medido contra servidor real** (regla 4), y reproducido por el reviewer: sin sesión `/` → 307 a
+  `/login?next=%2F`; con sesión → 200, **un solo host de ovillo** (el hero, con captura de puntero) y el
+  slot de fondo del caparazón **vacío**.
+- **Deuda 1 SALDADA** (`/` deja de ser pública), y lo que la salda de verdad **no es la línea del proxy sino
+  el gate positivo**: el reviewer midió que, devolviendo `/` a la lista, el test que *enumera* públicas
+  **sigue verde**.
+- **El guardrail de no-hardcode pasa de 55 a 216 archivos**, sin perder cobertura, sin allowlist y con su
+  seguro anti-barrido-roto ampliado. Auditado con inyección de hardcode en un archivo nuevo y uno viejo.
+- **Deudas: nuevas 104-115.** Una **nació saldada** (los cuatro pares de breakpoints).
+- **Lección de método, la tercera de la misma familia en dos sesiones:** el único bloqueante **no fue un
+  bug**, fue un comentario de producción que afirmaba que un test ya existía. No existía. Se resolvió por la
+  vía que **convierte la afirmación en verdad** en vez de borrarla.

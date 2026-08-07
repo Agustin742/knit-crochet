@@ -1,12 +1,20 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useCallback } from "react";
 
 import { AppShell, type AccountUser, AsciiYarn } from "@/shared/ui";
 
 import { postLogout } from "./auth-client";
 import { LOGOUT_REDIRECT } from "./next-path";
+
+/**
+ * Ruta que monta su PROPIO ovillo como hero (el Dashboard, RFC-02 §2). Se
+ * declara aquí y **no se importa `HOME_PATH` de `src/proxy.ts`**: ese módulo es
+ * el middleware, y traerlo al grafo de un componente de cliente por una cadena
+ * de un carácter no sale a cuenta.
+ */
+const HERO_PATHS = ["/"];
 
 export interface AppShellClientProps {
   children: ReactNode;
@@ -33,6 +41,17 @@ export interface AppShellClientProps {
  * cliente, y el gate que lo vigila sigue siendo verdad en vez de tener que
  * invertirse (deuda 29).
  *
+ * **El fondo 3D lo decide la RUTA** (RFC-02 §7-bis, enmienda E1.2). En `/` el
+ * Dashboard monta su propio ovillo como hero, interactivo y arrastrable, así que
+ * el caparazón NO monta el suyo: dos efectos ASCII simultáneos duplicarían el
+ * coste de CPU del bucle de asciificación justo en la página que más se abre.
+ * `background` ya era un slot opcional de `AppShell`, así que apagarlo no toca el
+ * design system. Se lee con `usePathname()` —el mismo mecanismo con el que
+ * `ArchiveNav` y `BottomNav` derivan su ruta activa—, que lee del contexto del
+ * router y **no abre red**: el gate de "cero petición al montar" sigue intacto.
+ * La decisión se toma en el render del padre, antes de que el hijo exista, así
+ * que nunca llega a instanciarse un `WebGLRenderer` que después haya que tirar.
+ *
  * Lo único que este módulo hace en el navegador es el logout, que es una acción
  * explícita de la persona: `POST /api/auth/logout` y, **sólo si el servidor
  * confirma** que borró la cookie, `replace` a la pantalla de acceso. Si la
@@ -44,6 +63,7 @@ export interface AppShellClientProps {
  */
 export function AppShellClient({ children, user }: AppShellClientProps) {
   const router = useRouter();
+  const pathname = usePathname();
 
   const handleLogout = useCallback(async () => {
     if (!(await postLogout())) {
@@ -53,8 +73,14 @@ export function AppShellClient({ children, user }: AppShellClientProps) {
     router.refresh();
   }, [router]);
 
+  const ownsItsYarn = HERO_PATHS.includes(pathname ?? "");
+
   return (
-    <AppShell user={user} onLogout={handleLogout} background={<AsciiYarn />}>
+    <AppShell
+      user={user}
+      onLogout={handleLogout}
+      background={ownsItsYarn ? undefined : <AsciiYarn />}
+    >
       {children}
     </AppShell>
   );

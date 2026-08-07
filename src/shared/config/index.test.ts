@@ -5,6 +5,7 @@ import {
   HOURS_COMPARISONS,
   PROJECTS_COMPARISONS,
   SECONDS_PER_HOUR,
+  SECONDS_PER_MINUTE,
   YARN_COMPARISONS,
 } from "@/shared/config";
 
@@ -113,5 +114,10 @@ describe("PROJECTS_COMPARISONS (PRD §8.1 seed, expressed in projects)", () => {
 describe("SECONDS_PER_HOUR (unit bridge, PRD §8.1)", () => {
   it("is the real number of seconds in an hour", () => {
     expect(SECONDS_PER_HOUR).toBe(60 * 60);
+  });
+
+  it("is coherent with its sibling: an hour is 60 minutes", () => {
+    expect(SECONDS_PER_MINUTE).toBe(60);
+    expect(SECONDS_PER_HOUR / SECONDS_PER_MINUTE).toBe(60);
   });
 });

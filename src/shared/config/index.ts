@@ -37,6 +37,14 @@ export type YarnComparison = (typeof YARN_COMPARISONS)[number];
  */
 export const SECONDS_PER_HOUR = 3600;
 
+/**
+ * Segundos en un minuto. Hermana de `SECONDS_PER_HOUR` y por el mismo motivo:
+ * el dominio almacena tiempo en segundos (`craft_sessions.duration`,
+ * `Project.time`) y la UI lo enseña en horas y minutos. Los dos puentes viven
+ * juntos para que nadie escriba `60` ni `3600` sueltos en un componente.
+ */
+export const SECONDS_PER_MINUTE = 60;
+
 // Comparativas graciosas sobre las horas tejidas (PRD §8.1). Ordenadas
 // ascendente por `hours`. ⚠️ El campo está EN HORAS; la métrica que se compara
 // contra ellas está en SEGUNDOS: la conversión va por `SECONDS_PER_HOUR`.

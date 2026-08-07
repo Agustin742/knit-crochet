@@ -1,12 +1,14 @@
-import { APP_NAME } from "@/shared/config";
+import { DashboardView } from "@/features/dashboard/ui";
 
-export default function HomePage() {
-  return (
-    <div className="p-(--space-6)">
-      <h1 className="font-display text-2xl text-fg-inverse">{APP_NAME}</h1>
-      <p className="mt-(--space-2) text-fg-inverse-muted">
-        Gestiona tus proyectos de tejido de dos agujas y crochet.
-      </p>
-    </div>
-  );
+/**
+ * Dashboard, la página de inicio post-login (RFC-02).
+ *
+ * Es una ruta **privada** desde la enmienda E1.1: `src/proxy.ts` ya no la lista
+ * como pública, así que sin sesión rebota a `/login?next=/`. No hay landing.
+ *
+ * La página es fina a propósito: rutea y compone. Toda la UI y la costura con
+ * los endpoints viven en `features/dashboard/ui/`.
+ */
+export default function DashboardPage() {
+  return <DashboardView />;
 }

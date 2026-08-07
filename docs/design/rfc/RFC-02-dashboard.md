@@ -61,7 +61,17 @@
 **E1.1 — `/` pasa a ser PRIVADA, y no hay landing pública.** Se quita `/` de `PUBLIC_PAGES` en
 `src/proxy.ts`. Sin sesión, `/` redirige a `/login?next=/` — mecanismo que el proxy **ya tiene montado y
 probado**. Con sesión, `/login` sigue redirigiendo a `/`, así que el circuito cierra solo. Quedan públicas
-**sólo** `/login` y `/register`. **Salda las deudas 1 y 13.** Se descartó una landing pública aparte: ningún
+**sólo** `/login` y `/register`. **Salda la deuda 1** (abierta durante la feature **#13 `ui_shell_nav`**).
+> **CORRECCIÓN (2026-08-07, leader).** Esta enmienda decía *"salda las deudas 1 y 13"*. **Era falso y queda
+> corregido.** La **deuda 13** es el interlineado del botón perdido por `twMerge`, **saldada el 2026-07-31**
+> con gate propio en `button.variants.test.ts`: no tiene relación con el proxy, las rutas ni la sesión.
+> El error nació de leer el `(#13)` del título de la deuda 1 —que es **el id de la feature donde se
+> detectó**, convención del libro mayor (la deuda 2 lleva el mismo `(#13)` y trata de otra cosa)— como si
+> fuera el número de otra deuda. De ahí se propagó a `feature_list.json` #19, y de ahí a esta enmienda.
+> **No tachar la deuda 13 al cerrar #19: ya está tachada por otro motivo, y volver a tocarla corrompe el
+> libro mayor.** Verificado de forma independiente por el leader contra `progress/deudas.md`.
+
+Se descartó una landing pública aparte: ningún
 RFC la pide, y RFC-02 define el Dashboard como "la página de inicio post-login" **en `/`**.
 
 **E1.2 — El hero REEMPLAZA al fondo global en `/`; nunca dos ovillos vivos.** Hoy `AppShellClient` monta
@@ -97,6 +107,60 @@ etiquetas de las tres listas, es español natural y **no toca ni un dato**.
 marca, el usuario cambia el año, ve **moverse dos comparativas y quedarse una**, y parece un bug. Se resuelve
 **en la UI**, no en el payload: no toca el contrato de `/api/dashboard/metrics`, cerrado en #16, cuyo único
 consumidor es esta misma página. **Salda la deuda 66.**
+
+## 7-ter. Enmienda E2 — las tres decisiones que quedaban de #19, cerradas (2026-08-07)
+
+> E1 cerró cinco decisiones, pero **quedaban tres abiertas** que sólo se vieron al planificar la slice:
+> una que la ficha de #19 arrastraba sin resolver (la card), una que este mismo RFC dejaba escrita como
+> pendiente (**Q14**, §3) y una que salió de medir el arnés. Las tres las cerró el usuario **antes de
+> empezar**, como manda RFC-00 §6. **No se reabren.**
+
+**E2.1 — La card de proyecto la crea #19, en `src/features/projects/ui/`, y SIN quick-start.**
+La ficha de #19 decía *"reusa la card de proyecto de RFC-03"* y **esa card no existía**: la crea #20, que va
+después. Se rompe el empate a favor de que **#19 la cree y #20 la reuse**.
+- **Dónde vive: `src/features/projects/ui/`**, no `src/features/dashboard/ui/`. Es la card *de proyecto*, y
+  §7 de este RFC ya mandaba buscarla ahí. Ponerla en `dashboard/` obligaría a #20 a importarla del feature
+  ajeno al revés, o a moverla —churn gratis sobre una pieza ya probada.
+- **Qué lleva: foto, nombre, barra de progreso y tiempo.** La versión de RFC-02 §2, **sin el quick-start de
+  cronómetro** que RFC-03 §2 sí le pone.
+- **Por qué sin quick-start:** la versión de RFC-02 es **subconjunto estricto** de la de RFC-03, así que #20
+  la extiende **de forma aditiva** sin reescribir nada. Con quick-start, #19 tendría que cablear
+  `time-tracking` (`POST /:id/sessions/start`), su estado de carga y su error — en la página que RFC-02 §6
+  declara **fuera del CRUD de proyectos**. Se descartó también dejar un slot de acción vacío "preparado":
+  un slot que ningún consumidor usa no se puede probar contra un consumidor real, y es código muerto.
+- **Encargo explícito para #20:** el quick-start es tuyo, y es aditivo. No reescribas la card: añadile la
+  acción.
+
+**E2.2 — Q14 cerrada: la lista de activos ordena por `updatedAt`, y la etiqueta deja de decir "último
+tejido".** §3 de este RFC dejaba la decisión abierta y recomendaba el camino (a) apoyándose en que
+`updatedAt` *"ya se bumpea al parar una sesión"*.
+- **Lo medido (`progress/reports/explore_19_datos_y_primitivas.md` §A.3):** esa afirmación es **cierta pero
+  incompleta**. `setProjectTime` sí lo bumpea al parar el cronómetro — aunque vive en
+  `src/features/time-tracking/api/store.ts`, **no** en el store de projects como decía §3. Pero **también**
+  lo bumpean `PATCH /api/projects/:id` (renombrar, la nota, la foto, el estado…), sumar vueltas y marcar
+  pasos. Y **no** lo bumpea arrancar una sesión.
+- **Conclusión: `updatedAt` es "último toque", no "último tejido".** Es un **superconjunto**: se pasa de
+  largo con cualquier edición de metadatos, y se queda corto mientras hay una sesión abierta sin parar.
+- **Decisión: se toma el camino (a) —ordenar por `updatedAt`, coste cero, backend intacto— Y se corrige la
+  etiqueta visible para que diga lo que el dato de verdad mide** (del tipo *"Actividad reciente"*). Se
+  descartó mantener el rótulo "último tejido" sobre un dato que no lo sostiene: en este repo **una etiqueta
+  que miente es peor que no tenerla**, y el orden además **es cambiable desde la UI** (§1), así que el
+  usuario que quiera otro criterio lo tiene a un clic.
+- **Se descartó el camino (b)** (exponer `lastSessionAt` con un `MAX(craft_sessions.end)` en el `list` del
+  store): reabriría el backend, que está cerrado, y mete una slice entera antes de #19 para afinar un orden
+  que el usuario puede cambiar. **Queda como deuda**, no como trabajo de #19.
+
+**E2.3 — El guardrail de no-hardcode se amplía a `src/` dentro de #19.**
+Medido (`explore_19_datos_y_primitivas.md` §C.3): `no-hardcode.test.ts:27` ancla su barrido a
+`src/shared/ui/`, así que **`src/features/dashboard/ui/` y `src/features/projects/ui/` nacerían sin
+vigilancia** de colores y píxeles sueltos. (El otro guardrail, el de sintaxis canónica de Tailwind, **sí**
+barre todo `src/` desde su línea 49 — ése no hace falta tocarlo.)
+- **Decisión: ampliar la raíz del barrido a `src/` en esta misma slice.** Son ~3 líneas y cierra el agujero
+  para las once páginas que vienen detrás (#19-#30). Es la medicina de las deudas **40/43/71**, que es
+  exactamente lo que ese archivo dice haber venido a matar.
+- **Los rojos preexistentes se FICHAN, no se arreglan aquí.** Si al ampliar se encienden archivos ya
+  escritos (`src/features/auth/ui/`, de #31/#32), se excluyen con **motivo escrito** y se abre ficha de
+  deuda. #19 no se convierte en un lote de limpieza sobre código ajeno cuyo tamaño nadie ha medido.
 
 ## 8. Slices de implementación (→ `feature_list.json`)
 

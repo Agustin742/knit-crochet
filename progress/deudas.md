@@ -28,9 +28,23 @@
 
 ---
 
-1. ~~**`src/proxy.ts` `/` público vs. Dashboard privado** (#13)~~ → **convertida en trabajo rastreable**:
-   nota de scope + criterio de aceptación en la feature **#19 `dashboard_ui`** (quitar `/` de PUBLIC_PAGES,
-   Dashboard privado en `/`, test del proxy actualizado). Se resuelve al construir el Dashboard.
+1. ~~**`src/proxy.ts` `/` público vs. Dashboard privado** (#13)~~ → **SALDADA por #19** (2026-08-07,
+   enmienda **E1.1** del RFC-02). `PUBLIC_PAGES` pasa a `["/login", "/register"]`: **una línea**. Quedó
+   **verificado contra servidor real**, no sólo en test: sin sesión, `GET /` responde
+   `307` con `location: /login?next=%2F`; con sesión, `200`.
+   **Lo que la salda de verdad no es la línea, es el gate POSITIVO** que se escribió con ella (sin token,
+   `/` → 307 con `pathname` `/login` y `next` `/`). El reviewer lo midió: devolviendo `"/"` a la lista, el
+   test que **enumera** páginas públicas **sigue verde** —no detecta lo que sobra— y sólo cae el positivo.
+   Sin él, la deuda se habría saldado **sin dejar guardia viva**.
+   El test viejo se **reescribió, no se recortó** (deuda 29): conserva el invariante de que la puerta de
+   entrada se pueda abrir sin sesión. `PUBLIC_PAGES` y `AUTH_PAGES` quedan **sin fusionar** a propósito,
+   aunque hoy coincidan: una decide si la sesión es **obligatoria** y la otra si **sobra**.
+   **La opción "landing pública aparte" queda DESCARTADA** por E1.1: ningún RFC la pide.
+   ⚠️ **OJO — no tachar la deuda 13 por esto.** El `(#13)` del título de arriba es **el id de la FEATURE
+   donde se detectó** (convención de este libro; la deuda 2 lleva el mismo `(#13)` y trata de otra cosa),
+   **no** un número de deuda. La enmienda E1.1 lo leyó mal y escribió "salda las deudas 1 y 13";
+   **corregido el 2026-08-07** en el RFC y en las dos apariciones de `feature_list.json` #19. La deuda 13
+   real es el interlineado del botón, **saldada el 2026-07-31** por otro motivo.
 2. ~~**Sin feature para páginas login/register** (#13)~~ → **convertida en feature**: nueva **#31 `auth_ui`**
    (login + register en el grupo `(auth)`). `rfc_ref` RFC-01 §2/§3.
 3. **Sanitización al cablear Cloudinary** (#5, PRD §11.7): `folder`/`publicId` desde el `userId` del JWT
@@ -1338,3 +1352,120 @@ registrarlo en ningún sitio. **Quedan dos guardrails de lista fija: las deudas 
      los del template — **no** que el navegador la ejecute. Hermana directa de la **95** y de la familia de la
      **regla 4**. **Arreglo:** entra gratis en la primera pasada de navegador de #19, que ya va a montar
      skeletons.
+
+## Nueva del arranque de #19 (2026-08-07)
+
+> Detectada por el leader al ejecutar el gate de arranque. No la produjo ninguna feature.
+
+103. **`src/shared/db/index.test.ts` es FLAKY: se pasa del timeout bajo la carga de la suite completa.**
+     **Medido, no inferido**, en dos corridas consecutivas sin tocar una línea de código:
+     - Corrida A (suite completa): `× exposes a configured Drizzle client when DATABASE_URL is set 5929ms`
+       → `Error: Test timed out in 5000ms`. Total: `1 failed | 787 passed | 13 skipped`, y
+       `Test Files 1 failed | 61 passed | 3 skipped`.
+     - Aislado (`pnpm vitest run src/shared/db/index.test.ts`): `4 passed`, **3.12s**.
+     - Corrida B (suite completa, sin cambios): **verde**, `788 passed | 13 skipped`, `62 passed | 3 skipped`.
+
+     **Por qué importa más de lo que parece:** el test tarda **5929ms contra un techo de 5000ms**, es decir
+     falla por ~18%. El margen es tan fino que el resultado depende de la carga de la máquina y del orden de
+     paralelización de Vitest. Eso convierte el gate de arranque en **no determinista**, y un gate no
+     determinista es peor que no tener gate: entrena a los agentes a **volver a correrlo hasta que salga
+     verde**, que es exactamente el reflejo que haría pasar por alto un rojo de verdad. Es la enfermedad
+     opuesta a la **regla 3** (un gate que no se ve caer no vale) — aquí el gate cae **sin que nada esté roto**.
+
+     **Causa probable (INFERENCIA, no medida):** el coste es de *import*, no de aserción — el test hace
+     `await import("@/shared/db")` y arrastra Drizzle + el driver de Neon en frío. La corrida completa
+     declara `import 130.03s` y `setup 85.49s` repartidos entre 65 archivos, así que un import en frío
+     compitiendo con otros 61 archivos explica el pico. **No lo he verificado instrumentando el import.**
+
+     **Arreglo:** subir el `testTimeout` de ESE archivo (no el global — bajar la exigencia de toda la suite
+     para tapar un caso es cambiar el termómetro) a un valor con margen real sobre el coste de import
+     observado, y dejar escrito en el propio test **por qué** lleva un timeout propio. Alternativa de fondo:
+     que el test no pague el import completo del cliente real.
+     **Actualización (2026-08-07):** no volvió a aparecer en ninguna de las corridas completas de #19
+     (implementer ×2, reviewer ×3). Sigue viva: un flaky que no se reproduce **no está arreglado**, sólo
+     callado.
+
+## Nuevas de la feature #19 `dashboard_ui` (2026-08-07)
+
+> Informes: `progress/reports/impl_dashboard_ui.md` y `progress/reports/review_dashboard_ui.md`.
+> Las ocho primeras las propuso el implementer y el reviewer las validó una a una; las cuatro últimas
+> salieron del review.
+
+### 📌 La que NO está aquí, porque nació saldada
+
+El review de la ronda 1 iba a fichar *"sólo UN par de breakpoints está atado por test; los otros tres
+no"*. **#19 la saldó antes de que existiera**, al resolver el bloqueante B1 por la vía buena:
+`src/shared/ui/breakpoint-tokens.test.ts` cubre **los cuatro pares**, y el reviewer lo verificó con
+**cuatro mutaciones independientes** (cada par cae por separado) más una quinta rompiendo el
+descubrimiento. Vale la pena leer el porqué en el informe de cierre `19.informe-dashboard_ui.md`: el
+bloqueante **no era un bug de código**, era una frase que afirmaba que ese test ya existía.
+
+104. **No hay primitivo de ENLACE en el design system, y ya van dos consumidores.** `LoginForm.tsx:29`
+     define sus clases de enlace a mano, y `ActiveProjectsPanel.tsx` ha tenido que definir las suyas,
+     casi idénticas salvo el color del primer plano (uno vive sobre superficie clara y el otro sobre el
+     fondo oscuro). **Es el segundo consumidor: toca promoverlo a `shared/ui`.** ⚠️ Al hacerlo, aplicá la
+     **regla de superficies**: el enlace debe **heredar** el primer plano, como la variante fantasma del
+     botón (deuda 17), o se repite el defecto de la invisibilidad sobre superficie no declarada.
+     **Precio:** tocar el barrel hace caer `public-api.test.ts` (usa `toEqual`), y eso es una decisión de
+     contrato del design system, no de una página — por eso #19 no lo hizo.
+
+105. **No hay primitivo de `select`, y ya hay uno en producción.** El control de orden del Dashboard usa
+     un `select` nativo con `inputClasses` (que se exportó justo para esto, así que no es un abuso). Pero
+     el estado de error, el foco y la flecha del nativo **no están cubiertos por ningún test del design
+     system**. Hermana de la 104: mismo precio, misma decisión de contrato.
+
+106. **El error del modal de alta es un párrafo con `role="alert"` local, no `AuthFormError`.** Ese
+     componente vive en `features/auth/ui/` y este libro ya lo señalaba como *"el `Alert` que el SDD §6
+     lista como pendiente; candidato a promover con un segundo consumidor"*. **Ya hay segundo consumidor.**
+     Tercera hermana de la 104/105, y la más madura de las tres.
+
+107. **"Ver todos" apunta a `/proyectos`, que hoy es un 404.** Igual que las seis pestañas del archivero
+     desde #13. **No es un defecto de #19**: se cierra con #20. Queda fichado para que nadie lo lea como
+     regresión al abrir la app.
+
+108. **El año inicial se toma del reloj del CLIENTE en el inicializador de `useState`.** En el render de
+     servidor eso corre con el reloj del **servidor**. Si los dos estuvieran en años distintos (medianoche
+     del 31 de diciembre a caballo de dos husos), React avisaría de una discrepancia de hidratación en el
+     valor del campo. **NO MEDIDO** —lo declara así el implementer, y está bien declarado— porque es una
+     ventana de minutos al año y evitarla costaba enseñar la pantalla sin año en el primer render.
+
+109. **`ProjectCardData` no obliga a nadie a mantenerse en el subconjunto.** Está definido como un `Pick`
+     del proyecto serializado, así que **un proyecto entero encaja igual**: nada impide que un día la card
+     empiece a leer campos que no le tocan. Hoy sólo lo protege la disciplina. Importa más de lo normal
+     porque **#20 va a reusar esta card** (enmienda E2.1) y es el momento en que la tentación aparece.
+
+110. **La utilidad de ocultación sólo-para-lectores de la etiqueta de tiempo no está vigilada por ningún
+     gate de tokens.** Es una utilidad del core de Tailwind, no un token, y el guardrail no la mira.
+     Coherente con el precedente del ancho máximo de contenedor que usa `AuthPanel`, pero conviene saber
+     que la frontera *"escala de Tailwind sí / valor suelto no"* es hoy **disciplina, no test**.
+
+111. **Ningún gate obliga a que una ruta de `(app)` traiga su test de composición dentro del caparazón.**
+     El gate de "un solo ovillo" existe para `/` **porque el implementer lo escribió**; `/proyectos` (#20)
+     puede nacer sin él. **Hermana de la 92** (nada obliga a traer el test de `axe`) y de la **101**: las
+     tres son la misma enfermedad —invariantes que dependen de que el siguiente agente se acuerde—.
+     **Conviene taparlas juntas.**
+
+112. **El `JWT_SECRET` de `.env` LOCAL se trunca solo, y ya costó tiempo a dos agentes.** Está entre
+     comillas y contiene un `$` seguido de caracteres; `@next/env` **expande variables**, así que de los
+     24 caracteres escritos el servidor usa **18**. **Medido** por el reviewer resolviéndolo con el mismo
+     `loadEnvConfig` que usa Next (`len 18`). No es código del repo —es entorno local— pero **cualquiera
+     que monte una sonda contra el servidor real vuelve a tropezar**, y de hecho tropezaron los dos.
+     **Arreglo:** escapar el `$` o cambiar el secreto local, y **una línea de aviso en `.env.example`**.
+
+113. **Un JWT válido con un `sub` que no es UUID devuelve 500 en `/`.** Verificado contra servidor real:
+     `invalid input syntax for type uuid` sale de Neon y **se propaga hasta el render**. **No es
+     explotable desde fuera** (el token tiene que estar firmado con el secreto del servidor), pero es una
+     ruta a 500 sin `try` intermedio en la capa de auth. **Es de #31/#32, no de #19.** Un `sub` mal
+     formado debería tratarse como **sesión inválida**, no como consulta.
+
+114. **La región viva del Dashboard es un `role="status"` anónimo.** Funciona y tiene test, pero el helper
+     `settle()` de tres archivos de test depende de que ese `status` sea **único** en la pantalla. En
+     cuanto otra pieza monte un `status`, esos tests se vuelven **ambiguos** — y la ambigüedad de un
+     selector no falla limpio: falla raro.
+
+115. **`progress/history.md` iba DOS sesiones por detrás.** Lo levantó el reviewer como C5 en las dos
+     rondas. Su última cabecera era `2026-08-05 — Feature #15`, faltando **#33 `ui_primitives_2`** (cerrada
+     el 2026-08-06). **Es contabilidad del leader, no del implementer.** ~~Saldada al cerrar #19~~: se
+     añadieron las dos entradas. **Queda como ficha viva de MÉTODO:** el cierre de sesión de `AGENTS.md`
+     §5 tiene cuatro pasos y el de `history.md` es el que se salta, porque **nada lo verifica** —
+     `init.sh` valida `feature_list.json`, no el historial.

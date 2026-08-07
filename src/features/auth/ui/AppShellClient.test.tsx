@@ -11,10 +11,11 @@ import { LOGOUT_REDIRECT } from "./next-path";
 const routerState = vi.hoisted(() => ({
   replace: vi.fn(),
   refresh: vi.fn(),
+  pathname: vi.fn(() => "/"),
 }));
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/",
+  usePathname: () => routerState.pathname(),
   useRouter: () => ({
     replace: routerState.replace,
     refresh: routerState.refresh,
@@ -67,6 +68,7 @@ function shellPropsOf() {
   return shellProps.mock.calls[0]?.[0] as {
     user?: { name: string } | null;
     onLogout?: () => void | Promise<void>;
+    background?: ReactNode;
   };
 }
 
@@ -80,6 +82,7 @@ afterEach(() => {
   fetchSpy.mockReset();
   routerState.replace.mockReset();
   routerState.refresh.mockReset();
+  routerState.pathname.mockReturnValue("/");
   vi.unstubAllGlobals();
 });
 
@@ -95,14 +98,39 @@ describe("AppShellClient", () => {
     expect(screen.getByText("Panel")).toBeInTheDocument();
   });
 
-  it("hands the 3D layer to the shell as its background", () => {
+  /**
+   * PAR DE LA ENMIENDA E1.2 (RFC-02 §7-bis). Antes era un solo test que sólo
+   * decía "hay fondo", y era verdad en todas las rutas porque el fondo se fijaba
+   * a fuego. Ahora lo decide la ruta, así que la mitad interesante es la
+   * NEGATIVA: en `/` el Dashboard monta su propio ovillo como hero, y el
+   * caparazón tiene que callarse para que no haya dos vivos a la vez.
+   *
+   * Se cuenta con `queryAllByTestId`, no con `getByTestId`: el singular no falla
+   * cuando hay dos instancias, que es exactamente el defecto que E1.2 prohíbe.
+   */
+  it("no monta el fondo global en el Dashboard: el hero es el único ovillo", () => {
+    routerState.pathname.mockReturnValue("/");
+
     render(
       <AppShellClient>
         <p>Panel</p>
       </AppShellClient>,
     );
 
-    expect(screen.getByTestId("ascii-yarn")).toBeInTheDocument();
+    expect(screen.queryAllByTestId("ascii-yarn")).toHaveLength(0);
+    expect(shellPropsOf().background).toBeUndefined();
+  });
+
+  it("hands the 3D layer to the shell as its background outside the Dashboard", () => {
+    routerState.pathname.mockReturnValue("/proyectos");
+
+    render(
+      <AppShellClient>
+        <p>Panel</p>
+      </AppShellClient>,
+    );
+
+    expect(screen.queryAllByTestId("ascii-yarn")).toHaveLength(1);
   });
 
   /**
