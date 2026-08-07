@@ -4,6 +4,7 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
+  type RefObject,
   useEffect,
   useId,
   useRef,
@@ -22,6 +23,7 @@ import {
   dialogScrimVariants,
   dialogTitleVariants,
 } from "./dialog.variants";
+import { lockRootScroll } from "./root-scroll-lock";
 
 /** Etiqueta del control de cierre. Se puede sobreescribir por prop. */
 export const DIALOG_CLOSE_LABEL = "Cerrar";
@@ -71,21 +73,46 @@ export interface DialogProps extends DialogVariants {
   closeLabel?: string;
   /** Clic en el velo = cerrar. Se puede apagar para un flujo destructivo. */
   dismissOnScrimClick?: boolean;
+  /**
+   * Qué enfocar al abrir (deuda 90). **Por defecto, el panel**, que es lo
+   * correcto para un modal de aviso: quien lo abre quiere oír el título antes
+   * que nada. Un modal que es un FORMULARIO quiere lo contrario —el primer
+   * campo—, y sin esta prop no había forma de pedirlo.
+   *
+   * **Repliegue:** si el elemento apuntado no está montado, o no es una parada
+   * de tabulación de las que la trampa de foco reconoce dentro del panel, se
+   * enfoca el panel. Nunca se queda sin enfocar nada: eso dejaría a quien navega
+   * por teclado tirado al principio del documento, que es exactamente el fallo
+   * que el invariante 3 existe para evitar.
+   */
+  initialFocusRef?: RefObject<HTMLElement | null>;
   className?: string;
 }
 
 /**
  * Modal (SDD §6, §8).
  *
- * **Se monta en un portal al `body`**, no en el flujo. Los tokens `--z-overlay`
- * y `--z-modal` sólo sirven si el diálogo comparte contexto de apilamiento con
- * el resto de la página, y en el flujo no lo comparte: el archivero apila hojas
- * con `transform` y `z-index` propios, y cualquier ancestro transformado crea un
- * contexto nuevo que encierra al panel por debajo del nav aunque valga 300
- * contra 100. El portal lo saca de esa jaula y deja que los tokens signifiquen
- * lo que dicen.
+ * **Se monta en un portal al `body`**, no en el flujo, y eso es OBLIGATORIO, no
+ * una preferencia. Los tokens `--z-overlay` y `--z-modal` sólo significan algo
+ * si el diálogo comparte contexto de apilamiento con el nav, y dentro del
+ * `AppShell` no lo comparte: **el `main` es la jaula**. Lleva posición relativa
+ * y `z-index: var(--z-base)` (`AppShell.tsx`), o sea que abre un contexto de
+ * apilamiento propio en el escalón **1**; `ArchiveNav` y `BottomNav` pintan en
+ * `--z-nav` = **100** FUERA de él. Todo lo que se renderice dentro del `main`
+ * queda techado por ese 1, así que el panel iría por debajo del nav **aunque
+ * `--z-modal` valga 300**. El portal lo saca de la jaula y deja que los tokens
+ * signifiquen lo que dicen.
  *
- * Los tres invariantes que un modal roto incumple, y que están testeados uno a
+ * Ojo con la explicación equivocada, que ya se escribió una vez (deuda 94): el
+ * archivero **no** tiene `transform`. Crea su contexto de apilamiento con
+ * `filter: drop-shadow(...)` y, sobre todo, sus hojas son **hermanas** del
+ * `main`, no ancestros suyas: un contexto de apilamiento sólo encierra a sus
+ * descendientes. Quien lea eso, compruebe que no hay ningún `transform` y
+ * concluya que la razón ya no aplica, quitará el portal y mandará el modal
+ * detrás del nav. Por eso el razonamiento no vive sólo en este párrafo: está
+ * atado a los tokens en `dialog.portal.tokens.test.ts`.
+ *
+ * Los cuatro invariantes que un modal roto incumple, y que están testeados uno a
  * uno (no supuestos):
  *
  * 1. **El foco queda atrapado dentro** mientras está abierto — si no, el resto
@@ -94,6 +121,7 @@ export interface DialogProps extends DialogVariants {
  * 3. **Al cerrar, el foco vuelve al elemento que lo abrió** — sin esto, quien
  *    navega por teclado queda tirado al principio del documento y tiene que
  *    recorrerlo entero para volver a donde estaba.
+ * 4. **El fondo no hace scroll** mientras está abierto (ver `root-scroll-lock`).
  */
 export function Dialog({
   open,
@@ -103,6 +131,7 @@ export function Dialog({
   children,
   closeLabel = DIALOG_CLOSE_LABEL,
   dismissOnScrimClick = true,
+  initialFocusRef,
   size,
   className,
 }: DialogProps) {
@@ -125,13 +154,36 @@ export function Dialog({
         ? document.activeElement
         : null;
 
-    panelRef.current?.focus();
+    const panel = panelRef.current;
+    const requested = initialFocusRef?.current ?? null;
+    /* La condición se DERIVA de la misma lista que usa la trampa de foco: el
+       foco inicial sólo puede caer donde el ciclo de `Tab` ya para. Así no hay
+       dos criterios de "enfocable" que se puedan desincronizar, y de paso cubre
+       de una vez los tres casos malos —no montado, no enfocable y fuera del
+       panel— sin depender de si el DOM del test deja enfocar lo que no debería
+       (REGLA 7: lo que se mide es la decisión, no la buena voluntad del doble). */
+    const target =
+      requested && panel && focusableWithin(panel).includes(requested)
+        ? requested
+        : panel;
+
+    target?.focus();
 
     return () => {
       if (trigger?.isConnected) {
         trigger.focus();
       }
     };
+  }, [open, container, initialFocusRef]);
+
+  useEffect(() => {
+    if (!open || !container) {
+      return;
+    }
+
+    /* El soltador ES la limpieza del efecto (invariante 4): si el diálogo se
+       desmonta estando abierto, el bloqueo se suelta igual. Ver `root-scroll-lock`. */
+    return lockRootScroll();
   }, [open, container]);
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {

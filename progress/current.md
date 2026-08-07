@@ -3,6 +3,73 @@
 > Este archivo se vacía al cerrar cada sesión y se mueve a `history.md`.
 > Mientras trabajas, **mantenlo actualizado en tiempo real**, no al final.
 
+## ✅ CERRADO — lote de deudas 86 / 87 / 90 / 94 (enablers de #19)
+
+**NO es una feature de `feature_list.json`** (ese archivo **no se tocó**). Lote de deuda técnica sobre
+`src/shared/ui/`, pedido por el usuario como enabler de **#19 `dashboard_ui`**.
+
+**Cadena:** leader → implementer → reviewer (**CAMBIOS REQUERIDOS, 1 bloqueante**) → **corrección aplicada
+por el leader** (el bloqueante era prosa en `progress/`, su carril). **Informe de cierre:
+`progress/informs/18.informe-deudas_86_87_90_94.md`.**
+
+### ⚠️ AVISO DE MÉTODO — el bloqueante fue un DATO INVENTADO en el libro mayor
+
+El informe del implementer afirmaba **como dato medido** que *happy-dom sí enfoca un `input` deshabilitado*, y
+esa frase se había escrito **también en la ficha 90 de `deudas.md`**. **Es falsa.** La levantó el reviewer;
+**el leader no la dio por buena por venir de un reviewer** y montó una sonda con **las dos tesis enfrentadas
+en el mismo archivo**: salió `1 failed | 1 passed` y cayó la del implementer. `focus()` sobre un control
+deshabilitado es un **no-op**.
+
+**Por qué importa más que un bug normal:** un dato falso presentado como medición **contamina a todos los que
+vengan después** — el siguiente agente lo cita como hecho establecido sin volver a medirlo. **Un error de
+código lo caza un test; una medición inventada no la caza nada.**
+
+**El código era correcto** (derivar el repliegue de `focusableWithin` es lo acertado, por la razón buena: un
+solo criterio de "enfocable" compartido con la trampa de foco). **Lo que estaba mal era la justificación.**
+La corrección quedó **escrita en los dos sitios, no borrada.**
+
+- `bash ./init.sh` **verde**: lint ✓, typecheck ✓, **62 passed | 3 skipped** archivos,
+  **788 passed | 13 skipped** tests (baseline: 60/756). `pnpm build` OK.
+- **+32 tests, 3 archivos nuevos**: `primitives/dialog/root-scroll-lock.ts`,
+  `primitives/dialog/dialog.portal.tokens.test.ts`, `primitives/skeleton/skeleton.tokens.test.ts`.
+- **`public-api.test.ts` NO cayó, y está bien**: no cambió ningún export de `primitives/` ni de `feedback/`
+  (una prop no es un export; las constantes de clases del `Skeleton` nunca fueron públicas).
+- **`deudas.md` pasa de 94 a 102 fichas**: 86, 87, 90 y 94 **tachadas y explicadas** (el reviewer verificó que
+  ninguna está tachada de más); nuevas **95-102**.
+- **Tres que #19 cierra casi gratis, porque va a tener la pantalla delante:** **95** y **102** (el shimmer
+  **está en el bundle pero nadie lo ha visto moverse**; y la 95 añade dos motivos para mirarlo: el fondo **se
+  repite**, así que un bloque ancho enseña **varias bandas a la vez**, y la forma redonda mide menos de un
+  cuarto de la banda) y **101** (**nada obliga a que un test que monte un `Dialog` compruebe que soltó el
+  bloqueo** — #19 va a montar uno, y si no lo suelta **contamina a los siguientes con todo en verde**, y el
+  rojo sale en un archivo que no tiene la culpa).
+- **Dos a tener en el radar al escribir el modal de #19:** **99** (el foco inicial se decide **una vez, al
+  abrir**: si el contenido llega después, se aplica el repliegue **y no se reintenta**) y **97** (el bloqueo
+  de scroll **no compensa el ancho de la barra**, así que el fondo **salta unos píxeles** al abrir).
+- **Una honesta sobre el arreglo de la 94:** la **100** avisa de que el test del portal **lee `AppShell.tsx`
+  como texto**, acoplando un primitivo portable a la capa de layout, y **cae sin que nada esté roto** si el
+  `main` pasa a sacar sus clases de un `cva`, que es la convención del repo.
+
+**Lo que #19 puede dar por hecho a partir de ahora:**
+- El `Dialog` **bloquea el scroll del fondo** solo, sin que la página haga nada.
+- El `Dialog` acepta **`initialFocusRef`** para enfocar el primer campo del formulario. **Sin la prop el
+  comportamiento es idéntico al de antes** (enfoca el panel).
+- El `Skeleton` anima con el **shimmer del template**, todo por token, y con movimiento reducido se queda
+  quieto **sin desaparecer**.
+
+**Plan ejecutado:**
+- **86** — port 1:1 del shimmer del template (`template-src.html:25` y `:140`): `@keyframes kc-shimmer` +
+  gradiente + banda + duración + curva, **todo tokenizado** en `globals.css` (`--animate-skeleton`).
+  `prefers-reduced-motion` sigue resolviéndose en JS y el bloque quieto sigue siendo un bloque de carga.
+  Gate sobre el **CSS compilado** (REGLA 7), no sobre el fuente.
+- **87** — bloqueo de scroll del elemento raíz con **contador de referencias** de módulo: cubre desmontar
+  sin cerrar, dos diálogos a la vez y no pisar un `overflow` previo.
+- **90** — prop opcional de foco inicial; **el default no cambia**. Repliegue al panel cuando el objetivo
+  no está montado o no es una parada de tabulación que la trampa ya reconozca.
+- **94** — corregir la prosa del portal (la jaula es el `main` con `--z-base`, no un `transform` del
+  archivero) y **convertirla en un test** que ate el portal a los tokens.
+- Verificación: `bash ./init.sh` + `pnpm build`, condición doble (REGLA 3) en cada gate nuevo.
+- Informe: `progress/reports/impl_deudas_86_87_90_94.md`.
+
 - **Feature en curso:** ninguna. **LA FASE DE BACKEND ESTÁ COMPLETA** y las primitivas que #19 necesitaba ya
   existen. Siguiente = **#19 `dashboard_ui`**, con **sus cinco decisiones ya cerradas** en la enmienda **E1
   del RFC-02 (§7-bis)**.
@@ -57,7 +124,7 @@
   fase 2 (**15, 16, 17, 18**) están `done`. **Lo que queda es UI**: #19-#30.
 - **`feature_list.json` tiene ahora 33 features**, no 32: **#33 `ui_primitives_2` es nueva**, la abrió el
   leader el 2026-08-06 con el usuario. Es la única añadida fuera del plan original.
-- `bash ./init.sh` VERDE: **756 passed | 13 skipped** (**60** archivos + 3 skipped, que son los tres smokes:
+- `bash ./init.sh` VERDE: **788 passed | 13 skipped** (**62** archivos + 3 skipped, que son los tres smokes:
   Neon, auth y Cloudinary). `pnpm build` OK. **Verificado ejecutándolo**: el leader al arrancar (547/11),
   antes de #17 (577/13), de #18 (590/13) y de #33 (602/13); los reviewers al cerrar la deuda 59 (547/13),
   #16 (577/13), #17 (590/13), #18 (602/13) y #33 (756/13).
@@ -182,9 +249,11 @@ lleva marca de **"total histórico"** (salda la **66**).
 proyecto de RFC-03"*, y **esa card NO existe** — la crea **#20**, que va después. O #19 la crea (y #20 la
 reusa), o la lista de activos se cae a #20. **#33 NO la incluyó a propósito.**
 
-**Tres deudas de #33 que #19 va a chocar de inmediato:** la **87** (el `Dialog` no bloquea el scroll del
-fondo), la **90** (no permite elegir el foco inicial, y un formulario quiere el primer campo) y la **94** (el
-comentario del portal señala la causa equivocada).
+**✅ Las tres deudas de #33 que #19 iba a chocar (87, 90, 94) están SALDADAS**, más la **86**. Ver el bloque
+del lote arriba. **Lo que #19 puede dar por hecho:** el `Dialog` **bloquea el scroll del fondo solo**, acepta
+**`initialFocusRef`** para enfocar el primer campo (y **sin la prop se comporta idéntico a antes**), y el
+`Skeleton` anima con el **shimmer del template**, todo por token, quedándose quieto **sin desaparecer** con
+movimiento reducido.
 
 ## Notas para consumidores del design system (acumulado #12-#18, #31, #32, #33)
 

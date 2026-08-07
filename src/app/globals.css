@@ -222,9 +222,48 @@
   --dur-fast: 120ms;
   --dur-base: 200ms;
   --dur-slow: 320ms;
+  /* La duración del shimmer del bloque de carga. No entra en la escala
+     rápido/base/lento porque no mide una transición de interfaz: mide una vuelta
+     completa de un bucle continuo, y su valor lo fija el template (ver abajo). */
+  --dur-shimmer: 1400ms;
   --ease-standard: ease;
   --ease-entrance: ease-out;
   --ease-exit: ease-in;
+  /* Curva de un bucle que no empieza ni termina: acelerar o frenar haría visible
+     la costura entre una vuelta y la siguiente. */
+  --ease-loop: linear;
+
+  /* ---- Bloque de carga: shimmer ----
+     Port 1:1 de `.kc-skeleton` (template/template-src.html, línea 140) y de su
+     regla de fotogramas (línea 25). Los números del template son CONTRATO, no
+     preferencia — el mismo criterio con el que se portó el ovillo (RFC-01 §3
+     D2-bis) —, así que se portan tal cual pero TOKENIZADOS: la banda, la
+     duración y la curva salen de tokens y el componente no escribe ninguno.
+     El efecto es un degradado que se DESPLAZA, no un latido de opacidad.
+     La banda es la única longitud propia: gobierna a la vez el tamaño del fondo
+     y el recorrido del desplazamiento (de menos una banda a más una banda), así
+     que los dos no pueden desincronizarse.
+     Anclado sobre el CSS COMPILADO en `primitives/skeleton/skeleton.tokens.test.ts`
+     (una regla de fotogramas que no se emite no anima nada, y el fuente no lo
+     distingue). ---- */
+  --skeleton-band: 200px;
+  --skeleton-band-size: var(--skeleton-band) 100%;
+  --skeleton-gradient: linear-gradient(
+    90deg,
+    var(--surface-sunken) 25%,
+    var(--brand-cream) 50%,
+    var(--surface-sunken) 75%
+  );
+  --animate-skeleton: kc-shimmer var(--dur-shimmer) var(--ease-loop) infinite;
+
+  @keyframes kc-shimmer {
+    0% {
+      background-position: calc(-1 * var(--skeleton-band)) 0;
+    }
+    100% {
+      background-position: var(--skeleton-band) 0;
+    }
+  }
 
   /* ---- Z-index (el 3D SIEMPRE detrás del contenido) ---- */
   --z-bg-3d: 0;

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState } from "react";
+import { type RefObject, useRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
 
@@ -9,7 +9,22 @@ import { cn } from "../../lib/cn";
 import { DIALOG_CLOSE_LABEL, Dialog } from "./Dialog";
 import { DIALOG_SIZES, dialogPanelVariants } from "./dialog.variants";
 
-afterEach(cleanup);
+function rootOverflow(): string {
+  return document.documentElement.style.overflow;
+}
+
+afterEach(() => {
+  cleanup();
+  /* El bloqueo de scroll vive en el módulo (un elemento raíz, un contador
+     compartido): si un test lo dejara puesto, el siguiente arrancaría con el
+     fondo bloqueado y mediría otra cosa. Se comprueba, y se limpia ANTES de
+     comprobar: así un rojo aquí no arrastra en cascada a todos los tests que
+     vengan detrás, que es como un fallo pequeño se disfraza de catástrofe. */
+  const leftover = rootOverflow();
+  document.documentElement.style.overflow = "";
+
+  expect(leftover, "un diálogo se fue sin soltar el bloqueo").toBe("");
+});
 
 /**
  * El modal montado como lo va a montar una página: un disparador que lo abre,
@@ -101,8 +116,10 @@ describe("Dialog — montaje", () => {
     const { container } = render(<DialogHarness />);
     const dialog = await openDialog(user);
 
-    // Si viviera en el flujo, un ancestro con `transform` lo encerraría por
-    // debajo del nav por mucho que su token de z-index valga más.
+    // Si viviera en el flujo, el `main` del `AppShell` lo encerraría en su
+    // contexto de apilamiento y quedaría por debajo del nav por mucho que su
+    // token de z-index valga más. El porqué completo, con los tres tokens y sus
+    // valores, vive en `dialog.portal.tokens.test.ts` (deuda 94).
     expect(container.contains(dialog)).toBe(false);
     expect(document.body.contains(dialog)).toBe(true);
   });
@@ -305,6 +322,218 @@ describe("Dialog — invariante 3: el foco vuelve al disparador", () => {
 
     expect(opener).toHaveFocus();
     expect(outside).not.toHaveFocus();
+  });
+});
+
+/**
+ * Dos diálogos en la misma página, cada uno con su interruptor. Sirve para el
+ * caso que un `boolean` global resuelve mal: uno abierto sobre otro.
+ */
+function TwoDialogs({ first, second }: { first: boolean; second: boolean }) {
+  return (
+    <main>
+      <Dialog open={first} onClose={() => {}} title="Primero" />
+      <Dialog open={second} onClose={() => {}} title="Segundo" />
+    </main>
+  );
+}
+
+describe("Dialog — invariante 4: el fondo no hace scroll (deuda 87)", () => {
+  it("bloquea el scroll del elemento raíz mientras está abierto", async () => {
+    const user = userEvent.setup();
+    render(<DialogHarness />);
+
+    expect(rootOverflow()).toBe("");
+    await openDialog(user);
+
+    // Sin esto, el usuario gira la rueda para ver un campo de abajo del modal y
+    // lo que se mueve es la página de detrás.
+    expect(rootOverflow()).toBe("hidden");
+  });
+
+  it("lo devuelve al cerrar", async () => {
+    const user = userEvent.setup();
+    render(<DialogHarness />);
+    await openDialog(user);
+
+    await user.keyboard("{Escape}");
+
+    expect(rootOverflow()).toBe("");
+  });
+
+  it("lo suelta aunque el diálogo se DESMONTE sin cerrarse", () => {
+    // La página navega con el modal abierto. Si el bloqueo dependiera de pasar
+    // por `onClose`, el fondo se quedaría sin scroll para siempre.
+    const { unmount } = render(<TwoDialogs first second={false} />);
+    expect(rootOverflow()).toBe("hidden");
+
+    unmount();
+
+    expect(rootOverflow()).toBe("");
+  });
+
+  it("con dos abiertos, cerrar el de ARRIBA no devuelve el scroll", () => {
+    const { rerender } = render(<TwoDialogs first second />);
+    expect(rootOverflow()).toBe("hidden");
+
+    rerender(<TwoDialogs first second={false} />);
+
+    // El de abajo sigue abierto: devolver el scroll aquí sería el bug de la
+    // deuda 87 reaparecido dentro del propio arreglo.
+    expect(rootOverflow()).toBe("hidden");
+
+    rerender(<TwoDialogs first={false} second={false} />);
+    expect(rootOverflow()).toBe("");
+  });
+
+  it("con dos abiertos, cerrar el de ABAJO tampoco lo devuelve", () => {
+    // El orden de cierre no tiene por qué ser el inverso al de apertura: es lo
+    // que distingue un contador de referencias de guardar el valor previo y ya.
+    const { rerender } = render(<TwoDialogs first second />);
+
+    rerender(<TwoDialogs first={false} second />);
+    expect(rootOverflow()).toBe("hidden");
+
+    rerender(<TwoDialogs first={false} second={false} />);
+    expect(rootOverflow()).toBe("");
+  });
+
+  it("restaura el overflow que ya hubiera, no un valor fijo", () => {
+    const previous = "scroll";
+    document.documentElement.style.overflow = previous;
+
+    try {
+      const { unmount } = render(<TwoDialogs first second={false} />);
+      expect(rootOverflow()).toBe("hidden");
+      unmount();
+
+      expect(rootOverflow()).toBe(previous);
+    } finally {
+      // El valor previo lo puso este test, no el diálogo. Se deshace pase lo que
+      // pase, para que el aserto de `afterEach` siga midiendo lo que dice medir.
+      document.documentElement.style.overflow = "";
+    }
+  });
+});
+
+/**
+ * Modal con foco inicial configurable. `target` elige a dónde apunta la prop, y
+ * los tres casos malos existen para comprobar el repliegue, no por adorno.
+ */
+function InitialFocusHarness({
+  target,
+}: {
+  target?: "field" | "unmounted" | "disabled" | "outside";
+}) {
+  const [open, setOpen] = useState(false);
+  const fieldRef = useRef<HTMLInputElement>(null);
+  const unmountedRef = useRef<HTMLInputElement>(null);
+  const disabledRef = useRef<HTMLInputElement>(null);
+  const outsideRef = useRef<HTMLButtonElement>(null);
+
+  const targets: Record<string, RefObject<HTMLElement | null>> = {
+    field: fieldRef,
+    // Nunca se cuelga de ningún elemento: `current` se queda en null.
+    unmounted: unmountedRef,
+    disabled: disabledRef,
+    outside: outsideRef,
+  };
+
+  return (
+    <main>
+      <button type="button" onClick={() => setOpen(true)}>
+        Nuevo dos agujas
+      </button>
+      <button type="button" ref={outsideRef}>
+        Fuera del modal
+      </button>
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Nuevo proyecto"
+        initialFocusRef={target ? targets[target] : undefined}
+      >
+        <input aria-label="Nombre" ref={fieldRef} />
+        <input aria-label="Rondas" disabled ref={disabledRef} />
+        <button type="button">Guardar</button>
+      </Dialog>
+    </main>
+  );
+}
+
+describe("Dialog — foco inicial configurable (deuda 90)", () => {
+  it("SIN la prop, sigue enfocando el panel exactamente como antes", async () => {
+    const user = userEvent.setup();
+    render(<InitialFocusHarness />);
+    const dialog = await openDialog(user);
+
+    // El default no cambia: quien ya usaba el componente no se entera de nada.
+    expect(dialog).toHaveFocus();
+  });
+
+  it("enfoca el campo pedido cuando la prop apunta a uno de dentro", async () => {
+    const user = userEvent.setup();
+    render(<InitialFocusHarness target="field" />);
+    await openDialog(user);
+
+    // El caso de #19: el modal es un formulario y lo correcto es el primer campo.
+    expect(screen.getByRole("textbox", { name: "Nombre" })).toHaveFocus();
+  });
+
+  it("no rompe la trampa: desde el campo pedido, tabular sigue dando la vuelta", async () => {
+    const user = userEvent.setup();
+    render(<InitialFocusHarness target="field" />);
+    const dialog = await openDialog(user);
+
+    for (let step = 0; step < 6; step++) {
+      await user.tab();
+      expect(
+        dialog.contains(document.activeElement),
+        `el foco se escapó en el paso ${step + 1}`,
+      ).toBe(true);
+    }
+  });
+
+  it("repliega al panel si el elemento pedido no llegó a montarse", async () => {
+    const user = userEvent.setup();
+    render(<InitialFocusHarness target="unmounted" />);
+    const dialog = await openDialog(user);
+
+    // Quedarse sin enfocar nada dejaría el foco en el `body`, es decir a quien
+    // navega por teclado tirado al principio del documento.
+    expect(dialog).toHaveFocus();
+  });
+
+  it("repliega al panel si el elemento pedido no es enfocable", async () => {
+    const user = userEvent.setup();
+    render(<InitialFocusHarness target="disabled" />);
+    const dialog = await openDialog(user);
+
+    expect(dialog).toHaveFocus();
+    expect(screen.getByRole("textbox", { name: "Rondas" })).not.toHaveFocus();
+  });
+
+  it("repliega al panel si el elemento pedido está FUERA del diálogo", async () => {
+    const user = userEvent.setup();
+    render(<InitialFocusHarness target="outside" />);
+    const dialog = await openDialog(user);
+
+    // Obedecer aquí sería abrir el modal con el foco detrás del velo.
+    expect(dialog).toHaveFocus();
+    expect(
+      screen.getByRole("button", { name: "Fuera del modal" }),
+    ).not.toHaveFocus();
+  });
+
+  it("el foco sigue volviendo al disparador al cerrar", async () => {
+    const user = userEvent.setup();
+    render(<InitialFocusHarness target="field" />);
+    const opener = screen.getByRole("button", { name: "Nuevo dos agujas" });
+    await openDialog(user);
+
+    await user.keyboard("{Escape}");
+
+    expect(opener).toHaveFocus();
   });
 });
 

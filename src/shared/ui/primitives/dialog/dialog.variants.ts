@@ -5,10 +5,13 @@ import { cva, type VariantProps } from "class-variance-authority";
 
    Z-INDEX: velo en `--z-overlay` y panel en `--z-modal`, los dos escalones que
    el SDD §5 reserva justo por encima de `--z-nav` y por debajo de `--z-toast`.
-   Que existan esos tokens es también la razón de montar el diálogo en un portal
-   al `body` (ver `Dialog.tsx`): dentro del árbol de la página, un ancestro con
-   `transform` —el archivero tiene varios— crea contexto de apilamiento y deja al
-   panel por debajo del nav por mucho que su `z-index` sea 300.
+   Estos dos tokens sólo significan algo gracias al portal al `body` (ver
+   `Dialog.tsx`): dentro del árbol de la página, el `main` del `AppShell` abre su
+   propio contexto de apilamiento en `--z-base` = 1 y encierra ahí a todos sus
+   descendientes, así que el panel quedaría por debajo del nav (`--z-nav` = 100,
+   y pintado FUERA del `main`) por mucho que su token valga 300. La jaula es el
+   `main`, no un `transform` del archivero, que no existe (deuda 94). El
+   razonamiento está atado a los tokens en `dialog.portal.tokens.test.ts`.
 
    El panel usa la superficie ELEVADA a propósito: es la única del sistema donde
    el anillo de foco llega al contraste mínimo (deuda 31), y un diálogo es todo

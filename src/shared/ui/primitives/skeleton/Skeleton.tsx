@@ -6,8 +6,8 @@ import { cn } from "@/shared/ui/lib/cn";
 import { usePrefersReducedMotion } from "@/shared/ui/lib/usePrefersReducedMotion";
 
 import {
-  SKELETON_ANIMATED_CLASS,
-  SKELETON_STILL_CLASS,
+  SKELETON_ANIMATED_CLASSES,
+  SKELETON_STILL_CLASSES,
   type SkeletonVariants,
   skeletonVariants,
 } from "./skeleton.variants";
@@ -26,10 +26,12 @@ export interface SkeletonProps
  *    UNA vez desde fuera (`aria-busy` o una región `aria-live` en el contenedor).
  * 2. **`prefers-reduced-motion` se resuelve en JS, no sólo en CSS.** La media
  *    query global de `globals.css` ya recorta la animación, pero eso no se ve
- *    desde el DOM y no se puede vigilar con un test; aquí la clase de animación
- *    directamente no se emite, así que el gate mide el elemento renderizado.
- *    Es la misma decisión que tomó la capa 3D en D3 por el mismo motivo (allí un
- *    `requestAnimationFrame` tampoco lo para ninguna hoja de estilo).
+ *    desde el DOM y no se puede vigilar con un test; aquí las clases de
+ *    animación directamente no se emiten, así que el gate mide el elemento
+ *    renderizado. Es la misma decisión que tomó la capa 3D en D3 por el mismo
+ *    motivo (allí un `requestAnimationFrame` tampoco lo para ninguna hoja de
+ *    estilo). Con la preferencia puesta el bloque **no desaparece**: pierde el
+ *    degradado y se queda en la superficie hundida de su base.
  */
 export const Skeleton = forwardRef<HTMLDivElement, SkeletonProps>(
   function Skeleton({ shape, className, ...props }, ref) {
@@ -42,7 +44,9 @@ export const Skeleton = forwardRef<HTMLDivElement, SkeletonProps>(
         aria-hidden="true"
         className={cn(
           skeletonVariants({ shape }),
-          prefersReducedMotion ? SKELETON_STILL_CLASS : SKELETON_ANIMATED_CLASS,
+          prefersReducedMotion
+            ? SKELETON_STILL_CLASSES
+            : SKELETON_ANIMATED_CLASSES,
           className,
         )}
         {...props}

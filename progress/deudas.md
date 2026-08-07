@@ -1195,20 +1195,28 @@ que lo debilita sin que se note):
 **Cubre estrictamente más y detecta lo mismo.** Un componente nuevo en `shared/ui/**` queda vigilado solo, sin
 registrarlo en ningún sitio. **Quedan dos guardrails de lista fija: las deudas 40 y 43** (ficha **91**).
 
-86. **La animación del `Skeleton` no sale de los tokens de movimiento.** `animate-pulse` es un valor por
-    defecto de Tailwind: el CSS compilado dice `pulse 2s cubic-bezier(.4,0,.6,1) infinite`, y **ni esa
-    duración ni esa curva son `--dur-*` / `--ease-*`**. El guardrail **no lo ve** porque no hay `px` ni color.
-    **Y hay más:** el template pedía un *shimmer* de gradiente, no un latido de opacidad — la fidelidad visual
-    queda **pendiente de revisión humana**.
-    **Arreglo:** declarar un `--animate-skeleton` en `globals.css` con los tokens de movimiento del sistema.
+86. ~~**La animación del `Skeleton` no sale de los tokens de movimiento.**~~ **SALDADA** (lote de deudas
+    86/87/90/94, 2026-08-07). `animate-pulse` era un valor por defecto de Tailwind: el CSS compilado decía
+    `pulse 2s cubic-bezier(.4,0,.6,1) infinite`, y ni esa duración ni esa curva salían de ningún token de
+    movimiento del sistema.
+    **Cómo se saldó:** port 1:1 del shimmer del template (`template-src.html:140` para `.kc-skeleton`, `:25`
+    para su regla de fotogramas) con los números **tokenizados** en `globals.css` — `--skeleton-band` (200px),
+    `--skeleton-band-size`, `--skeleton-gradient`, `--dur-shimmer` (1400ms), `--ease-loop` (linear) y
+    `--animate-skeleton`, más el `@keyframes kc-shimmer`. El componente sólo nombra clases. **La segunda mitad
+    (el efecto correcto: degradado que se desplaza, no latido de opacidad) también queda saldada**, porque el
+    leader localizó la definición exacta en el template. Gate nuevo:
+    `primitives/skeleton/skeleton.tokens.test.ts`, que **compila el CSS y asierta sobre la salida**, no sobre
+    el fuente (una regla de fotogramas declarada y no emitida no anima nada). **Lo que sigue abierto es sólo
+    la fidelidad en pantalla → ficha 95.**
 
-87. **El `Dialog` no bloquea el scroll del fondo ni oculta el resto del árbol.** `aria-modal` basta para los
-    lectores de pantalla que lo honran, pero **con el modal abierto la página de detrás sigue haciendo
-    scroll** con la rueda o con las flechas.
-    **Escenario de fallo concreto:** el usuario abre el modal de creación de proyecto (#19), gira la rueda
-    para ver un campo de abajo, y lo que se mueve es el Dashboard de detrás.
-    **Arreglo:** bloquear `overflow` en el elemento raíz mientras esté abierto (con su contrapartida al
-    cerrar), o `inert` sobre el resto.
+87. ~~**El `Dialog` no bloquea el scroll del fondo.**~~ **SALDADA** (lote 86/87/90/94, 2026-08-07).
+    **Cómo se saldó:** `primitives/dialog/root-scroll-lock.ts` bloquea el `overflow` del elemento raíz
+    mientras haya algún diálogo abierto, con **contador de referencias** de módulo. Cubre las tres trampas,
+    cada una con su test: desmontar sin cerrar (el soltador **es** la limpieza del efecto), dos diálogos a la
+    vez **en cualquier orden de cierre** (no sólo el inverso al de apertura) y restaurar el `overflow` que
+    hubiera antes en vez de un valor fijo. Los soltadores son idempotentes (modo estricto de React monta y
+    limpia dos veces). **La otra mitad de la ficha original —`inert` sobre el resto del árbol— NO se hizo y no
+    se pierde: pasa a la ficha 96.**
 
 88. **La trampa de foco no cubre el foco robado desde fuera.** El ciclo de `Tab` está atrapado, pero si un
     script externo llama a `.focus()` sobre un elemento de detrás, **el foco se va y nadie lo devuelve**.
@@ -1221,10 +1229,25 @@ registrarlo en ningún sitio. **Quedan dos guardrails de lista fija: las deudas 
     **No se puede medir en happy-dom**, que no aplica hojas de estilo. **Arreglo real: medirlo con un
     navegador de verdad.** Familia de la **regla 4**, hermana de las **26**, **51** y **53**.
 
-90. **El `Dialog` no ofrece foco inicial configurable.** Siempre enfoca el panel.
-    **Escenario concreto y ya a la vista:** para el modal de creación de proyecto de **#19**, lo correcto
-    sería enfocar el primer campo del formulario, no el contenedor.
-    **Arreglo:** un `initialFocusRef` opcional; el valor por defecto se queda como está.
+90. ~~**El `Dialog` no ofrece foco inicial configurable.**~~ **SALDADA** (lote 86/87/90/94, 2026-08-07).
+    **Cómo se saldó:** prop opcional `initialFocusRef`. **El default no cambia** (sin la prop sigue enfocando
+    el panel, y hay un test que lo dice con esas palabras). **Repliegue al panel** si el elemento pedido no
+    está montado, no es enfocable o está fuera del panel; la condición se **deriva** de `focusableWithin`, la
+    misma lista que usa la trampa de foco, para que no haya dos criterios de "enfocable" desincronizables.
+    **⚠️ CORRECCIÓN DEL LEADER (2026-08-07) — esta ficha contenía un DATO FALSO y se corrige aquí.**
+    El implementer escribió: *"dato medido y relevante: happy-dom **sí** enfoca un `input` deshabilitado, así
+    que confiar en el `focus()` del DOM habría dado verde sin repliegue (REGLA 7)"*. **Es falso.** Lo levantó
+    el reviewer del lote y **lo verificó el leader con una sonda propia**: `focus()` sobre un control
+    deshabilitado es un **no-op** y el foco **se queda donde estaba** (en el disparador). La sonda montó las
+    dos tesis enfrentadas y salió `1 failed | 1 passed`: cayó la del implementer.
+    **El corolario que colgaba de ese dato también cae:** no es cierto que el gate hubiera dado verde sin
+    repliegue por esa vía.
+    **Lo que NO cambia: el código es correcto.** Derivar el repliegue de `focusableWithin` en vez de confiar
+    en el DOM **sigue siendo la decisión acertada** — porque mantiene un solo criterio de "enfocable"
+    compartido con la trampa de foco, que es la razón buena. Lo que estaba mal era la justificación, no la
+    elección.
+    **Por qué se deja escrito en vez de borrarlo:** un dato inventado en el libro mayor es peor que no
+    tenerlo — el siguiente agente lo habría citado como medición ajena. Ver el aviso de método en `current.md`.
 
 91. **Quedan DOS guardrails de lista fija: las deudas 40 y 43.** Esta slice convirtió el tercero (no-hardcode)
     a barrido de directorios — ver el recuadro de arriba — y **la medicina de los otros dos es idéntica**.
@@ -1242,15 +1265,76 @@ registrarlo en ningún sitio. **Quedan dos guardrails de lista fija: las deudas 
     un export sin que nada lo note.
     **Arreglo:** dos listas más en el mismo test.
 
-94. **La justificación escrita del portal del `Dialog` señala la causa EQUIVOCADA.** La levantó el reviewer,
-    **corrigiendo al implementer**. La conclusión es correcta —**el portal al `body` es obligatorio, no una
-    preferencia**— pero la prosa que la explica culpa a un `transform` del archivero, y **ahí no hay ningún
-    `transform`**: el archivero crea contexto de apilamiento con `filter: drop-shadow(...)`
-    (`archive-nav.variants.ts:72` y `:133`), y además **sus hojas son hermanas del `main`, no ancestros**.
-    **La jaula real es el `main`**, que lleva `relative z-(--z-base)` en `AppShell.tsx:67`: `--z-base` vale
-    **1**, mientras `ArchiveNav` y `BottomNav` pintan en `--z-nav` = **100** desde fuera, así que el panel
-    quedaría **debajo del nav aunque `--z-modal` valga 300**.
-    **Escenario de fallo concreto:** alguien lee el comentario, comprueba que el archivero no tiene
-    `transform`, concluye que la razón ya no aplica y **quita el portal**. El modal se va detrás del nav.
-    **Arreglo:** corregir el comentario para que nombre el `main` y su `--z-base`. **Es prosa, pero es la
-    prosa que evita que mañana lo "arreglen".**
+94. ~~**La justificación escrita del portal del `Dialog` señala la causa EQUIVOCADA.**~~ **SALDADA** (lote
+    86/87/90/94, 2026-08-07). La levantó el reviewer de #33 **corrigiendo al implementer**. La conclusión era
+    correcta —el portal al `body` es obligatorio— pero la prosa culpaba a un `transform` del archivero que no
+    existe.
+    **Cómo se saldó, y con una vuelta de más:** se corrigieron los **tres** sitios que repetían la causa
+    equivocada (`Dialog.tsx`, `dialog.variants.ts` y el comentario del test del portal en `Dialog.test.tsx`)
+    para que nombren el `main` y su `--z-base`, **y además el razonamiento se convirtió en un test**:
+    `primitives/dialog/dialog.portal.tokens.test.ts`. Ata las cuatro piezas del argumento —el `main` está
+    posicionado **y** lleva `z-index` (las dos condiciones de un contexto de apilamiento), el contenido vive
+    dentro, los navs pintan en `--z-nav` **fuera** de él, y `--z-base` < `--z-nav` < `--z-modal`—, así que
+    ninguna se puede mover en silencio. **Un comentario no impide dos veces el mismo error; un test sí.**
+    **Precio: ficha 100** (el test lee `AppShell.tsx` por texto).
+
+---
+
+## Nuevas del lote de deudas 86/87/90/94 (2026-08-07)
+
+> Enablers de #19 pedidos por el leader. **No es una feature**, así que `feature_list.json` no se tocó.
+> Informe: `progress/reports/impl_deudas_86_87_90_94.md`.
+
+95. **La fidelidad EN PANTALLA del shimmer sigue sin verificarse, y hay dos motivos concretos para mirarla.**
+    El port es fiel al template y está anclado sobre el CSS compilado, pero eso prueba que el CSS es el
+    correcto, no que se vea bien (**regla 4**, hermana de **26**, **51**, **53**, **89**).
+    Dos cosas que sólo se ven con una pantalla delante: (a) el fondo **se repite** (`background-repeat` por
+    defecto, igual que en el template), así que un bloque más ancho que la banda de 200px enseña **varias
+    bandas de brillo a la vez**; (b) la forma redonda mide un objetivo táctil (44px), **menos de un cuarto de
+    la banda**, así que el brillo la cruza casi de golpe. El template sólo tenía **una** forma y no se hizo
+    esta pregunta. **Arreglo posible si molesta:** declarar que el fondo no se repita, o derivar la banda del
+    tamaño del bloque.
+
+96. **El resto del árbol sigue siendo alcanzable con el modal abierto (la mitad de la 87 que no se hizo).**
+    La ficha 87 ofrecía dos remedios: bloquear el scroll **o** `inert` sobre el resto. Se hizo el primero, que
+    es el que resolvía el escenario reportado. Con `inert` sobre los hermanos del portal, el fondo dejaría de
+    ser alcanzable **también** por lector de pantalla y por búsqueda del navegador, no sólo por `Tab`.
+    **Hermana de la 88** (foco robado desde fuera): las dos se cierran con el mismo cambio, y `inert` las
+    resolvería de una vez. **Prioridad baja:** hoy la trampa de foco y `aria-modal` cubren los caminos reales.
+
+97. **El bloqueo de scroll no compensa el ancho de la barra de scroll.** Al poner `overflow: hidden` en el
+    raíz, un navegador con barra clásica (Windows/Linux de escritorio) la hace desaparecer y **el contenido de
+    detrás salta horizontalmente** unos píxeles al abrir el modal. **No se puede medir en happy-dom**, que no
+    hace layout. **Arreglo:** compensar con `padding-right` del ancho medido, o usar `scrollbar-gutter`.
+    Familia de la **regla 4**.
+
+98. **`root-scroll-lock` vive en la carpeta del `Dialog` y su contador es global.** Está bien mientras el
+    `Dialog` sea el único que bloquea. En cuanto un `Drawer`, una hoja inferior o un visor de imagen quieran
+    lo mismo, o lo importan desde `primitives/dialog/` (acoplamiento raro) o escriben el suyo **y los dos se
+    pisan el `overflow`**, que es justo el bug que el contador existe para evitar. **Arreglo:** promoverlo a
+    `shared/ui/lib/` con el segundo consumidor, no antes.
+
+99. **El foco inicial se decide UNA vez, al abrir.** Si el contenido del modal llega después (un formulario
+    que carga sus opciones, un `Suspense`), en el momento del efecto el elemento apuntado todavía no está
+    montado, se aplica el repliegue al panel y **no se reintenta**. **Escenario concreto:** el modal de #19 si
+    alguna vez espera datos antes de pintar sus campos. **Arreglo:** reevaluar cuando cambie el contenido, o
+    documentar que el campo enfocado debe estar en el primer render.
+
+100. **El gate del portal lee `AppShell.tsx` como TEXTO, y eso acopla un primitivo a la capa de layout.**
+     Es el precio de convertir la prosa de la 94 en test: un primitivo del design system portable no debería
+     saber que existe un `AppShell`. Y es frágil por otro lado: si el `main` pasa a sacar sus clases de un
+     `cva` —que es la convención del repo— el test deja de encontrarlas y cae **sin que nada esté roto**.
+     **Arreglo:** que `AppShell` exporte las clases de su `main` desde un `app-shell.variants.ts` y que el
+     test lea de ahí; o mover el gate a `layout/app-shell/` y dejar en el diálogo sólo la referencia.
+
+101. **Nada obliga a que un test que monte un `Dialog` compruebe que soltó el bloqueo.** El aserto que lo
+     vigila vive en el `afterEach` de `Dialog.test.tsx`. Un test de página que monte un modal —#19 va a montar
+     uno— puede dejar el raíz bloqueado y contaminar a los siguientes **con todo en verde**, y el rojo
+     aparecería en un archivo que no tiene la culpa. **Misma familia que la 92** (nada obliga a traer el test
+     de `axe`): es disciplina, no gate. **Arreglo:** subir el aserto al `setup` global de Vitest.
+
+102. **El `@keyframes` está en el bundle, pero nadie ha visto moverse el shimmer.** Es la mitad honesta del
+     gate del CSS compilado: se verificó que la regla se emite, que la utilidad existe y que los valores son
+     los del template — **no** que el navegador la ejecute. Hermana directa de la **95** y de la familia de la
+     **regla 4**. **Arreglo:** entra gratis en la primera pasada de navegador de #19, que ya va a montar
+     skeletons.

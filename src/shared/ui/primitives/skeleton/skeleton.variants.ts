@@ -21,11 +21,28 @@ export const SKELETON_SHAPES = Object.keys(skeletonShapes) as SkeletonShape[];
 /* El movimiento NO se decide sólo en CSS. La media query global de
    `globals.css` ya recorta la animación, pero eso es invisible desde el DOM: un
    test no puede distinguir "animado" de "quieto" sin hojas de estilo aplicadas,
-   y lo que no se puede ver no se puede vigilar. Por eso la clase de animación se
-   pone o no se pone en JS (`usePrefersReducedMotion`), y el gate mide el DOM
-   renderizado, no el string de `cva` (REGLA 7 aplicada a UI). */
-export const SKELETON_ANIMATED_CLASS = "animate-pulse";
-export const SKELETON_STILL_CLASS = "animate-none";
+   y lo que no se puede ver no se puede vigilar. Por eso las clases de animación
+   se ponen o no se ponen en JS (`usePrefersReducedMotion`), y el gate mide el
+   DOM renderizado, no el string de `cva` (REGLA 7 aplicada a UI).
+
+   QUÉ ANIMA (deuda 86): un degradado que se DESPLAZA —el shimmer de
+   `.kc-skeleton` del template—, no un latido de opacidad. Antes esto era la
+   utilidad de latido que trae Tailwind de fábrica, que compila una duración y
+   una curva que NO son tokens de este sistema y que el guardrail de no-hardcode
+   no puede ver (no lleva ni `px` ni color). Ahora los tres valores —banda,
+   duración y curva— viven en `globals.css` y aquí sólo se nombran.
+
+   QUIETO ≠ INVISIBLE: al apagarse, el degradado se quita entero en vez de
+   congelarse a mitad de recorrido. La superficie hundida de la base sigue ahí,
+   así que el bloque se sigue leyendo como un bloque de carga; congelarlo dejaría
+   franjas repetidas del degradado, que es ruido, no un hueco de carga. */
+export const SKELETON_ANIMATED_CLASSES: string[] = [
+  "animate-skeleton",
+  "bg-(image:--skeleton-gradient)",
+  "bg-size-(--skeleton-band-size)",
+];
+
+export const SKELETON_STILL_CLASSES: string[] = ["animate-none", "bg-none"];
 
 export const skeletonVariants = cva(["block bg-surface-sunken text-fg"], {
   variants: {

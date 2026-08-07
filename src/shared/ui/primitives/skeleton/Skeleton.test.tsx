@@ -6,9 +6,9 @@ import { axe } from "vitest-axe";
 import { cn } from "../../lib/cn";
 import { Skeleton } from "./Skeleton";
 import {
-  SKELETON_ANIMATED_CLASS,
+  SKELETON_ANIMATED_CLASSES,
   SKELETON_SHAPES,
-  SKELETON_STILL_CLASS,
+  SKELETON_STILL_CLASSES,
   skeletonVariants,
 } from "./skeleton.variants";
 
@@ -104,8 +104,12 @@ describe("Skeleton — prefers-reduced-motion", () => {
     render(<Skeleton />);
 
     const classes = skeletonNode().className.split(" ");
-    expect(classes).toContain(SKELETON_ANIMATED_CLASS);
-    expect(classes).not.toContain(SKELETON_STILL_CLASS);
+    for (const entry of SKELETON_ANIMATED_CLASSES) {
+      expect(classes).toContain(entry);
+    }
+    for (const entry of SKELETON_STILL_CLASSES) {
+      expect(classes).not.toContain(entry);
+    }
   });
 
   it("se queda quieto cuando la preferencia es reducir", () => {
@@ -113,8 +117,22 @@ describe("Skeleton — prefers-reduced-motion", () => {
     render(<Skeleton />);
 
     const classes = skeletonNode().className.split(" ");
-    expect(classes).toContain(SKELETON_STILL_CLASS);
-    expect(classes).not.toContain(SKELETON_ANIMATED_CLASS);
+    for (const entry of SKELETON_STILL_CLASSES) {
+      expect(classes).toContain(entry);
+    }
+    for (const entry of SKELETON_ANIMATED_CLASSES) {
+      expect(classes).not.toContain(entry);
+    }
+  });
+
+  it("quieto NO es invisible: conserva la superficie hundida de la base", () => {
+    // Deuda 86: apagar el shimmer no puede dejar un hueco. El degradado se
+    // quita entero (`bg-none` lo apaga vía `twMerge`) pero el color de fondo del
+    // bloque sigue puesto, así que se sigue leyendo como un bloque de carga.
+    setReducedMotion("reduce");
+    render(<Skeleton />);
+
+    expect(skeletonNode().className).toContain("bg-surface-sunken");
   });
 
   it("las dos clases son excluyentes en TODAS las formas", () => {
@@ -130,15 +148,19 @@ describe("Skeleton — prefers-reduced-motion", () => {
         const classes = skeletonNode().className.split(" ");
         const expected =
           preference === "reduce"
-            ? SKELETON_STILL_CLASS
-            : SKELETON_ANIMATED_CLASS;
+            ? SKELETON_STILL_CLASSES
+            : SKELETON_ANIMATED_CLASSES;
         const forbidden =
           preference === "reduce"
-            ? SKELETON_ANIMATED_CLASS
-            : SKELETON_STILL_CLASS;
+            ? SKELETON_ANIMATED_CLASSES
+            : SKELETON_STILL_CLASSES;
 
-        expect(classes, `${shape} con ${preference}`).toContain(expected);
-        expect(classes, `${shape} con ${preference}`).not.toContain(forbidden);
+        for (const entry of expected) {
+          expect(classes, `${shape} con ${preference}`).toContain(entry);
+        }
+        for (const entry of forbidden) {
+          expect(classes, `${shape} con ${preference}`).not.toContain(entry);
+        }
       }
     }
   });
