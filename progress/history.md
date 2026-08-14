@@ -1017,3 +1017,122 @@ ronda 2 → **APROBADO**. Informe de cierre: `progress/informs/19.informe-dashbo
 - **Lección de método, la tercera de la misma familia en dos sesiones:** el único bloqueante **no fue un
   bug**, fue un comentario de producción que afirmaba que un test ya existía. No existía. Se resolvió por la
   vía que **convierte la afirmación en verdad** en vez de borrarla.
+
+## 2026-08-10 — Lote de deudas 117 / 118 / 119 (NO es una feature)
+
+**Encargo del usuario:** *"resuelve las deudas 117 118 119"*, acotado después a terminar ahí — **#20
+`projects_list_ui` NO se arrancó**, queda para la próxima sesión por decisión explícita.
+**Cadena:** leader (gate de arranque, **enmienda E12**, deuda 119 por su cuenta, **verificación en
+navegador**) → 3 exploradores en paralelo → 1 implementer → 1 reviewer → **APROBADO a la primera,
+0 bloqueantes**. Informe: `progress/informs/20.informe-deudas_117_118_119.md`.
+
+- `bash ./init.sh` **EXIT=0**: `70 passed | 3 skipped` archivos, **`1220 passed | 13 skipped`** tests
+  (baseline 69/72 y 1200/1213) → **+20 tests**, todos del gate nuevo. `pnpm build` OK, 27 rutas.
+- **Las tres deudas venían del mismo sitio:** el rediseño a mano de `login`/`register` del usuario
+  (`bdb11b0`). **117** (el `data-slot` que dejó de describir lo que hay debajo), **118** (la rejilla de
+  dos columnas sin variante responsive) y **119** (`next-env.d.ts` trackeado).
+- **Hizo falta ENMIENDA y no sólo arreglo, y ése es el hallazgo del lote:** se midió que **la rejilla de
+  dos columnas de auth no estaba especificada en NINGÚN sitio** — ni RFC-01 ni SDD-01 la mencionaban.
+  Era una decisión de producto legítima **sin fuente de verdad escrita**, así que *no había documento
+  contra el que validar el responsive correcto*. → **E12 del RFC-01** (cinco decisiones), más la
+  corrección del §2, que llevaba desde `bdb11b0` diciendo *"ovillo solo en login"*. **Tachado y
+  explicado, no borrado.**
+- **La ficha 118 acertaba y se quedaba corta, por un motivo peor:** `AsciiYarn` **no devuelve `null`**
+  bajo `--bp-tablet`, devuelve **siempre** su host con la escena vacía dentro. La segunda pista existe y
+  se queda su mitad, y como puede bajar de su contenido mínimo, **no hay scroll horizontal que avise:
+  se aplasta en silencio**. Y como todo el hueco es `aria-hidden`, **`axe` tampoco lo veía**.
+- **CONFIRMADO EN NAVEGADOR (regla 4), incluido el ANTES.** Conmuta exactamente en `--bp-tablet`
+  (767 vs 768 medidos por separado) y el diseño del usuario **no cambia de tablet para arriba**
+  (`536px 536px`, `80px / 80px`, sin `gap` a 1280px). Y se **reprodujo el estado anterior** inyectando la
+  geometría vieja por DOM en la página viva: **91.2px de columna y 48px de campo** a 390px. **La
+  aritmética del explorador (91 / 47) acertó dentro de 1px.**
+- **`px-20` era el ÚNICO valor de espaciado crudo de todo `src/`** (1 de 55) y **ningún guardrail podía
+  verlo** (`PX_LITERAL` busca `<dígitos>px`; ahí el `px` va delante y es *padding-inline*). Aportaba
+  **160 de los ~208px** perdidos en móvil. → token `--auth-inset-inline`, aplicado sólo desde `tablet:`.
+- **Nace el gate que no existía para NADIE** (`src/app/yarn-host-responsive.test.ts`, +20 tests):
+  asierta sobre el **CSS compilado** (regla 7), **descubre** los anfitriones en vez de enumerarlos
+  (medicina de las 40/43/71/91) y lleva **dos** anclas anti-descubrimiento-roto. **El descubrimiento no
+  encontró ningún no conforme:** `DashboardHero` ya cumplía, **sólo que nada lo vigilaba**.
+- **El número que justifica el encargo, verificado al dígito por el reviewer:** al matar
+  `--breakpoint-tablet`, los **seis** asertos de nombres de clase **siguen verdes** y sólo caen los
+  **ocho** del CSS compilado (`8 failed | 12 passed`). **Un gate que sólo mirara clases no habría
+  servido de nada.**
+- **El reviewer atacó el gate en vez de leerlo:** rompió el descubrimiento (salió rojo con **cuatro**
+  asertos, más red de la anunciada) y **montó una página sonda propia** para contestar si la exención
+  del caparazón era una allowlist disfrazada. Respuesta: **derivada, pero SÍ esquivable** → deuda **123**.
+- **Deuda 119 saldada por el leader** (carril de configuración) y **no por gusto**: la doc de Next 16.2.10
+  **empaquetada en `node_modules`** lo pide literalmente, y se **midió** en un worktree desechable que
+  quitarlo tiene **delta cero** en `tsc --noEmit`. El motivo quedó escrito dentro de `.gitignore`.
+- **Deudas: saldadas 117, 118, 119; nuevas 120-126.** La **120 es la más grave y NO es del encargo:**
+  `postcss` es dependencia fantasma y **un clon limpio falla `pnpm typecheck` hoy** (3 archivos la
+  importan sin declararla). **Excluida a propósito** —tocar `package.json` se salía del encargo—
+  → **decisión pendiente del usuario**.
+- **Lección de método:** un dato mal copiado se propaga solo. El leader escribió *"los 12 casos de
+  `auth-pages.test.tsx`"* heredando la cuenta del explorador; **son 14**. Lo levantó el reviewer. No
+  cambió el veredicto, pero es la misma raíz que los dos incidentes de medición inventada ya
+  registrados: **nadie volvió a la fuente a comprobarlo**.
+
+## 2026-08-12 — Deuda 120 SALDADA + Feature #20 `projects_list_ui` (DONE)
+- **Agente:** leader → [carril A] implementer → reviewer (**APROBADO, 0 bloqueantes**) ·
+  [carril B] **3 exploradores en paralelo** → implementer #1 (**murió por límite de gasto de la API**) →
+  leader (auditoría del árbol heredado) → implementer #2 (acotado) → reviewer (**APROBADO, 0 bloqueantes**).
+- **Encargo del usuario:** *"deuda 120 y luego #20"*, elegido sobre sólo-120, sólo-#20 y barrer 120-123.
+  El orden lo pidió él: dejar el gate sano antes de meter una feature grande encima.
+- **Gate de arranque, medido por el leader:** `init.sh` EXIT 0, `1220 passed | 13 skipped` en 73 archivos.
+  **Coincidía exacto con el cierre anterior** — el libro mayor fue honesto.
+- **Estado final:** `init.sh` **EXIT 0** · `Test Files 74 passed | 3 skipped (77)` ·
+  **`Tests 1281 passed | 13 skipped (1294)`** · `pnpm build` **EXIT 0**, **28 rutas** (antes 27).
+  **+4 archivos de test, +61 tests.**
+- **Informes de cierre:** `progress/informs/21.informe-deuda120_postcss.md` y
+  `22.informe-projects_list_ui.md`.
+
+### Deuda 120 — `postcss` fantasma
+- **Arreglo de 4 líneas** (`package.json` +1, lock +3), cero `src/**`. Specifier **exacto `8.4.31`**, no
+  caret: `pnpm-workspace.yaml` ya tiene un `override` global a esa versión, así que un `^` habría sido
+  **una declaración falsa**. El lockfile **no movió la resolución de nada**.
+- **La ficha era verdadera y se quedaba corta:** en entorno limpio no sólo falla el typecheck — **caen
+  los 3 archivos de test enteros** y `init.sh` sale **exit 1** con `1185 passed` en vez de 1220.
+  Aritmética que cierra sola: **1220 − 1185 = 35**, y los tres archivos aislados dan 35.
+- **🔴 El hallazgo vale más que el arreglo → deuda 130.** La ficha explicaba mal su causa. No era
+  transitividad de pnpm: **`node_modules` de esta máquina tiene 348 entradas de primer nivel que NO son
+  symlink, contra 0 en un install limpio** — fósiles de una instalación con `npm` (el reviewer halló un
+  `node_modules/.package-lock.json`, artefacto de npm). **Consecuencia: aquí no se puede detectar una
+  dependencia fantasma por construcción.** **Decisión pendiente del usuario.**
+- ⚠️ **Advertencia pegada al número:** **348 depende del método de conteo** (el conteo ingenuo del
+  reviewer dio 330/309 sobre el mismo árbol). Una cifra así **no se puede citar sin la receta al lado**.
+
+### Feature #20 — la segunda página de contenido del proyecto
+- **Contrato: enmienda E1 del RFC-03 (§7-bis), NUEVE decisiones** — ocho del usuario, una del leader.
+  **Hubo que escribirla porque el RFC se contradice a sí mismo:** §2 pide un buscador que §3 —su propia
+  sección de datos— no respalda, y **el PRD §6.2 tampoco lo pide**. Nunca se especificó como dato.
+- **El detalle que lo hizo urgente:** el esquema de filtros es un `z.object` **sin `.strict()`**, así que
+  **`?search=gorro` responde 200 con la lista SIN FILTRAR**, no un 400. **Un buscador cableado contra un
+  parámetro inexistente no falla: miente.** Por eso se cerró antes de implementar, no "probando".
+- **Decisiones:** buscar → **cliente** · fechas → **fuera** (deuda 127) · aguja → **lista fija** (derivar
+  de la lista cargada es **circular**) · lana → **sólo color** (deuda 128) · quick-start → **sólo
+  arranca** · card **no tocable** (el drawer es #21 y no existe; `<button>` dentro de `<a>` es inválido) ·
+  "más filtros" → **`<details>` nativo** · cliente HTTP → **tercer clon** (deuda 129) · segmentado → **dos
+  `Toggle`**.
+- **Los tres hechos que mandaron sobre el quick-start:** `start` es **idempotente** (201 crea / **200
+  reutiliza**, nunca 409); **el 409 está en el `stop`**; y **no hay forma de saber desde la lista si el
+  cronómetro corre**. Un toggle habría tenido que mentir o pedir N veces.
+- **Repara de paso un 404:** el "Ver todos" del Dashboard apuntaba a `/proyectos` desde #19 y no existía.
+- **El gate de la deuda 111, atacado con SEIS inyecciones de fallo.** Lo que parecía cubrirlo no lo hacía:
+  `dashboard-page.test.tsx` menciona `/proyectos` **pero renderiza una página de mentira**, así que
+  **habría seguido verde con tres ovillos montados** (confirmado: pasa 5/5 con el defecto puesto).
+  **A3, diseñada por el reviewer, es lo que da valor a la aprobación:** aísla la aserción de pertenencia
+  al slot y **cae ella sola**, demostrando que las tres aserciones discriminan por separado y ninguna
+  está de adorno.
+- **Deudas: nuevas 127-135.** La **132 corrige una premisa del propio leader**: escribí que un
+  quick-start colado *"lo verían `DashboardView.test.tsx` y su `axe`"* — **falso, medido**: pasa **31/31**
+  con todas las tarjetas del Dashboard llevando botón. **La invariante se sostiene en un solo punto del
+  repo**, y el lado consumidor no tiene gate.
+- **Lección de método, y es reincidencia (deuda 134):** el informe pegó `3 failed | 12 passed (13)` dentro
+  de un bloque presentado como **salida literal**. **Imposible de raíz: 3 + 12 = 15.** Es el segundo caso
+  (en #31 fueron 9 declarados contra 12 reales) y ataca justo la REGLA 3, cuyo valor depende de que los
+  números pegados sean los que salieron. **Defensa barata: si los sumandos no dan el total, el bloque no
+  es una salida.**
+- **Y una del leader sobre sí mismo:** titulé la enmienda *"las ocho decisiones"* y enumeré **nueve** —
+  conté las del usuario y me olvidé de la mía, que está marcada como tal en mi propio documento.
+  **Lo levantó el implementer leyendo el texto en vez de fiarse del título.** Corregido en el RFC,
+  escrito y no borrado. Cuarta aparición de la misma raíz: **nadie vuelve a la fuente a comprobarlo.**

@@ -1463,9 +1463,411 @@ bloqueante **no era un bug de código**, era una frase que afirmaba que ese test
      cuanto otra pieza monte un `status`, esos tests se vuelven **ambiguos** — y la ambigüedad de un
      selector no falla limpio: falla raro.
 
+## 🔴 Nuevas del rediseño de login/register del usuario (2026-08-07, commit `bdb11b0`)
+
+> **El árbol quedó en ROJO al cerrar la sesión.** No es un fallo de #19: es una **decisión de producto
+> que cambió** y cuyo gate no se actualizó. Detalle en la ficha 116.
+
+116. ~~**🔴 GATE EN ROJO: `register` ahora monta el ovillo, y el test dice que no debe.**~~
+     → **SALDADA el 2026-08-07, en la misma sesión.** El gate se **reescribió a conciencia**, no se borró
+     (deuda 29): pasa a fijar la realidad nueva —el alta **sí** monta el ovillo, decorativo— y lleva
+     escrito **qué decía antes, qué cambió y por qué se reescribe**, más un aviso a quien venga después de
+     que **la ficha de #31 describe el criterio viejo y no hay que "arreglarlo" al revés**.
+     **Condición doble ejecutada** (tres mutaciones sobre `register/page.tsx`, las tres con un único rojo
+     —el nuevo— y restauración verificada por suma de control + `git diff` vacío).
+     **Verificado por el leader por su cuenta:** `bash ./init.sh` → `EXIT_CODE=0`,
+     `1200 passed | 13 skipped` en 69 archivos.
+     El criterio revertido quedó **anotado, no borrado**, en `feature_list.json` #31.
+     El test nuevo **declara sus dos límites** en vez de sobrevender: el `aria-hidden` que comprueba es el
+     del envoltorio (ahí `AsciiYarn` está doblado; el real lo cubren sus propios tests), y el `data-slot`
+     por el que se agarra ya no describe lo que hay debajo (**deuda 117**, que sigue viva).
+     Informe: `progress/reports/impl_fix_register_ovillo.md`.
+
+     *Ficha original, conservada:*
+     **`register` ahora monta el ovillo, y el test decía que no debe.**
+     **Medido**: `bash ./init.sh` → `EXIT_CODE=1`, `1 failed | 1199 passed | 13 skipped` (1213).
+     El único rojo es `src/app/(auth)/auth-pages.test.tsx:188` → `× no monta el ovillo ASCII`.
+
+     **Qué pasó:** el criterio de aceptación de **#31** decía *"ovillo ASCII de fondo **SOLO en login**
+     (no en register)"*, y el test lo fijó en dos asertos: `queryByTestId("ascii-yarn")` ausente y
+     `[data-slot="bg-3d"]` a `null`. El rediseño del usuario pone el ovillo **también en el alta**.
+
+     **El test hizo su trabajo:** avisó de que se estaba cambiando algo que alguien fijó a propósito.
+     **Arreglo: REESCRIBIRLO, no borrarlo** (deuda 29) — que ahora **sí** monta el ovillo, y por qué la
+     decisión de #31 se revierte. Conviene además **anotar la reversión en el criterio de #31**, o dentro
+     de tres meses alguien lee la ficha vieja y lo "arregla" al revés.
+
+117. ~~**El atributo `data-slot="bg-3d"` ya no describe lo que hay debajo, en las dos páginas de auth.**~~
+     → **SALDADA el 2026-08-10** (lote 117/118/119, review **APROBADO, 0 bloqueantes**). Contrato:
+     **enmienda E12(d) del RFC-01**. Renombrado a **`data-slot="auth-hero"`** en las dos páginas;
+     **el `bg-3d` del `AppShell` NO se tocó** y sus 3 asertos siguen verdes sin modificar.
+     **Medido antes de tocar nada** (`explore_deuda117_data_slot.md`): son **dos manijas homónimas en
+     árboles que nunca coexisten** —las rutas `(auth)` no montan `AppShell`—, `data-slot` no aparece
+     **ni una vez** en `docs/` ni en `template/`, y el ancla de superficie pública sólo cubre nombres
+     de export. Coste real: 2 líneas de producción + 2 asertos, tal como se predijo.
+     **El nombre elegido restaura un eje conceptual**, no es cosmética: *`bg-3d` = capa fija decorativa*
+     frente a *`auth-hero` = pieza en el flujo e interactiva*. Ese eje **todavía no está en las
+     convenciones** → deuda **126**.
+     **Dos cosas que la ficha pedía y se decidieron al revés, a propósito:**
+     (1) **el `aria-hidden` del envoltorio SE QUEDA** pese a ser redundante (`AsciiYarn` ya es
+     `aria-hidden` incondicional): en `auth-pages.test.tsx` el componente está **doblado por un `<span>`
+     pelado**, así que ese atributo es **la única manija que el test tiene** para comprobar que la pieza
+     es decorativa; quitarlo pondría 2 gates en rojo **por artefacto del doble, no por accesibilidad**.
+     El motivo quedó escrito junto al atributo para que nadie lo "limpie".
+     (2) el `className=""` (cadena vacía que no hacía nada) **sí se eliminó**.
+     **De regalo, tres comentarios que mentían**, reescritos citando E12: `register/page.tsx` decía
+     *"Sin ovillo de fondo"* **tres líneas antes de montarlo**, `login/page.tsx` decía *"sin capturar el
+     puntero"* cuando hoy pasa `interactive={true}` (→ deuda **121**), y el layout de `(auth)` presumía
+     de un posicionamiento que ya no sostenía nada.
+
+     *Ficha original, conservada:*
+     **El atributo `data-slot="bg-3d"` ya no describe lo que hay debajo, en las dos páginas de auth.**
+     Ese nombre significa *"la capa de fondo 3D"*, y en el rediseño el ovillo pasó a ser **una celda de
+     una rejilla de dos columnas, en el flujo**, junto al formulario. En `login` el contenedor perdió
+     además su posicionamiento y su token de capa, y quedó con `className=""` — **una cadena vacía que no
+     hace nada**. El envoltorio con `aria-hidden` también es redundante: `AsciiYarn` **ya es siempre
+     `aria-hidden`** por construcción (`AsciiYarn.tsx:59`), no es opcional.
+     **Por qué importa:** el gate de login (`auth-pages.test.tsx:85-87`) **busca por ese `data-slot`**,
+     así que el nombre no es decorativo — es la manija por la que los tests agarran la pieza. Un nombre
+     que miente sobrevive porque nadie lo mira.
+     **Arreglo:** renombrar el slot a lo que ahora es, y ajustar el gate con él.
+
+118. ~~**La rejilla de dos columnas de las páginas de auth no tiene variante responsive.**~~
+     → **SALDADA el 2026-08-10** (lote 117/118/119, review **APROBADO, 0 bloqueantes**). Contrato:
+     **enmienda E12 (a) (b) (c) (e) del RFC-01** — hizo falta **enmienda y no sólo arreglo** porque se
+     midió que **la rejilla de dos columnas de auth no estaba especificada en NINGÚN sitio**: ni RFC-01
+     ni SDD-01 la mencionaban. Era una decisión de producto tomada a mano en `bdb11b0`, legítima pero
+     **sin fuente de verdad**, así que no había documento contra el que validar el responsive correcto.
+     **Ahora lo hay.**
+
+     **La ficha acertaba y se quedaba CORTA, y el motivo real es peor:** `AsciiYarn` **no devuelve
+     `null`** por debajo de `--bp-tablet`; devuelve **siempre** su host `h-full w-full` con la escena
+     vacía dentro. Así que la segunda pista existe y **reclama su mitad del ancho**, y como
+     `minmax(0, 1fr)` la deja bajar por debajo de su contenido mínimo, **no hay scroll horizontal que
+     avise: simplemente se aplasta**. Y como todo el hueco es `aria-hidden`, **`axe` tampoco lo veía**.
+
+     **CONFIRMADA EN NAVEGADOR REAL por el leader (REGLA 4)** — la ficha estaba en esa familia y el
+     informe del explorador **no la sustituía**. `next dev` + emulación de dispositivo en Chrome:
+     conmuta **exactamente** en `--bp-tablet` (767px → una pista, `padding-inline: 0`, hueco
+     `display: none`; 768px → `280px 280px`, `80px`, hueco visible), y a 1280px sale `536px 536px` con
+     `80px / 80px` y sin `gap`, **idéntico a lo que producía `px-20`**.
+     **Y se reprodujo el estado ANTERIOR inyectando la geometría vieja por DOM en la página viva**
+     (sin tocar el árbol): columnas de **91.2px** y campos de **48px** a 390px. **La aritmética del
+     explorador (91 / 47) acertó dentro de 1px.**
+
+     **Se resolvió además el `px-20`, que iba en el mismo paquete** (E12 c): era **el único valor de
+     espaciado crudo de todo `src/`** (1 de 55) y **ningún guardrail podía verlo** —`PX_LITERAL` busca
+     `<dígitos>px` y ahí el `px` va delante y significa *padding-inline*—, y aportaba **160 de los
+     ~208px** que se perdían en móvil. Sustituido por el token nuevo **`--auth-inset-inline: 80px`**
+     con su motivo escrito, aplicado **sólo desde `tablet:`**: el diseño del usuario **no cambia ni un
+     píxel donde él lo mira**, cotejado propiedad por propiedad sobre el CSS compilado y confirmado en
+     navegador.
+
+     **Nace el gate que no existía** (E12 e): `src/app/yarn-host-responsive.test.ts`, 20 casos, +20
+     tests. Compila `globals.css` con postcss y asierta sobre el **CSS compilado** (REGLA 7), **descubre**
+     los anfitriones de ovillo en vez de enumerarlos (medicina de las deudas 40/43/71/91) y lleva
+     **dos** anclas anti-descubrimiento-roto — el reviewer las atacó y salieron **cuatro** asertos en
+     rojo, más red de la anunciada. **El descubrimiento no encontró ningún consumidor no conforme**:
+     `DashboardHero` ya lo cumplía, sólo que **nada lo vigilaba**.
+     **Su agujero conocido está fichado como deuda 123** (la exención "fuera de flujo" es esquivable).
+
+     **El número que justifica todo el encargo, verificado al dígito por el reviewer:** al matar
+     `--breakpoint-tablet`, los **seis** asertos que leen nombres de clase siguen **verdes** y sólo caen
+     los **ocho** del CSS compilado (`8 failed | 12 passed`). **Un gate que sólo mirara clases no habría
+     servido de nada** — una clase puede existir en el JSX y no compilar a ninguna media query.
+
+     *Ficha original, conservada:*
+     **La rejilla de dos columnas de las páginas de auth no tiene variante responsive, y el ovillo no se
+     monta en móvil.** Las dos páginas usan una rejilla fija de dos columnas con relleno lateral grande.
+     Por debajo de `--bp-tablet`, `useViewportSupports3d` **no monta la escena** (medido en
+     `explore_19_hero_fondo.md` §2), así que en móvil quedaría **media pantalla vacía** y el formulario
+     comprimido a la mitad del ancho. **NO MEDIDO en navegador** — es lectura de código, y es
+     exactamente el mismo riesgo que #19 documentó para el hero del Dashboard. **Familia de la regla 4:
+     sólo se confirma con una pantalla delante.**
+
+119. ~~**`next-env.d.ts` entró en el commit `bdb11b0`.**~~
+     → **SALDADA el 2026-08-10 por el leader** (es configuración fuera de las capas de código: su carril).
+     **Se ignora, y no por preferencia nuestra.** La doc de Next **16.2.10 empaquetada en el propio
+     `node_modules`** (`next/dist/.../02-typescript.md:91`) dice literalmente *"Add it to `.gitignore`. If
+     your project already tracks the file, remove it from Git"*, y su tabla de estructura lo clasifica
+     junto a `.env` como *"should not be tracked"*. Context7 confirma lo mismo con la plantilla real de
+     `create-next-app`: **las dos fuentes coinciden, no hubo que elegir.**
+     **Medido antes de decidir, no argumentado** (`progress/reports/explore_deuda119_next_env.md`): en un
+     `git worktree` desechable con su propio `pnpm install` se probaron **las 4 combinaciones**
+     (`.next` sí/no × archivo sí/no) y `tsc --noEmit` da **errores idénticos en todas**. Lo único que se
+     pierde es poder importar `*.png` como módulo, y **el repo no tiene ni una importación estática de
+     imágenes**. `next build` sin el archivo → exit 0, y lo regenera solo.
+     **Ejecutado:** `.gitignore` + `git rm --cached next-env.d.ts` (el archivo **sigue en disco**;
+     verificado). **`tsconfig.json` NO se tocó y debe seguir listándolo en `include`** — ignorarlo en git
+     no es sacarlo de TypeScript. El motivo entero quedó escrito **dentro de `.gitignore`**, que es donde
+     lo va a leer quien se pregunte por qué.
+     **La ficha se confirmó con reloj:** 4 commits tocaron el archivo y **3 eran flips puros de una línea**
+     (75% ruido); `next dev` revierte el import en ~7s medidos.
+     **Precedente idéntico ya resuelto en este repo:** `tsconfig.tsbuildinfo` se destrackeó igual en
+     `4973309`.
+
+120. ~~**🔴 `postcss` es DEPENDENCIA FANTASMA: un clon limpio falla `pnpm typecheck` hoy.**~~
+     **✅ SALDADA el 2026-08-12.** `postcss` declarada en `devDependencies` con specifier **exacto
+     `8.4.31`** (no `^8.4.31`). Diff total: **4 líneas** (`package.json` +1, `pnpm-lock.yaml` +3).
+     **Cero archivos de `src/**`.** Informes: `progress/reports/impl_deuda120_postcss.md` y
+     `review_deuda120_postcss.md` (**APROBADO, 0 bloqueantes**).
+     **Por qué exacto y no caret:** `pnpm-workspace.yaml` ya fija `postcss` a `8.4.31` con un `override`
+     global, que **manda sobre cualquier specifier**. Un `^8.4.31` sería una **declaración falsa**: diría
+     *"cualquier 8.x me vale"* cuando la regla de al lado obliga a una sola. Precedente de pin exacto en
+     el repo: `three` y `@types/three`.
+     **El lockfile NO movió nada:** las 3 líneas están todas dentro de `importers['.'].devDependencies`
+     —puro registro de intención—; **cero entradas nuevas** en `packages:` o `snapshots:` (ya estaba ahí
+     por `@tailwindcss/postcss`, `next` y `vite`), **cero descargas**.
+     **🔴 DOS CORRECCIONES a lo que esta ficha decía, escritas y no borradas:**
+     1. Decía *"falla `pnpm typecheck`"*. **Se quedaba corta.** En entorno limpio **caen además los tres
+        archivos de test enteros** y `bash ./init.sh` sale **exit 1**: `3 failed | 67 passed | 3 skipped`
+        y **`1185 passed`** en vez de 1220. Con el arreglo, ese mismo entorno da **exit 0** y
+        **`1220 passed | 13 skipped`**. La aritmética cierra sola: **1220 − 1185 = 35**, y los tres
+        archivos aislados dan exactamente **35 passed**.
+     2. Decía que aquí funcionaba *"porque el almacén de pnpm la tiene por transitividad"*. **FALSO.**
+        El linker es **`isolated`** y clasifica `postcss` como **`private`**, o sea la deja en
+        `node_modules/.pnpm/node_modules/`, que **TypeScript y Vite no miran** desde `src/`. La causa real
+        es otra y está en la **deuda 130**.
+     **Verificación:** el reviewer **no leyó el informe y ya**: reconstruyó el experimento entero por su
+     cuenta con dos copias limpias propias, y **todos los números cargantes reprodujeron exactos**.
+     ~~Dos~~ **TRES**
+     tests la importan y **no está declarada en `package.json`**; funciona en esta máquina sólo porque el
+     almacén de pnpm la tiene por transitividad.
+     **🔴 Corrección de libro mayor (2026-08-12, leader, medido por barrido de `src/`):** la ficha decía
+     **dos** y son **tres**: `src/app/globals-css.test.ts:5`,
+     `src/shared/ui/primitives/skeleton/skeleton.tokens.test.ts:5` y
+     **`src/app/yarn-host-responsive.test.ts:6`**. El tercero es **el gate que nació en el propio lote
+     117/118**, así que la ficha quedó desactualizada por el trabajo de su misma sesión. Sólo declara
+     `package.json` a `@tailwindcss/postcss` (`:19`); **`postcss` a secas no aparece**. No cambia el
+     diagnóstico ni el arreglo — **agranda la superficie** y es la misma raíz ya registrada aquí tres
+     veces: *nadie volvió a la fuente a comprobarlo*.
+     **Medido** en el worktree limpio del saldo de la 119
+     (`progress/reports/explore_deuda119_next_env.md`), donde salió como hallazgo colateral —
+     **es más grave que la deuda que se fue a investigar**.
+     **Por qué importa más de lo que parece:** no rompe a nadie que ya tenga el repo, así que **no se
+     va a descubrir por uso**; se descubre el día que alguien clona (o el día que un CI limpio corre por
+     primera vez). Y la ruta de descubrimiento es la peor: falla el **typecheck**, no un test, así que
+     parece un problema de TypeScript y no una dependencia que falta.
+     **Arreglo:** una línea (`pnpm add -D postcss`). **Deliberadamente NO se plegó al lote de las deudas
+     117/118**: tocar `package.json` es un cambio con su propia superficie de riesgo y el usuario acotó
+     el encargo a 117/118/119. **Decisión pendiente del usuario**, no del siguiente agente que pase.
+
+121. **El ovillo de auth pasó a `interactive={true}` en el rediseño `bdb11b0`, y nada lo vigila.** Antes
+     las dos páginas usaban el valor por defecto. `interactive` decide si el host captura el puntero
+     (`AsciiYarn.tsx:186`: `pointer-events-auto` frente a `pointer-events-none`).
+     **Hoy no hay regresión**: el ovillo vive en otra columna de la rejilla, así que no se superpone al
+     formulario — verificado por lectura, no por pantalla. **Pero el invariante no está escrito en
+     ningún sitio**, así que el día que alguien superponga las dos celdas (o vuelva a un layout de
+     fondo) el ovillo se comerá los clics del formulario **con todo verde**. Es la familia exacta de la
+     deuda 52: un gate que sólo mira las clases propias de una pieza no ve lo que le hacen desde fuera.
+     **E12 decidió a propósito NO resolverla**: se deja como está y se ficha.
+
+122. **Los breakpoints de fábrica de Tailwind siguen vivos en el compilado, y nada impide saltarse el
+     sistema de tokens.** **Medido** sobre el CSS compilado
+     (`progress/reports/explore_deuda118_responsive_auth.md` §1.3): además de los tres del proyecto
+     (`640px`, `768px`, `1180px`), el compilado contiene los cinco de fábrica
+     (`40rem`, `48rem`, `64rem`, `80rem`, `96rem`). `@theme` **añade** nombres, no sustituye los de
+     fábrica.
+     **Hoy nadie los usa en `src/`** (barrido completo, cero apariciones), así que no hay nada abierto.
+     **El riesgo es de deriva:** alguien escribe la variante de fábrica por costumbre, se salta
+     `--bp-*`/`--breakpoint-*` y **queda fuera de `breakpoint-tokens.test.ts`**, que sólo ata los pares
+     declarados por el proyecto. El gate responsive que nace con E12(e) es el sitio natural donde
+     prohibirlo, si se decide prohibirlo.
+
+## Del review del lote 117/118/119 (2026-08-10) — el gate nuevo, auditado
+
+> El lote salió **APROBADO con 0 bloqueantes**, pero el reviewer no se conformó con leer el gate: lo
+> **atacó**. Estas cuatro fichas son el resultado. Informe:
+> `progress/reports/review_deudas_117_118_119.md` §7.
+
+123. **🟠 La exención "fuera de flujo" del gate responsive es MÁS ANCHA QUE SU MOTIVO, y es esquivable.**
+     `src/app/yarn-host-responsive.test.ts:83` y `:319`. Un anfitrión de ovillo con `fixed` o `absolute`
+     queda exento de **los dos** asertos de fondo. **El fallo lógico:** la exención se justifica con
+     *"un anfitrión fuera de flujo no reserva espacio"*, y eso es cierto **para el anfitrión** — pero
+     el segundo aserto **no juzga al anfitrión, juzga al contenedor** (dos columnas en la base). Un
+     contenedor de dos columnas **sigue partiendo el ancho en dos pistas** aunque su segundo hijo esté
+     fuera de flujo, **que es el daño exacto de la deuda 118**. El gate lo exime igual.
+     **MEDIDO por el reviewer con una página sonda propia** (`absolute` + dos columnas, sin ninguna
+     variante responsive): con la sonda puesta caen **sólo las dos anclas** (`2 failed | 18 passed`) y
+     **no se genera ni un caso** para ese anfitrión; y haciendo **lo que el propio JSDoc del gate le
+     pide al desarrollador** (`:401`, *"añádelo a la lista"*), el archivo queda en
+     **`20 passed (20)`, EXIT=0** — verde, con una página que parte el ancho en dos y un hueco que no
+     se apaga nunca.
+     **Por qué NO es bloqueante:** hoy el único exento es `AppShell.tsx:52`, que es el caso correcto, y
+     el ancla lo fija. Y el ancla **obliga a que un humano pase por ahí** — ésa es la diferencia real
+     con una allowlist. **Por qué importa igual:** el mensaje que ese humano lee le pide comprobar **a
+     mano** justo lo que el gate se acaba de saltar. Misma familia que el agujero conocido de E11(c) /
+     deuda **52**.
+     **Arreglo barato:** aplicar el aserto del contenedor **también** a los anfitriones exentos, o
+     exigir que la exención venga acompañada de un estirado a los cuatro lados.
+     **Prioridad alta la próxima vez que se toque el gate.**
+
+124. **El inventario del ancla del gate responsive es un punto de fuga por diseño.** Es el **precio
+     conocido** de un ancla de pertenencia y **no hay alternativa mejor** (sin ancla, un descubrimiento
+     roto sale verde, que es peor). La ficha existe para que nadie lo descubra por sorpresa: quien
+     actualiza el inventario recibe la instrucción de verificar **a mano** el invariante del caso que
+     añade — y eso es exactamente por donde se cuela la **123**.
+     **Sugerencia barata:** que el mensaje de fallo del ancla **nombre explícitamente** qué hay que
+     comprobar cuando el anfitrión nuevo está fuera de flujo.
+
+125. **El lector de JSX del gate responsive depende del formateo de Prettier.** `parseTags`
+     (`yarn-host-responsive.test.ts:128`) asume **una etiqueta de apertura por línea**. Lo ficha el
+     propio implementer (§9.4) y el reviewer lo confirma. Es cierto hoy y **las anclas lo cazan si deja
+     de serlo** (falla cerrado, no abierto), pero conviene saber el precio: el día que caiga, el arreglo
+     es **reescribir el lector**, no tocar una línea.
+
+126. **`data-slot` sigue sin fila en `docs/harness/conventions.md`.** **Verificado:**
+     `grep -n "data-slot" docs/harness/conventions.md` devuelve **cero**. Este lote acaba de renombrar
+     uno (`bg-3d` → `auth-hero`) y, sobre todo, de establecer un **eje conceptual** — *`bg-3d` = capa
+     fija decorativa* frente a *`auth-hero` = pieza en el flujo e interactiva* — que **hoy sólo vive en
+     comentarios de código**. Un eje que no está en las convenciones se pierde en la siguiente página
+     que alguien escriba. **Carril de documentación**, arreglo de minutos.
+
 115. **`progress/history.md` iba DOS sesiones por detrás.** Lo levantó el reviewer como C5 en las dos
      rondas. Su última cabecera era `2026-08-05 — Feature #15`, faltando **#33 `ui_primitives_2`** (cerrada
      el 2026-08-06). **Es contabilidad del leader, no del implementer.** ~~Saldada al cerrar #19~~: se
      añadieron las dos entradas. **Queda como ficha viva de MÉTODO:** el cierre de sesión de `AGENTS.md`
      §5 tiene cuatro pasos y el de `history.md` es el que se salta, porque **nada lo verifica** —
      `init.sh` valida `feature_list.json`, no el historial.
+
+## Del planeamiento de #20 `projects_list_ui` (2026-08-12) — nacidas de la enmienda E1 del RFC-03
+
+> Las tres son **precios aceptados a propósito** al cerrar las ocho decisiones de #20 con el usuario, no
+> descuidos. Se fichan para que el precio quede escrito y no se descubra por sorpresa en #21/#22.
+> Contrato: `docs/design/rfc/RFC-03-proyectos.md` §7-bis.
+
+127. **El filtro de RANGO DE FECHAS existe en el backend y ninguna pantalla lo usa.** `?from=&to=`
+     está implementado (`src/features/projects/api/store.ts:103-108`, `gte`/`lte` sobre **`startDate`**)
+     y probado, pero **E1(b) lo dejó fuera del toolbar de #20** para no ensanchar la slice.
+     **Por qué importa más que una función que falta:** nace de una **contradicción interna de RFC-03**
+     que sigue viva — **§1 lo declara filtro *principal*** y el PRD §6.2 lo lista, pero **§2 no lo pone en
+     el toolbar** y el `acceptance` de #20 tampoco. Quien lea §1 va a creer que #20 lo incumple.
+     Mitigado a medias: §1 lleva ahora un aviso que apunta a E1(b). **Añadirlo es aditivo y barato**
+     (el backend está hecho); lo caro sería resolver la contradicción a medias otra vez.
+     ⚠️ **Trampa medida al pasar:** `z.coerce.date("2026-05-01")` produce medianoche **UTC** y `startDate`
+     es `timestamp` **sin zona**. **NO MEDIDO** si un filtro de "hoy" se corre un día. Cuando se
+     implemente, medilo antes de anclarlo en un test.
+
+128. **El selector de "lana usada" sólo puede etiquetar por COLOR, y dos lanas pueden quedar
+     indistinguibles.** `GET /api/yarns` devuelve la **fila cruda**: `brandId`/`typeId` son **UUIDs, no
+     nombres** (`src/features/yarns/api/store.ts:244-249`). El único sitio del repo que aplana los
+     nombres es `listLinkedYarns` (`store.ts:177-199`), y **sólo sirve al detalle de un proyecto**, no a
+     un selector global. **E1(d)** compró el coste cero (una llamada, cero backend nuevo).
+     **Escenario de fallo concreto:** el usuario tiene dos lanas con el mismo `colorName` de marcas
+     distintas; en el desplegable de "más filtros" ve **dos entradas idénticas** y no puede saber cuál
+     elige. **Arreglos posibles:** pedir marcas y tipos aparte (triplica el fetch de un desplegable
+     secundario), o un endpoint que aplane los nombres para el inventario — que es reabrir backend.
+     **Toca a #24/#25 también**, que van a necesitar la misma etiqueta.
+
+129. **🟠 El cliente HTTP de navegador se duplica por TERCERA vez, y `readErrorMessage` va copiado
+     literal.** No hay cliente compartido: `src/shared/lib/http.ts` importa `next/server` y es
+     **exclusivamente de Route Handlers**. Los dos clones vivos son
+     `src/features/auth/ui/auth-client.ts:15-30` y `src/features/dashboard/ui/dashboard-client.ts:40-55`
+     — **la misma función, byte a byte**. El propio `dashboard-client.ts:8-16` deja escrito que copia al
+     primero porque no hay dónde compartirlo. **E1(h)** decidió duplicar por tercera vez y ficharlo, para
+     no meter en #20 un refactor de `shared/lib` que toca **dos features ya `done` y revisadas**.
+     **Por qué se ficha en vez de dejarlo pasar:** quedan **#21, #22, #24, #25, #27, #28** por delante, y
+     todas necesitan cliente. **Sin decisión, se llega a cinco o seis copias**, y entonces el refactor ya
+     no cuesta un rato. **El momento natural de extraerlo es antes de #22**, cuando el patrón esté
+     confirmado por tres usos reales y todavía queden pocos consumidores.
+     Corolario ya medido, para quien lo extraiga: el molde **funde 200 y 201** (`dashboard-client.ts:68`
+     sólo mira `response.ok`), y el quick-start de #20 necesita distinguirlos (E1(e)). O sea que el
+     tercer clon **ya nace divergiendo** del molde.
+
+## Del saldo de la deuda 120 (2026-08-12) — la causa de fondo, verificada por el reviewer
+
+130. **🔴 El `node_modules` de esta máquina es un ÁRBOL PLANO ESTILO npm FOSILIZADO encima del árbol de
+     pnpm, y por eso NINGUNA dependencia fantasma se puede detectar aquí.** Es **la causa real** de que
+     la deuda 120 fuera invisible, y **sigue viva después de saldarla**.
+     **Medido por el implementer y REPRODUCIDO de forma independiente por el reviewer:**
+
+     | | entradas de primer nivel | NO son symlink |
+     |---|---|---|
+     | Árbol principal (esta máquina) | **378** | **348** |
+     | Copia limpia, `pnpm install` fresco | **30** | **0** |
+
+     **pnpm nunca crea directorios reales de primer nivel**: sus dependencias raíz son siempre enlaces.
+     Antes del arreglo de la 120, `node_modules/postcss` era un **directorio real** (`isSymbolicLink()`
+     → `false`, fecha `jul. 20 21:24`). El propio `pnpm-workspace.yaml` deja constancia de esa era al
+     hablar de *"la misma versión que **npm** había instalado"*.
+     **Prueba adicional que aportó el reviewer:** existe un **`node_modules/.package-lock.json`** en el
+     árbol principal —**artefacto de npm**— y **está ausente** en un install limpio de pnpm.
+     **Consecuencia operativa, y es lo que importa:** con 348 directorios de cobertura, **cualquier
+     paquete transitivo resuelve desde `src/` en esta máquina**. No es que a `postcss` se le escapara la
+     declaración: **este `node_modules` no puede detectar dependencias fantasma por construcción**. La 120
+     fue la primera que asomó; cualquier import nuevo sin declarar volverá a pasar desapercibido aquí y a
+     descubrirse recién en un clon limpio o en un CI.
+     ⚠️ **ADVERTENCIA DE MÉTODO, del reviewer, y hay que leerla antes de citar el número:** **348 depende
+     del método de conteo.** Su primer conteo ingenuo (dotfiles incluidos, `@babel` contado como una
+     entrada) dio **330/309 sobre el mismo árbol**. No es contradicción — **es que el número no significa
+     nada sin la receta al lado**. Si volvés a medir, escribí el método.
+     **Arreglo:** `rm -rf node_modules && pnpm install`. **Su verificación ya está hecha de antemano:** el
+     `init.sh` en copia limpia da **exit 0, 1220 passed**, o sea que se sabe que el árbol sano pasa.
+     **NO se hizo** en el lote de la 120: quedaba fuera de alcance (toca `node_modules`, no
+     `package.json`). **Decisión pendiente del usuario.**
+
+131. **El barrido de dependencias fantasma existió una vez y se tiró.** Al saldar la 120 se escribió un
+     barrido (`sweep.mjs`, en el scratchpad) que recorre directorios de `src/` **sin lista a mano**
+     —medicina de las deudas 40/43/71/91—, extrae el nombre de paquete de **seis** formas de import
+     (`import … from`, `import()`, `require()`, `import "efecto"`, `vi.mock`, `vi.importActual`) y lo
+     contrasta contra `package.json`. **Punto clave: no consulta `node_modules`**, así que su resultado
+     **no queda contaminado por la deuda 130**. Barrió **296 archivos** → **cero fantasmas** además de
+     `postcss`.
+     **El reviewer lo atacó en vez de creerle** y confirmó que **el "cero" no es un verde vacío**:
+     con controles positivos, quitar `postcss` del conjunto declarado hace aflorar exactamente los 3
+     archivos, y quitar `zod` hace aflorar los suyos. Sondeó además los puntos ciegos —`require.resolve`,
+     `vi.doMock`, `vi.importMock`, `createRequire`: **cero apariciones**; los dos
+     `/// <reference types>` viven en `next-env.d.ts` → `next`; el plugin de `tsconfig.json` → `next`;
+     el de `postcss.config.mjs` → `@tailwindcss/postcss`. **Todos declarados.**
+     **La deuda es que ese barrido vivía en el scratchpad y se borró con él.** Mientras la **130** siga
+     viva, es **el único instrumento capaz de ver una dependencia fantasma en esta máquina** — y hoy hay
+     que reescribirlo desde cero para volver a usarlo. Convertirlo en un test del repo cuesta poco y lo
+     haría correr en cada `init.sh`.
+     **Límite conocido, declarado por el propio implementer:** valida *declarado sí/no*, **no** valida la
+     ubicación (`dependencies` frente a `devDependencies`).
+
+## Del review de #20 `projects_list_ui` (2026-08-12) — aprobada sin bloqueantes, y esto es lo que quedó
+
+> El review salió **APROBADO, 0 bloqueantes**, pero el reviewer **atacó los gates con seis inyecciones de
+> fallo** en vez de leerlos. Estas fichas son el residuo. Informe:
+> `progress/reports/review_projects_list_ui.md` §4-bis y §6.
+
+132. **🟠 La invariante "la tarjeta del Dashboard no monta controles" se sostiene en UN SOLO PUNTO del
+     repo, y la mitad "consumidor" no tiene gate.** **MEDIDO por el reviewer, y corrige una premisa que
+     el leader había escrito en el encargo.** El encargo daba por hecho que si el quick-start se colara
+     "de serie", *"`DashboardView.test.tsx` y su `axe` verían controles nuevos"*. **Es falso.** Con la
+     inyección B1 —**todas** las tarjetas del Dashboard con botón— `DashboardView.test.tsx` pasa
+     **`31 passed (31)`**, `axe` incluido. Y **no existe** ningún `ActiveProjectsPanel.test.tsx`.
+     **Lo único que sostiene la invariante es `ProjectCard.test.tsx:125-130`** —que existe, es correcto y
+     sí cae—. **No es un defecto de #20: es que #20 es lo único que la sostiene.**
+     **Por qué importa:** el gate vive en el lado *productor* (la tarjeta). El lado *consumidor* (quién la
+     monta y con qué props) **no tiene ninguno**, así que el día que alguien pase `onQuickStart` desde el
+     Dashboard "porque queda bien", **la suite entera sigue verde**. Familia de las deudas 52 y 121: un
+     gate que sólo mira la pieza no ve lo que le hacen desde fuera.
+
+133. **Código muerto y engañoso en `ProjectsView.test.tsx:149`.** El `void init;` dentro de `serve()`
+     **no se refiere al parámetro del doble de `fetch`** —que es lo que sugiere el comentario de la
+     línea 152— sino a un `const init = undefined` de módulo declarado **tres líneas más abajo**.
+     **Funciona por accidente**: se evalúa en tiempo de llamada, no de definición. Lo correcto sería no
+     declarar el parámetro que no se usa.
+     **No rompe nada y NO se arregló a propósito:** el código estaba ya aprobado y verificado por suma de
+     control por el reviewer, y modificarlo después de la aprobación invalidaría esa verificación por un
+     defecto puramente cosmético. **Arreglo de una línea la próxima vez que se toque ese archivo.**
+
+134. **El informe del implementer de #20 transcribió mal un número dentro de un bloque presentado como
+     SALIDA LITERAL.** §3.3, rotura B2: pegaba `Tests 3 failed | 12 passed (13)`, **imposible de raíz**
+     (3 + 12 = 15, no 13). La salida real es `3 failed | 10 passed (13)`. Los otros tres bloques (A1, A2,
+     B1) coincidían **exactos**. **Corregido en el informe** al cerrar.
+     **Se ficha aunque esté corregido, porque es reincidencia:** es el mismo defecto que en #31 (un
+     informe declaró 9 rojos donde salían 12), y ataca justo la **REGLA 3**, cuyo valor entero depende de
+     que los números pegados sean los que salieron. **Un número inventado dentro de un bloque de salida
+     es indistinguible de uno real para quien lo lea después.** La aritmética interna es la única defensa
+     barata: **si los sumandos no dan el total, el bloque no es una salida.**
+
+135. **Deuda 6 suma su CUARTA instancia, ahora en el cliente de navegador.** Las aserciones de filtros de
+     #20 son sobre la **URL literal** —que es el patrón correcto y el que evita el fallo silencioso del
+     `z.object` sin `.strict()`—, pero **nada ata esas cadenas al esquema real del endpoint**. Si el
+     backend renombrara un parámetro, **estos gates seguirían verdes** y la pantalla dejaría de filtrar.
+     Es la clase ya fichada (deudas **6**, **73**, **81**, **82**), no un defecto nuevo de #20, y su
+     medicina es la conocida: un ancla que derive los nombres de `projectFiltersSchema` en vez de
+     reescribirlos a mano.

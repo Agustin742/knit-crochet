@@ -1,4 +1,4 @@
-import { Card, ProgressBar } from "@/shared/ui";
+import { Button, Card, ProgressBar } from "@/shared/ui";
 import { formatDuration, formatInteger } from "@/shared/lib/format";
 
 import type { ProjectCardData } from "./types";
@@ -8,6 +8,15 @@ export const PROJECT_CARD_HEADING_LEVELS = [2, 3, 4] as const;
 
 export type ProjectCardHeadingLevel =
   (typeof PROJECT_CARD_HEADING_LEVELS)[number];
+
+/**
+ * Nombre accesible del quick-start. Lleva el nombre del proyecto porque en una
+ * grilla hay N botones iguales y "Empezar a tejer" a secas no dice de cuál
+ * habla. Se exporta para que los tests lo importen en vez de reescribirlo.
+ */
+export function quickStartLabel(projectName: string): string {
+  return `Empezar a tejer ${projectName}`;
+}
 
 export interface ProjectCardProps {
   project: ProjectCardData;
@@ -19,6 +28,26 @@ export interface ProjectCardProps {
    */
   headingLevel?: ProjectCardHeadingLevel;
   className?: string;
+  /**
+   * Quick-start del cronómetro (RFC-03 §2). **Es opt-in y por eso el añadido es
+   * aditivo**: sin esta prop la tarjeta no monta NINGÚN control, que es la
+   * invariante que su consumidor de #19 —el Dashboard, que no pasa la acción—
+   * conserva intacta.
+   *
+   * **Sólo arranca. No es un toggle** (enmienda E1(e)): `POST
+   * /:id/sessions/start` es idempotente (201 si crea, 200 si reutiliza una
+   * sesión abierta, nunca 409) y **no hay forma de saber desde la lista si el
+   * cronómetro corre** —ni columna, ni filtro, ni endpoint—, así que un
+   * start/stop tendría que adivinar qué icono pintar. El estado "corriendo" se
+   * aprende al tocar, no antes.
+   */
+  onQuickStart?: () => void;
+  /**
+   * Petición en vuelo. Va como prop **propia** y no como campo del proyecto: el
+   * `Pick` de `ProjectCardData` no tiene por qué crecer para esto (deuda 109),
+   * y "hay una petición en marcha" no es un dato del proyecto.
+   */
+  quickStartPending?: boolean;
 }
 
 /**
@@ -43,6 +72,8 @@ export function ProjectCard({
   project,
   headingLevel = 3,
   className,
+  onQuickStart,
+  quickStartPending = false,
 }: ProjectCardProps) {
   const Heading = `h${headingLevel}` as const;
 
@@ -51,9 +82,26 @@ export function ProjectCard({
       <div className="flex flex-col gap-(--space-3)">
         <ProjectPhoto name={project.name} image={project.image} />
 
-        <Heading className="font-display text-xl leading-tight text-fg">
-          {project.name}
-        </Heading>
+        <div className="flex items-start justify-between gap-(--space-3)">
+          <Heading className="font-display text-xl leading-tight text-fg">
+            {project.name}
+          </Heading>
+
+          {/* El botón NO envuelve la tarjeta ni vive dentro de un enlace: en #20
+              la tarjeta no es tocable (E1(f)), y un `button` dentro de un `a`
+              es marcado inválido que `axe` marca. El tap al detalle lo añade
+              #21, cuando el drawer exista. */}
+          {onQuickStart === undefined ? null : (
+            <Button
+              size="icon"
+              aria-label={quickStartLabel(project.name)}
+              loading={quickStartPending}
+              onClick={onQuickStart}
+            >
+              {quickStartPending ? null : <span aria-hidden="true">▶</span>}
+            </Button>
+          )}
+        </div>
 
         {/* El nombre del proyecto entra en la etiqueta de la barra: con varias
             tarjetas en pantalla, "Progreso" a secas se repite N veces y no

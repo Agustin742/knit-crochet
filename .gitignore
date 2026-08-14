@@ -10,6 +10,19 @@ build/
 tsconfig.tsbuildinfo
 *.tsbuildinfo
 
+# declaraciones generadas por Next (deuda 119, saldada el 2026-08-10).
+# NO se trackea, y no es una preferencia nuestra: la doc de Next 16.2.10 empaquetada en
+# node_modules (next/dist/.../02-typescript.md) dice literalmente "Add it to .gitignore. If your
+# project already tracks the file, remove it from Git", y lo clasifica junto a .env como
+# "should not be tracked". Lo regeneran solos `next build`, `next dev` y `next typegen`.
+# Se trackeaba por accidente y su import apunta a una ruta distinta en modo dev y en modo build,
+# así que hacía flip en cada cambio de modo: de 4 commits que lo tocaron, 3 eran ruido puro.
+# `tsconfig.json` DEBE seguir listándolo en `include` — ignorarlo en git no es sacarlo de TS.
+# Medido antes de decidir (progress/reports/explore_deuda119_next_env.md): en un worktree limpio,
+# `tsc --noEmit` da errores idénticos con y sin el archivo. Lo único que aporta es poder importar
+# imágenes como módulo, y este repo no tiene ni una importación estática de imágenes.
+next-env.d.ts
+
 # entorno / secretos
 .env
 .env.*

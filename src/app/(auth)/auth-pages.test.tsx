@@ -78,11 +78,23 @@ describe("página de login", () => {
     expect(screen.getByLabelText("Email")).toBeInTheDocument();
   });
 
-  it("monta el ovillo ASCII de fondo, decorativo y detrás del contenido", async () => {
+  /**
+   * El slot se llama `auth-hero` desde el arreglo de la deuda 117 (RFC-01 §3,
+   * E12 d): el ovillo de auth no es la capa de fondo del caparazón —eso sigue
+   * siendo `bg-3d`, en `AppShell`— sino una celda de la rejilla, en el flujo.
+   *
+   * El `aria-hidden` que se comprueba aquí es el del **envoltorio de la
+   * página**, no el de `AsciiYarn`: el doble de arriba es un `<span>` pelado que
+   * no reproduce ninguno de sus atributos. Por eso el envoltorio conserva su
+   * `aria-hidden` aunque sea redundante — es el único asidero que este gate
+   * tiene para comprobar que la pieza es decorativa. Está escrito también en las
+   * dos páginas, junto al atributo.
+   */
+  it("monta el ovillo ASCII como hero de la página, decorativo", async () => {
     const { container } = render(await loginPage());
 
     expect(screen.getByTestId("ascii-yarn")).toBeInTheDocument();
-    const slot = container.querySelector('[data-slot="bg-3d"]');
+    const slot = container.querySelector('[data-slot="auth-hero"]');
     expect(slot).not.toBeNull();
     expect(slot).toHaveAttribute("aria-hidden", "true");
   });
@@ -184,12 +196,48 @@ describe("página de register", () => {
     expect(screen.getByLabelText("Nombre")).toBeInTheDocument();
   });
 
-  /** RFC-01 §2: el ovillo es exclusivo del login. */
-  it("no monta el ovillo ASCII", () => {
+  /**
+   * ⚠️ ESTE GATE REVIERTE LA DECISIÓN DE LA FEATURE #31 `auth_ui` (2026-08-07).
+   *
+   * Lo que decía antes: el criterio de #31 —"ovillo ASCII de fondo SOLO en
+   * login (no en register)", RFC-01 §2— fijaba una **asimetría deliberada**
+   * entre las dos pantallas de auth, y este test la protegía al revés: se
+   * llamaba "no monta el ovillo ASCII" y comprobaba que en el alta
+   * `queryByTestId("ascii-yarn")` estaba ausente y `[data-slot="bg-3d"]` daba
+   * `null`.
+   *
+   * Qué cambió: el usuario rediseñó las dos páginas de auth (commit `bdb11b0`,
+   * 2026-08-07) y puso el ovillo **también en el alta**. La asimetría ya no
+   * existe: es una decisión de producto, no un descuido. El test cayó en rojo
+   * e hizo exactamente su trabajo — avisar de que se estaba cambiando algo que
+   * alguien fijó a propósito (deuda 116).
+   *
+   * Por eso se REESCRIBE en vez de borrarse, comentarse o saltarse (deuda 29):
+   * un gate se reescribe entendiendo qué protegía. Lo que fija ahora es la
+   * realidad nueva — el alta **sí** monta el ovillo, y lo monta como pieza
+   * **decorativa**, fuera del árbol accesible.
+   *
+   * A quien venga después: la ficha de #31 en `feature_list.json` sigue
+   * describiendo el criterio viejo. **No "arregles" esto al revés.** Quitar el
+   * ovillo de `register/page.tsx` es un cambio de producto, y este test es
+   * quien tiene que caer para avisarlo.
+   *
+   * Dos límites honestos de lo que mide:
+   * - `AsciiYarn` está **doblado** en este archivo, así que el `aria-hidden`
+   *   que se comprueba aquí es el del envoltorio de la página, no el del
+   *   componente. El real es `aria-hidden` SIEMPRE por construcción
+   *   (`AsciiYarn.tsx:59`) y lo cubren sus propios tests.
+   * - El `data-slot` ya no es `bg-3d`: la deuda 117 está saldada y el
+   *   envoltorio se llama `auth-hero` (RFC-01 §3, E12 d). `bg-3d` se queda
+   *   donde sigue siendo verdad, la capa fija del `AppShell`.
+   */
+  it("monta el ovillo ASCII, decorativo (revierte la decisión de #31, 2026-08-07)", () => {
     const { container } = render(<RegisterPage />);
 
-    expect(screen.queryByTestId("ascii-yarn")).not.toBeInTheDocument();
-    expect(container.querySelector('[data-slot="bg-3d"]')).toBeNull();
+    expect(screen.getByTestId("ascii-yarn")).toBeInTheDocument();
+    const slot = container.querySelector('[data-slot="auth-hero"]');
+    expect(slot).not.toBeNull();
+    expect(slot).toHaveAttribute("aria-hidden", "true");
   });
 
   it("no renderiza su propio main", () => {

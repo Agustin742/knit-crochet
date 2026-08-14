@@ -117,6 +117,23 @@
   --nav-account-inset-inline: var(--nav-tab-inset-start);
   --nav-account-inset-block: var(--space-2);
 
+  /* ---- Auth: inset lateral de la rejilla de login/alta (RFC-01 §3, E12 c).
+     Es lo que separa la pareja formulario + ovillo de los bordes de la ventana
+     en las dos pantallas de `(auth)`. El usuario las diseñó a mano así (commit
+     `bdb11b0`) y el valor SE CONSERVA tal cual: 80px por lado.
+     Por qué es un token propio y no un peldaño de la escala: la escala
+     `--space-*` termina en `--space-12: 48px` y este inset es 80px, así que no
+     cabe. Hasta ahora vivía como número crudo dentro del JSX —el ÚNICO valor de
+     espaciado de todo `src/` que no salía de un token (1 de 55, medido en
+     `explore_deuda118_responsive_auth.md` §4.3)— y ningún guardrail podía verlo:
+     `no-hardcode.test.ts` busca `<dígitos>px`, y en la utilidad que lo escribía
+     el `px` va DELANTE y significa *padding-inline*, no píxeles. Subirlo aquí,
+     con su motivo, es lo que hace `--nav-tab-inset-start` con el suyo.
+     Se aplica SÓLO a partir de `--bp-tablet`. Por debajo la pantalla es de una
+     sola columna y estos 80px por lado (160 en total) eran la mitad del ancho
+     que se le robaba al formulario en móvil. ---- */
+  --auth-inset-inline: 80px;
+
   /* ---- Alias al namespace de color de Tailwind v4 (generan utilidades bg / text / border) ----
      Referencian los tokens de rol/marca de arriba; no introducen valores nuevos. */
   --color-bg: var(--bg);

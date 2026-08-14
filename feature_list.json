@@ -318,7 +318,7 @@
         "estados: loading (skeleton), vacío ('Tu cesto está vacío'), error ('Se soltó un punto')",
         "Verificación SDD §9: RTL (filtros, quick-start) + axe + smoke + init.sh + build"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 21,
@@ -474,7 +474,7 @@
         "login: form (Field/Input del design system) email+password → POST /api/auth/login; éxito redirige a '/' (o al ?next= del proxy); credenciales inválidas → 401 mostrado en el form",
         "register: form nombre+email+password → POST /api/auth/register; éxito inicia sesión y redirige; email duplicado → error en el campo",
         "presentación pura del design system: el fetch/redirect vive en features/auth/ui/ (no en shared/ui), como AppShellClient (#13)",
-        "ovillo ASCII de fondo SOLO en login (no en register), cuando exista <ascii-yarn> (#14); si #14 aún no está, dejar el slot preparado sin bloquear",
+        "REVERTIDO el 2026-08-07 — NO APLICA YA. Decía: 'ovillo ASCII de fondo SOLO en login (no en register)'. El usuario rediseñó las dos páginas de auth (commit bdb11b0) y puso el ovillo TAMBIÉN en register, en una rejilla de dos columnas junto al formulario. La asimetría deliberada entre login y register YA NO EXISTE. El gate que la fijaba (src/app/(auth)/auth-pages.test.tsx, 'no monta el ovillo ASCII') se reescribió a conciencia para fijar la realidad nueva, no se borró (deuda 29). Se deja escrito aquí en vez de borrar el criterio para que nadie lea la versión vieja dentro de tres meses y lo 'arregle' al revés. Fichas relacionadas: deudas 116, 117 y 118",
         "Verificación SDD §9: RTL (login OK/inválido, register OK/duplicado, redirect) + axe + smoke + init.sh + build",
         "el ?next= del proxy debe VALIDARSE antes de redirigir (aceptar solo rutas internas; rechazar absolutas y protocol-relative, caer a '/'). Hoy no existe esa validación en el repo: es trabajo nuevo de #31",
         "ALCANCE ACOTADO (decisión del usuario, 2026-08-01): #31 son SOLO las dos páginas. El cableado de la sesión en el caparazón (usuario + cerrar sesión) NO entra: se midió y no cabe en el archivero (30.88px de holgura contra los 168px que reservaba la banda de utils), y meterlo obligaba a subir el ancho de nacimiento a ~1269-1317px, reabriendo una decisión ya cerrada. Se abre como feature #32. Los dos gates de src/features/auth/ui/AppShellClient.test.tsx (:87 cero fetch al montar, :101 el shell no recibe user/onLogout) SE QUEDAN COMO ESTÁN y siguen siendo verdad. NO tocar src/shared/ui/**, AppShell*, ArchiveNav, globals.css ni proxy.ts. Medición: progress/reports/explore_auth_shell_blast_radius.md"

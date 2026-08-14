@@ -3,6 +3,429 @@
 > Este archivo se vacía al cerrar cada sesión y se mueve a `history.md`.
 > Mientras trabajas, **mantenlo actualizado en tiempo real**, no al final.
 
+## 🚧 IMPLEMENTER (2026-08-12) — Feature en curso: **20 — `projects_list_ui`**
+
+**Plan (5 puntos):**
+- **Config + cliente HTTP:** `NEEDLE_SIZES` (lista fija, E1(c)) y `COLOR_FAMILY_LABELS` en
+  `src/shared/config`; **tercer clon** del cliente de navegador en
+  `src/features/projects/ui/projects-client.ts` (E1(h)), **ensanchado** para devolver `status` también
+  en el camino OK (201 vs 200 del quick-start, E1(e)).
+- **Lógica pura de filtros** en `project-filters.ts`: buscar **en cliente por nombre** (E1(a) — el
+  backend no tiene parámetro de texto y `?search=` responde 200 SIN filtrar), exclusividad del
+  segmentado, etiqueta de lana **por color** (E1(d)).
+- **UI:** `ProjectsToolbar` (dos `Toggle` en un `ToggleGroup` para activo/inactivo con la exclusividad
+  en el consumidor E1(i); botones de tipo; `<details>` nativo para "más filtros" E1(g); buscar) +
+  `ProjectsView` (los tres estados) + `src/app/(app)/proyectos/page.tsx` **fina**.
+- **Card aditiva:** `ProjectCard` gana `onQuickStart`/`quickStartPending`. **Sin la prop, cero
+  botones** (invariante del consumidor de #19); con ella, exactamente uno. No se mueve ni se renombra.
+- **Gates:** composición dentro del `AppShellClient` real (deuda 111, **un solo ovillo**, no
+  interactivo, dentro de `bg-3d`, un solo `h1`), `axe` sobre la vista, región viva **con nombre**
+  (deuda 114), `Field` dentro de `Card` (deuda 31), y **condición doble** en cada gate nuevo.
+
+**⚠️ Gate de arranque medido por el implementer: `bash ./init.sh` → `EXIT=1`.**
+`Test Files 3 failed | 67 passed | 3 skipped (73)` · `Tests 4 failed | 1216 passed | 13 skipped (1233)`.
+**Los cuatro rojos son `Test timed out in 5000ms`** en `src/shared/db/index.test.ts`,
+`src/shared/lib/auth/password.test.ts` (bcrypt) y `src/features/auth/api/auth-service.test.ts` (bcrypt
+×2) — **familia de la deuda 103**. La corrida entera duró **442,82 s**. Re-ejecutados los tres archivos
+en aislamiento: **`3 passed (3)` · `11 passed (11)` en 16,03 s**. Es el flaky ya fichado, no un rojo
+real, y **no lo tapo**: queda escrito porque el baseline del leader decía `EXIT=0`.
+
+## 🚧 EN CURSO (2026-08-12) — deuda 120 primero, luego #20 `projects_list_ui`
+
+**Encargo del usuario:** *"deuda 120 y luego #20"* (elegido sobre las alternativas de sólo-120,
+sólo-#20, y barrer el lote 120-123). El orden lo pidió él: dejar el gate sano **antes** de meter
+una feature grande encima.
+
+### ✅ Gate de arranque VERDE — medido por el leader, no heredado
+
+`bash ./init.sh` → **`EXIT_CODE=0`** · lint ✓ · typecheck ✓ ·
+`Test Files 70 passed | 3 skipped (73)` · `Tests 1220 passed | 13 skipped (1233)`.
+**Coincide exacto con lo que declaraba el bloque de cierre del 2026-08-10**: el libro mayor fue honesto.
+*(Corrido con redirección a archivo, no por tubería — la trampa de `| tail` sigue vigente.)*
+
+### 🔴 Corrección de libro mayor, del propio leader, ANTES de encargar nada
+
+**La ficha 120 decía "dos tests" y son TRES.** Medido por barrido de `src/`:
+`src/app/globals-css.test.ts:5`, `src/shared/ui/primitives/skeleton/skeleton.tokens.test.ts:5` y
+**`src/app/yarn-host-responsive.test.ts:6`** — este último es **el gate que nació en el propio lote
+117/118**, así que la ficha quedó desactualizada **por el trabajo de su misma sesión**.
+`package.json:19` sólo declara `@tailwindcss/postcss`; **`postcss` a secas no aparece**.
+No cambia el diagnóstico ni el arreglo, **agranda la superficie**. Corregido en `deudas.md`
+**escribiendo la corrección, no borrándola**. Es la misma raíz ya registrada tres veces en este libro
+mayor: *nadie volvió a la fuente a comprobarlo*.
+
+### Cadena lanzada (dos carriles en paralelo)
+
+| Carril | Subagente | Informe esperado |
+|---|---|---|
+| Deuda 120 | 1 `implementer` | `progress/reports/impl_deuda120_postcss.md` |
+| #20 — filtros | `general-purpose` | `progress/reports/explore_20_filtros_backend.md` |
+| #20 — card + quick-start | `general-purpose` | `progress/reports/explore_20_card_quickstart.md` |
+| #20 — página, estados, gates | `general-purpose` | `progress/reports/explore_20_pagina_estados_gates.md` |
+
+**Encargo de la 120, acotado a propósito:** toca **sólo** `package.json` + `pnpm-lock.yaml`; nada de
+`src/**`; **no toca `deudas.md`** (el tachado es del leader al cerrar); y la **condición doble es de
+ENTORNO, no de código** — hay que ver el typecheck **fallar en un clon limpio antes** y pasar después.
+Si el "antes" no falla, **la ficha 120 es falsa y hay que decirlo**, no salvarla de oficio.
+Se le pidió además **medir y reportar (no arreglar)** si hay más dependencias fantasma.
+
+**La pregunta que puede frenar #20 antes de empezar:** si RFC-03 §2 pide filtros de toolbar
+(**aguja**, **lana usada**, **buscar**) que `GET /api/projects` **no implementa**, eso es una decisión
+de producto para el usuario, no algo que el implementer improvise. **El backend está cerrado**
+(features 1-18 `done`), así que el hueco, si existe, no se tapa solo.
+
+**#20 sigue `pending`**, no `in_progress`: no se arranca hasta que la 120 cierre y los tres informes
+estén sobre la mesa.
+
+### ✅ Los tres exploradores de #20 volvieron — y el hueco existe
+
+**El toolbar pide cinco filtros y el backend tiene cuatro.** El que falta es **"buscar"**, y no es un
+olvido de implementación: **nunca se especificó como dato**. `projectFiltersSchema` tiene exactamente
+siete claves y ninguna es de texto; no hay `ilike`, ni `tsvector`, ni índice. **Y el PRD §6.2 tampoco lo
+pide** — aparece por primera vez en RFC-03 §2, y **§3 del mismo RFC no lo respalda**. Contradicción
+interna del RFC.
+
+**Lo que hacía urgente cerrarlo antes de implementar, medido ejecutando zod 4.4.3:** el esquema es un
+`z.object` **sin `.strict()`**, así que `?search=gorro` responde **200 con la lista sin filtrar**. No 400,
+sin log. **Un buscador cableado contra un parámetro inexistente no falla: miente.**
+
+### ✅ ENMIENDA E1 del RFC-03 escrita (§7-bis) — OCHO decisiones del usuario + UNA del leader
+
+Las ocho las cerró el usuario el 2026-08-12; **E1(i) la asumo yo** (es técnica, no de producto).
+Resumen: **(a)** buscar → **filtrado de cliente** · **(b)** rango de fechas → **fuera de #20**, deuda 127 ·
+**(c)** aguja → **lista fija en `shared/config`** (derivar de la lista cargada es **circular**) ·
+**(d)** lana → **sólo color**, deuda 128 · **(e)** quick-start → **sólo arranca, no es toggle** ·
+**(f)** **la card NO es tocable en #20** · **(g)** "más filtros" → **`<details>` nativo** ·
+**(h)** cliente HTTP → **tercer clon**, deuda 129 · **(i)** segmentado → **dos `Toggle`** con la
+exclusividad en el consumidor.
+
+**Los tres hechos medidos que mandan sobre el quick-start (no los re-derives):**
+- **`POST /:id/sessions/start` es IDEMPOTENTE.** 201 si crea, **200 si REUTILIZA** una sesión abierta.
+  Nunca 409, nunca duplica, nunca reinicia `start`. Un doble tap no puede corromper nada.
+- **El 409 está en el STOP, no en el start.** Arrancar dos veces es gratis; parar dos veces es error
+  visible. Es la asimetría **contraria** a la que uno supondría.
+- **No hay forma de saber desde la lista si el cronómetro corre.** Ni columna, ni filtro, ni endpoint.
+  E2.2 del RFC-02 ya descartó abrir el backend. **Un toggle habría tenido que mentir o pedir N veces.**
+
+**El conflicto de la ficha, resuelto por E1(f):** RFC-03 dice *"quick-start… Tap → drawer"* — un control
+dentro de otro. Pero **#21 está `pending`: el drawer no existe**, y **`<button>` dentro de `<a>` es HTML
+inválido que `axe` marca** — y la card corre `axe` en su propio test. El tap lo añade #21.
+
+**Marcado en el cuerpo del RFC, no sólo en la enmienda:** §1 y §2 llevan avisos que apuntan a E1(b),
+E1(a), E1(f), E1(g) e E1(i), **para que nadie los "arregle" al revés** — que es exactamente lo que pasó
+con la ficha de #31.
+
+**Detalle que conviene saber:** `ActiveProjectsPanel.tsx:19` ya declara `PROJECTS_ROUTE = "/proyectos"` y
+`:94-96` enlaza ahí. **Hoy es un enlace a un 404**; #20 lo repara.
+
+### ✅ Deuda 120 — SALDADA y CERRADA. Review **APROBADO a la primera, 0 bloqueantes**
+
+**Informe de cierre: `progress/informs/21.informe-deuda120_postcss.md`.**
+`postcss` declarada con specifier **exacto `8.4.31`** (el `override` de `pnpm-workspace.yaml` ya obliga a
+esa versión; un caret habría sido una **declaración falsa**). Ficha 120 **tachada y explicada**, con sus
+**dos correcciones escritas, no borradas**.
+
+**El reviewer no leyó el informe y ya: reconstruyó el experimento entero** con dos copias limpias propias.
+Todos los números reprodujeron exactos. Y **atacó el barrido de fantasmas con controles positivos** en vez
+de creerle el "cero" — quitar `postcss` del conjunto declarado hace aflorar los 3 archivos; quitar `zod`,
+los suyos. Así se distingue un cero real de un **verde vacío**.
+
+**Deudas nuevas fichadas: 130** (el `node_modules` fosilizado, ver abajo) y **131** (el barrido existió y
+se tiró con el scratchpad).
+
+### 🔴 DECISIÓN PENDIENTE DEL USUARIO — deuda 130, y es más grave que la 120
+
+**`node_modules` de esta máquina: 378 entradas de primer nivel, 348 NO son symlink. En un install limpio
+son 30 y 0.** pnpm **nunca** crea directorios reales de primer nivel — son **fósiles de una instalación
+vieja con `npm`**. El reviewer aportó la prueba que faltaba: existe un **`node_modules/.package-lock.json`**
+(artefacto de npm), ausente en un install limpio.
+
+**Consecuencia: en esta máquina CUALQUIER paquete transitivo resuelve desde `src/`.** No es que a `postcss`
+se le escapara la declaración — **este `node_modules` no puede detectar dependencias fantasma por
+construcción**. La 120 fue la primera que asomó.
+
+**Arreglo: `rm -rf node_modules && pnpm install`.** Su verificación **ya está hecha de antemano**: el
+`init.sh` en copia limpia dio **exit 0, 1220 passed**, o sea que se sabe que el árbol sano pasa.
+⚠️ **Al citar el 348, escribí el método**: el conteo ingenuo del reviewer dio **330/309 sobre el mismo
+árbol**. El número no significa nada sin la receta al lado.
+
+### ✅ #20 `projects_list_ui` — CERRADA. Review **APROBADO, 0 bloqueantes**
+
+**Informe de cierre: `progress/informs/22.informe-projects_list_ui.md`.**
+`init.sh` **EXIT 0** · `Test Files 74 passed | 3 skipped (77)` · **`Tests 1281 passed | 13 skipped
+(1294)`** · `pnpm build` **EXIT 0**, **28 rutas**. **+4 archivos, +61 tests.**
+**Es la SEGUNDA página de contenido del proyecto**, y **repara un 404**: el "Ver todos" del Dashboard
+apuntaba a `/proyectos` desde #19 y esa ruta no existía.
+
+**Lo que da valor a esta aprobación — el reviewer diseñó una inyección de fallo que nadie le pidió (A3).**
+A1 y A2 tumban varias aserciones a la vez, así que **por sí solas no demuestran** que la tercera
+—pertenencia al slot de fondo— sea independiente: podría estar de adorno. **A3 la aísla** (un solo ovillo,
+no interactivo, pero fuera del slot) y **cae ella sola**. El gate discrimina en los tres ejes por separado.
+Y **A1 confirma el agujero entero**: con `/proyectos` montando dos ovillos, `dashboard-page.test.tsx`
+pasa **5 de 5**.
+
+**Deudas nuevas: 132-135.** La **132 corrige una premisa del propio leader** (ver abajo).
+
+**Aritmética cerrada al número por el reviewer**, porque el informe la dejó abierta con una hipótesis
+falsa: `no-hardcode.test.ts` **genera 2 casos por archivo fuente** y #20 añade 5 → **+10**.
+`1220 + 47 + 4 + 10 = 1281`, sin residuo.
+
+### 🔴 Correcciones de libro mayor de esta sesión — dos, y una es MÍA
+
+1. **La enmienda E1 se tituló "las ocho decisiones" y enumera NUEVE.** Conté las ocho del usuario y me
+   olvidé de **E1(i), que la añadí yo** — y está marcada como tal tres líneas más abajo, **en mi propio
+   documento**. **Lo levantó el implementer leyendo el texto en vez de fiarse del título.** Corregido en
+   `RFC-03` §7-bis, escrito y no borrado.
+2. **La ficha 120 decía "dos tests" y son TRES** (ver más arriba).
+
+**Las dos son la misma raíz, que ya va por su cuarta aparición en este libro mayor: *nadie vuelve a la
+fuente a comprobarlo*.** Y las dos las cazó un subagente, no yo.
+
+### ⚠️ Deuda 132 — el leader escribió un dato falso en un encargo, y el reviewer lo midió
+
+En el encargo al reviewer escribí que si el quick-start se colara "de serie", *"`DashboardView.test.tsx` y
+su `axe` verían controles nuevos"*. **ES FALSO.** Con **todas** las tarjetas del Dashboard llevando botón,
+ese archivo pasa **`31 passed (31)`**, `axe` incluido. Y **no existe** ningún `ActiveProjectsPanel.test.tsx`.
+**Lo único que sostiene la invariante es `ProjectCard.test.tsx`**: el gate vive en el lado *productor*, y
+el lado *consumidor* **no tiene ninguno**. Familia de las deudas 52 y 121.
+
+### 🚧 Histórico del carril de #20 (cómo se llegó hasta aquí)
+
+Marcada por el leader (diff de 2 líneas, formato preservado). Contrato: **E1 del RFC-03** + los tres
+informes de exploración. **NO se marca `done` hasta después del review.**
+
+#### ⚠️ El primer implementer MURIÓ por límite de gasto de la API, no por un fallo técnico
+
+Cayó justo al entrar en la fase de verificación. **Dejó ~1620 líneas en 7 archivos nuevos y 5
+modificados**, y el leader midió el árbol en vez de suponerlo:
+
+- `bash ./init.sh` → **EXIT 0** · lint ✓ · typecheck ✓ · `Test Files 73 passed | 3 skipped (76)` ·
+  **`Tests 1276 passed | 13 skipped (1289)`** (baseline de #20: 70 archivos / `1220 passed`) → **+3
+  archivos, +56 tests**.
+- `pnpm build` → **EXIT 0**, **28 rutas** (antes 27). **`/proyectos` ya es ruta real**, así que el
+  `PROJECTS_ROUTE` de `ActiveProjectsPanel.tsx:19` **deja de apuntar a un 404**.
+
+**Lo que el leader verificó del trabajo heredado** (no heredado de nadie):
+- El quick-start es **opt-in** (`onQuickStart?`), así que la card **sigue sin botones para el Dashboard de
+  #19**. `ProjectCard.test.tsx:128-136` lo fija **en las dos direcciones**: sin la prop → 0 botones; con
+  ella → exactamente 1. Es la forma aditiva que pedía E2.1.
+- Las regiones vivas llevan **`aria-label`** (`ProjectsView.tsx:208, 212-213`): **la deuda 114 se
+  respetó**, no se repitió el `role="status"` anónimo de #19.
+- `axe` presente en `ProjectsView.test.tsx`. `page.tsx` fina (12 líneas), con el motivo escrito dentro.
+
+#### 🕳️ Los DOS huecos que dejó, confirmados buscándolos
+
+1. **🔴 NO existe el gate de composición dentro del caparazón (deuda 111).**
+   `src/app/(app)/proyectos/` tiene **sólo `page.tsx`**. Y ojo con lo que *parece* cubrirlo y no lo hace:
+   `dashboard-page.test.tsx:131-148` **sí** usa `/proyectos`, **pero renderiza un `<p>Otra página</p>` de
+   mentira**. **Hoy seguiría verde aunque `/proyectos` montara tres ovillos.**
+2. **NO existe `progress/reports/impl_projects_list_ui.md`**, así que **no hay condición doble
+   documentada** de ningún gate nuevo (REGLA 3).
+
+**Segundo implementer lanzado, acotado SÓLO a esos dos huecos**, con instrucción explícita de **no
+reescribir ni refactorizar** lo que ya está verde.
+
+### ⏳ Pendiente de contabilidad al cerrar la sesión
+
+**`progress/history.md` NO se ha tocado todavía**, a propósito: la sesión sigue viva con #20 en curso y una
+entrada por implementación duplicaría la de sesión. **Se escribe al cerrar, cubriendo el lote entero.**
+Se deja anotado aquí porque la **deuda 115** ficha justamente que éste es el paso del cierre que se salta,
+*"porque nada lo verifica"* — `init.sh` valida `feature_list.json`, no el historial.
+
+### 🔎 Deuda 120 — detalle de la medición (histórico del carril)
+
+`progress/reports/impl_deuda120_postcss.md`. Diff total **4 líneas** (`package.json` +1, lock +3), nada de
+`src/**`. **La ficha 120 era verdadera y se quedaba corta:** en entorno limpio no sólo falla el typecheck,
+**caen los 3 archivos de test enteros** y `init.sh` sale **exit 1** (`1185` en vez de `1220`).
+
+**Hallazgo colateral que puede valer más que el arreglo, y que NO doy por bueno todavía:** el informe
+afirma que `node_modules` de esta máquina tiene **348 entradas de primer nivel que no son symlink** contra
+**0** en un install limpio —fósiles de una instalación con `npm`— y que **por eso** la 120 era invisible
+aquí. Si es cierto, **este `node_modules` no puede detectar dependencias fantasma por construcción**.
+**Deliberadamente NO fichado todavía:** son números que sólo produjo quien los mide. El reviewer los está
+verificando. *(Las deudas 127-129, en cambio, sí están fichadas: nacen de decisiones, no de mediciones.)*
+
+---
+
+## ✅ ESTADO AL CERRAR (2026-08-10) — VERDE. Lote de deudas 117 / 118 / 119 CERRADO
+
+> **`bash ./init.sh` → `EXIT_CODE=0`.** `Test Files 70 passed | 3 skipped (73)` ·
+> `Tests 1220 passed | 13 skipped (1233)`. `pnpm build` OK, 27 rutas.
+> **Review APROBADO a la primera, 0 bloqueantes.** Informe de cierre:
+> `progress/informs/20.informe-deudas_117_118_119.md`.
+>
+> **PRÓXIMA SESIÓN = #20 `projects_list_ui`.** Ver el bloque "PRÓXIMA — feature #20" más abajo, que
+> sigue válido tal cual. **No se arrancó hoy, por decisión del usuario.**
+>
+> **⚠️ Lo único que necesita decisión tuya antes de seguir: la deuda 120** (`postcss` fantasma, un clon
+> limpio falla `pnpm typecheck`). Arreglo de una línea, excluido a propósito de este lote.
+
+**Encargo del usuario:** *"resuelve las deudas 117 118 119 y luego continua con la siguiente
+implementación"*, acotado después a *"después de las deudas termina, lo de la implementación siguiente
+lo vemos mañana"*. **NO fue una feature de `feature_list.json`**: ese archivo **no se tocó** en el lote
+(aparece modificado por el saldo de la deuda 116, de la sesión anterior).
+
+**Cadena:** leader (gate de arranque, **enmienda E12**, deuda 119 por su cuenta, **verificación en
+navegador**) → 3 exploradores en paralelo → 1 implementer → 1 reviewer → **APROBADO, 0 bloqueantes**.
+
+**Gate de arranque VERDE, medido por el leader, no heredado:** `bash ./init.sh` → `EXIT=0`,
+lint ✓, typecheck ✓, `Test Files 69 passed | 3 skipped (72)`, `Tests 1200 passed | 13 skipped (1213)`.
+Coincide con lo que declaraba el bloque de cierre del 2026-08-07.
+
+### ✅ Deuda 119 — SALDADA por el leader (carril de configuración)
+
+`next-env.d.ts` se **destrackea**: `.gitignore` + `git rm --cached` (el archivo sigue en disco).
+**No es preferencia nuestra:** la doc de Next 16.2.10 **empaquetada en el propio `node_modules`** lo pide
+literalmente, y context7 confirma con la plantilla de `create-next-app`. **Medido antes de decidir**: en un
+worktree limpio, `tsc --noEmit` da errores idénticos con y sin el archivo. El motivo entero quedó escrito
+**dentro de `.gitignore`**. Ficha 119 tachada y explicada.
+
+### ✅ Deudas 117 + 118 — SALDADAS
+
+Van **juntas** porque el explorador midió que **tocan la misma línea de los mismos dos archivos**.
+Contrato: **enmienda E12 del RFC-01** (quinta tanda), escrita hoy por el leader con cinco decisiones
+(a-e). **Motivo de que haya enmienda y no sólo arreglo:** se midió que **la rejilla de dos columnas de
+auth NO ESTÁ ESPECIFICADA EN NINGÚN SITIO** — ni RFC-01 ni SDD-01 la mencionan. Era una decisión de
+producto tomada a mano en `bdb11b0`, legítima pero **sin fuente de verdad**, así que no había documento
+contra el que validar el comportamiento responsive. Ahora lo hay.
+
+**Los tres datos medidos que mandan sobre el arreglo** (no los re-derives):
+- **La ficha 118 acertaba y se quedaba CORTA.** `AsciiYarn` **no devuelve `null`** por debajo de
+  `--bp-tablet`: devuelve **siempre** su host `h-full w-full` con la escena vacía dentro. Así que la
+  segunda pista `1fr` **existe y reclama su mitad del ancho**. Y `minmax(0, 1fr)` deja que baje por
+  debajo de su contenido mínimo → **no hay scroll horizontal que avise, simplemente se aplasta**.
+  A 390px: **47px de formulario y 91px de columna vacía al lado.**
+- **Las variantes del repo son MIN-WIDTH.** No hay ni un `@custom-variant` en `src/`; `tablet:` compila a
+  `@media (width >= 768px)`. El SDD dice *"tablet-first"* como **prioridad de diseño, no como mecánica** —
+  y el explorador sospecha que **ese malentendido es el origen de la 118**. Un arreglo pensado en clave
+  max-width **no compila a nada**.
+- **`px-20` es el ÚNICO valor de espaciado crudo de todo `src/`** (1 de 55) y **ningún guardrail puede
+  verlo**: `PX_LITERAL` busca `<dígitos>px` y aquí el `px` va delante y significa *padding-inline*. Aporta
+  **160 de los ~208px** que se pierden en móvil. Se tokeniza **conservando los 80px en tablet/desktop**:
+  el diseño del usuario no se toca donde él lo mira.
+
+### ⚠️ El hallazgo de MÉTODO de este lote, que es lo que hay que recordar
+
+**Cero gates se rompen al arreglar la 118 — porque cero gates miden lo que la 118 denuncia.** Hoy se puede
+borrar la variante responsive de `DashboardHero.tsx:58` y de los tres paneles del Dashboard y **la suite
+entera sale verde**. Y como todo el hueco es `aria-hidden`, **`axe` tampoco lo ve**: el agujero es
+**invisible para todos los gates que existen**. Es el mismo patrón que motivó `breakpoint-tokens.test.ts`
+un piso más arriba — allí se ataron los **tokens**, aquí faltan **las clases que los consumen**.
+Por eso **E12(e) hace el gate obligatorio**, y con dos condiciones: que llegue **al CSS compilado**
+(una clase puede existir en el JSX y no compilar a ninguna media query) y que **descubra** los
+consumidores en vez de enumerarlos, con ancla anti-descubrimiento-roto.
+
+### ✅ VERIFICACIÓN EN NAVEGADOR REAL (REGLA 4) — hecha por el leader, con `next dev` y Chrome
+
+La ficha 118 es de la familia de la regla 4 y el informe del explorador **no la sustituía**: su cuenta
+de 47px era *aritmética con tokens medidos*. Ya no hace falta creerla. **El subagente `implementer` no
+tiene herramientas de navegador, así que esta parte es del leader.**
+Emulación de dispositivo sobre `/register` y `/login`:
+
+| viewport | `grid-template-columns` | `padding-inline` | celda del ovillo | scroll horiz. |
+|---|---|---|---|---|
+| 390px (móvil) | `340.462px` (**una** pista) | `0px` | `display: none` | no |
+| 767px | `340.462px` (**una** pista) | `0px` | `display: none` | no |
+| **768px** (`--bp-tablet`) | `280px 280px` | `80px` | `display: block` | no |
+| 1280px | `536px 536px` | `80px / 80px`, `column-gap: normal` | `display: block`, escena montada | no |
+
+- **Conmuta EXACTAMENTE en `--bp-tablet`**: 767px y 768px son los dos lados del filo, medidos por separado.
+- **El diseño del usuario está intacto de tablet para arriba**: dos columnas, 80px de relleno lateral y
+  sin `gap`. Es la misma geometría que producía `px-20`, ahora por token.
+- A 390px los campos miden **297px** (register) y **267px** (login), y el botón **45px de alto**
+  (objetivo táctil ≥44px). `[data-slot="bg-3d"]` **ya no existe** en las dos páginas de auth.
+- **Confirmación incidental de la 119:** `pnpm dev` corrió y `next-env.d.ts` **no apareció sucio**.
+
+**Y la parte que más valía la pena — el estado ANTERIOR, reproducido y medido, no calculado.** Se inyectó
+la geometría vieja por DOM en la página viva (sin tocar el árbol de trabajo): columnas de **91.2px** y
+campos de **48px** a 390px. **La aritmética del explorador (91px / 47px) acertó dentro de 1px.** Y
+confirma lo peor de la ficha: **no hay scroll horizontal que avise, simplemente se aplasta.**
+Captura del antes: el título y "Contraseña" se salen de la tarjeta, los campos quedan cuadraditos y el
+botón parte en dos líneas, con una columna vacía de 91px al lado.
+*(Capturas en el scratchpad de la sesión, no versionadas: `register_390_ANTES.png` / `_DESPUES.png`.)*
+
+### ✅ Lo que entregó el implementer, y lo que el reviewer le encontró
+
+**Gate nuevo: `src/app/yarn-host-responsive.test.ts`** (20 casos, **+20 tests**). Cumple las tres
+condiciones de E12(e): asierta sobre el **CSS compilado** (regla 7), **descubre** los anfitriones de
+ovillo en vez de enumerarlos (medicina de las deudas 40/43/71/91) y lleva **dos** anclas
+anti-descubrimiento-roto. **El descubrimiento no encontró ningún consumidor no conforme:**
+`DashboardHero` ya cumplía, **sólo que nada lo vigilaba**.
+
+**El número que justifica todo el encargo, verificado al dígito por el reviewer:** al matar
+`--breakpoint-tablet`, los **seis** asertos que leen nombres de clase **siguen verdes** y sólo caen los
+**ocho** del CSS compilado (`8 failed | 12 passed`). **Un gate que sólo mirara clases no habría servido
+de nada** — una clase puede existir en el JSX y no compilar a ninguna media query.
+
+**El reviewer atacó el gate en vez de leerlo**, y por eso vale su aprobación: rompió el descubrimiento a
+propósito (salió rojo con **cuatro** asertos, **más red de la que el implementer presumía**), y **montó
+una página sonda propia** para contestar si la exención del caparazón era una allowlist disfrazada.
+Respuesta: **derivada, pero SÍ esquivable** → **deuda 123, prioridad alta la próxima vez que se toque
+el gate**. Verificó además la restauración del árbol con seis sumas de control, y las cuatro citas del
+`.gitignore` palabra por palabra contra `next@16.2.10`.
+
+### 🔴 Corrección honesta, del propio leader
+
+En el encargo al reviewer escribí *"los 12 casos de `auth-pages.test.tsx`"*, heredando la cuenta del
+explorador. **Son 14.** Lo levantó el reviewer. No cambia el veredicto —el inventario está 1:1 y los dos
+asertos ajustados son exactamente los que el contrato nombraba— pero **queda escrito**: es la misma raíz
+que los dos incidentes de medición inventada ya registrados en este libro mayor, **nadie volvió a la
+fuente a comprobarlo**.
+
+### 🛑 ALCANCE DE ESTA SESIÓN, acotado por el usuario (2026-08-10)
+
+**La sesión terminó al cerrar las deudas 117/118/119. `#20 projects_list_ui` NO se arrancó** — decisión
+explícita del usuario: *"lo de la implementación siguiente lo vemos mañana"*. **No está `in_progress`.**
+El bloque "PRÓXIMA — feature #20" de más abajo sigue siendo válido tal cual y es el punto de entrada de
+la próxima sesión.
+
+### 🆕 Deudas nuevas fichadas hoy (120-122), ninguna del encargo
+
+- **120 — 🔴 la más grave, y salió de refilón:** `postcss` es **dependencia fantasma** (dos tests la
+  importan, no está en `package.json`) y **un clon limpio falla `pnpm typecheck` hoy**. No se descubre por
+  uso —sólo al clonar o en un CI limpio— y la ruta de descubrimiento es la peor: **parece un problema de
+  TypeScript, no una dependencia que falta**. Arreglo: una línea. **NO se plegó al lote a propósito**
+  (tocar `package.json` se sale del encargo que acotó el usuario) → **decisión pendiente del usuario**.
+- **121** — el ovillo de auth pasó a `interactive={true}` y **nada lo vigila** (familia de la deuda 52).
+  E12 decidió a propósito no resolverla.
+- **122** — los cinco breakpoints de fábrica de Tailwind siguen en el compilado; nadie los usa hoy, pero
+  nada impide saltarse el sistema de tokens y quedar fuera de `breakpoint-tokens.test.ts`.
+
+### 🔴 Corrección de libro mayor
+
+La nota del "Pendiente operativo" sobre la **eliminación de `tsconfig.tsbuildinfo` preparada en el índice**
+**estaba obsoleta**: ya se resolvió en el commit `4973309`. Corregida abajo, no borrada.
+
+---
+
+## ✅ ESTADO AL CERRAR (2026-08-07) — VERDE
+
+**`bash ./init.sh` → `EXIT_CODE=0`.** `Test Files 69 passed | 3 skipped (72)` ·
+`Tests 1200 passed | 13 skipped (1213)`. `pnpm build` OK.
+**Verificado por el leader por su cuenta**, no heredado de un subagente.
+
+### Lo que pasó al final de la sesión, y conviene leer
+
+El rediseño de las páginas de auth del usuario (commit `bdb11b0`) puso el ovillo **también en
+register**, y el criterio de **#31** decía *"ovillo ASCII de fondo SOLO en login (no en register)"*, con
+test que lo fijaba. **El árbol quedó en rojo, y el gate hizo exactamente su trabajo**: avisar de que se
+estaba cambiando algo que alguien había fijado a propósito. No era un bug: era una **decisión de
+producto**.
+
+**Resuelto en la misma sesión** (deuda **116**, saldada): el gate se **reescribió a conciencia**, no se
+borró ni se saltó (deuda 29). Ahora fija la realidad nueva y lleva escrito qué decía antes, qué cambió y
+por qué — más un aviso a quien venga: **la ficha de #31 describe el criterio viejo, no lo "arregles" al
+revés**. El criterio revertido quedó **anotado, no borrado**, en `feature_list.json` #31.
+
+**Siguen VIVAS tres del mismo commit, y ninguna bloquea:**
+- **117** — `data-slot="bg-3d"` ya no describe lo que hay debajo (es una celda de rejilla, no una capa
+  de fondo). **Importa porque es la manija por la que los dos gates de auth agarran la pieza**;
+  renombrarlo los arrastra a los dos a la vez.
+- **118** — la rejilla de dos columnas **no tiene variante responsive**, y por debajo de `--bp-tablet` el
+  ovillo **no se monta**: en móvil quedaría media pantalla vacía y el formulario a mitad de ancho.
+  **NO MEDIDO en navegador** — es lectura de código. Familia de la **regla 4**.
+- **119** — `next-env.d.ts` se comiteó pese al aviso de no hacerlo a ciegas.
+
 ## ✅ CERRADO — Feature #19 `dashboard_ui` (2026-08-07)
 
 > **Feature `done`. Reviewer APROBÓ en la ronda 2.** Cadena: leader → 3 exploradores en paralelo →
@@ -655,8 +1078,10 @@ movimiento reducido.
   `src/__smoke__/cloudinary.smoke.test.ts`, `src/__smoke__/env.ts`, las 2 líneas de
   `src/shared/lib/cloudinary/`, los 2 smokes de Neon refactorizados y `progress/`. Es **un único commit
   coherente**.
-- El destrackeo de `tsconfig.tsbuildinfo` dejó una **eliminación preparada en el índice** de git: entra en el
-  próximo commit. El archivo sigue en disco.
-- **`next-env.d.ts` aparece modificado y NO es trabajo de nadie:** lo regenera `pnpm build` (reescribe su
-  import de `./.next/dev/types/routes.d.ts` a `./.next/types/routes.d.ts`) y `pnpm dev` lo revierte. **No lo
-  comitees a ciegas.**
+- ~~El destrackeo de `tsconfig.tsbuildinfo` dejó una **eliminación preparada en el índice** de git.~~
+  **OBSOLETO, corregido el 2026-08-10:** ya se resolvió en el commit `4973309`; **no queda nada preparado
+  en el índice** por ese motivo. Verificado con `git status`.
+- ~~**`next-env.d.ts` aparece modificado y NO es trabajo de nadie:** no lo comitees a ciegas.~~
+  **RESUELTO el 2026-08-10 (deuda 119): el archivo está DESTRACKEADO.** Ya no puede ensuciar un diff.
+  Sigue en disco y lo regeneran solos `next build` / `next dev` / `next typegen`; `tsconfig.json` lo sigue
+  listando en `include`, que es lo correcto. El motivo está escrito dentro de `.gitignore`.

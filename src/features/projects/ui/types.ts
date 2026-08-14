@@ -1,4 +1,5 @@
 import type { ProjectRecord } from "@/features/projects/types";
+import type { YarnRecord } from "@/features/yarns/types";
 
 /**
  * Un `ProjectRecord` **tal y como llega al navegador**.
@@ -41,3 +42,24 @@ export type ProjectCardData = Pick<
   SerializedProject,
   "id" | "name" | "image" | "progress" | "time"
 >;
+
+/**
+ * Lo único que el desplegable de "lana usada" necesita (RFC-03, enmienda E1(d)).
+ *
+ * Son tres campos y no la fila entera **a propósito**: `GET /api/yarns` devuelve
+ * la fila cruda de `yarns`, con `brandId`/`typeId` como **UUID y sin nombres**,
+ * y con `lot`/`createdAt`/`updatedAt` que —igual que en `SerializedProject`—
+ * declaran `Date` y cruzan la red como cadena. Ninguno de los tres que quedan es
+ * una fecha, así que este `Pick` no necesita el tratamiento de serialización: lo
+ * que se puede leer aquí no puede mentir.
+ *
+ * Precio aceptado y escrito en la enmienda: dos lanas de la misma marca con el
+ * mismo nombre de color **no se distinguen** salvo por su familia.
+ */
+export type YarnOption = Pick<
+  YarnRecord,
+  "id" | "colorName" | "colorFamily"
+>;
+
+/** Payload de `GET /api/yarns`: la lista también viaja **envuelta**. */
+export type YarnListPayload = { yarns: YarnOption[] };

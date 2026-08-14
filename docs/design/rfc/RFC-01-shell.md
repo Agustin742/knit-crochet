@@ -18,7 +18,13 @@ Montar el shell sobre el que viven todas las páginas: base de estilos (tokens �
 - **Nav = 6 páginas** en este orden: Dashboard · Proyectos · Lanas · Patrones · Calculadoras · **Stash** (hub).
 - **Tablet + desktop = archivero**; **mobile = bottom-nav** (co-primarios tablet/desktop, mobile secundario).
 - **Landing post-login = Dashboard.**
-- **Auth = pantalla limpia, sin archivero**; ovillo ASCII de fondo **solo en login** (no en register).
+- **Auth = pantalla limpia, sin archivero**; ~~ovillo ASCII de fondo **solo en login** (no en register)~~
+  → **DEROGADO el 2026-08-07 por el rediseño del usuario (`bdb11b0`), registrado en la enmienda E12.**
+  Las **dos** páginas montan el ovillo, y **no como fondo**: es una **celda de una rejilla de dos
+  columnas, en el flujo**, junto al formulario. La asimetría deliberada entre login y register **ya no
+  existe**. Se tacha en vez de borrarse para que nadie lea la versión vieja dentro de tres meses y lo
+  "arregle" al revés — el gate que la fijaba ya se reescribió a conciencia (deuda 116) y lleva el mismo
+  aviso dentro. Comportamiento responsive de esa rejilla: **E12 (a)**.
 - **Ovillo ASCII** = hero (Dashboard) + loader global. Gira solo **y** se puede arrastrar.
 
 ## 3. Estructura y componentes
@@ -195,6 +201,49 @@ el archivero desaparecería de los portátiles de 1280-1366px. Descartado por el
 > **Agujero conocido de ese gate:** sólo mira las clases **propias** de la banda, así que se la puede
 > superponer **desde fuera** (vía `className` o un contenedor posicionado en `AppShell`) y seguiría verde →
 > **deuda 52**.
+
+### Quinta tanda — E12 (el rediseño de auth del usuario, `bdb11b0`): la rejilla entra en el RFC
+
+**Qué la motiva.** El 2026-08-07 el usuario rediseñó a mano `login` y `register` (commit `bdb11b0`)
+pasándolas a una **rejilla de dos columnas** con el formulario en una celda y el ovillo ASCII en la otra.
+El cambio es legítimo y se mantiene, pero dejó tres agujeros de registro (deudas **116**, **117**, **118**)
+y uno de método que es el que fuerza esta enmienda:
+
+> **Medido** (`progress/reports/explore_deuda118_responsive_auth.md` §5.2, discrepancia 3): **no hay ni una
+> línea en RFC-01 ni en SDD-01 que describa un layout de dos columnas para auth.** Es una decisión de
+> producto tomada a mano, **sin fuente de verdad escrita**. Consecuencia práctica: *no hay documento contra
+> el que validar cuál es el comportamiento responsive correcto*. Hay que elegirlo, y elegirlo es una
+> decisión que tiene que quedar escrita — que es lo que hace E12.
+
+**Las tres medidas que fuerzan las decisiones** (todas de los informes de exploración citados abajo, y
+todas **[MEDIDO]**, no argumentadas):
+
+| magnitud | valor | de dónde sale |
+|---|---|---|
+| lo que le queda al formulario a 390px de ancho | **47px** de ancho útil, con **91px** de columna vacía al lado | aritmética con tokens medidos, `explore_deuda118` §2.4 |
+| qué devuelve `AsciiYarn` por debajo de `--bp-tablet` | **NO devuelve `null`**: devuelve siempre su host `h-full w-full` con la escena vacía dentro | sonda de DOM con `--bp-tablet` forzado, `explore_deuda118` §2.3 |
+| utilidades de espaciado de todo `src/` que no salen de un token | **1 de 55**, y es `px-20`, exactamente en estas dos páginas | inventario completo, `explore_deuda118` §4.3 |
+
+| # | Qué cambia | Por qué |
+|---|---|---|
+| **E12 (a)** | **La rejilla de dos columnas de auth queda ESPECIFICADA**, mobile-first: **una columna en la base, dos a partir de `--bp-tablet`**, y la celda del ovillo **apagada por CSS** por debajo de ese ancho. Cierra la **deuda 118**. | La ficha 118 acertaba y **se quedaba corta**: no es que el ovillo no se monte, es que **el hueco no desaparece**. `AsciiYarn` devuelve siempre su host, así que la segunda pista `1fr` existe y **reclama su mitad del ancho** aunque esté vacía — y `minmax(0, 1fr)` deja que la pista baje por debajo de su contenido mínimo, así que **no hay scroll horizontal que avise: simplemente se aplasta**. El JS quita la escena; **el CSS tiene que quitar el hueco**. Es exactamente lo que ya hace `DashboardHero.tsx:58`, el gemelo literal del problema, con la misma condición de ancho. |
+| **E12 (b)** | **Las variantes son MIN-WIDTH.** Queda escrito aquí porque no está en ningún `docs/harness/*.md`: no hay ni un `@custom-variant` en `src/`, y `tablet:` compila a `@media (width >= 768px)`. | **Medido sobre el CSS compilado.** El SDD §6 dice *"tablet-first"* como **prioridad de diseño** (qué pantalla se diseña primero), no como mecánica, y es fácil leerlo y escribir `grid-cols-2` en la base creyendo que una variante quitará la segunda columna hacia abajo. **Eso no compila a nada.** El explorador sospecha que **ese malentendido es el origen de la 118**, y dejarlo sin escribir invita a repetirlo. |
+| **E12 (c)** | **El relleno lateral de 80px se CONSERVA tal cual en tablet y desktop, pero se tokeniza y deja de aplicarse en móvil.** El diseño del usuario no se toca donde él lo mira; el valor crudo `px-20` desaparece de `src/`. | Dos cosas a la vez. Una: `px-20` es **el único valor de espaciado crudo de todo el repo** (1 de 55) y **ningún guardrail puede verlo** — `PX_LITERAL` busca `<dígitos>px` y aquí el `px` va delante y significa *padding-inline*. Es un rojo latente probado, no una sospecha. Dos: aporta **160 de los ~208px** que se pierden en móvil, o sea que es **la mitad del daño**. Como ningún token de la escala llega a 80px (el tope es `--space-12: 48px`), hace falta **declarar uno con su motivo escrito**, con el precedente exacto de `--nav-tab-inset-start` (`globals.css:100`). Aplicarlo desde `tablet:` resuelve las dos mitades sin cambiar un píxel de lo que el usuario diseñó. |
+| **E12 (d)** | **El `data-slot="bg-3d"` de las dos páginas de auth se renombra a lo que la pieza ES HOY.** El del `AppShell` **NO se toca**. Cierra la **deuda 117**. | Ese nombre significa *"la capa de fondo 3D"* y describía la pieza del caparazón: fija a los cuatro lados, `--z-bg-3d`, sin captura de puntero. Tras `bdb11b0` el ovillo de auth es **una celda de una rejilla, en el flujo y con captura de puntero**: es un **cambio de categoría, no de estilo**. Y el nombre no es decorativo — **es la manija por la que los tests agarran la pieza**. Medido que renombrar es barato y seguro: son **dos manijas homónimas en árboles que nunca coexisten** (las rutas `(auth)` no montan `AppShell`), `data-slot` no aparece **ni una vez** en `docs/` ni en `template/`, y el ancla de superficie pública sólo cubre nombres de export. Coste total: 2 líneas de producción + 2 asertos. |
+| **E12 (e)** | **Sin gate, E12 no se considera implementada** — y el gate tiene que llegar **hasta el CSS compilado**, no quedarse en las clases. | Es el hallazgo de método del encargo, y es incómodo: **cero gates se rompen al arreglar la 118 porque cero gates miden lo que la 118 denuncia**. Hoy se puede borrar la variante responsive de `DashboardHero.tsx:58` y de los tres paneles del Dashboard y **la suite entera sale verde**. Peor: como todo el hueco es `aria-hidden`, **`axe` tampoco lo ve** — el agujero es invisible para todos los gates que existen. Un gate que sólo mire nombres de clase no basta, porque una clase puede existir en el JSX y **no compilar a ninguna media query** (es justo el error que E12(b) describe). Precedente ya escrito en el repo: `skeleton.tokens.test.ts` y `globals-css.test.ts` compilan `globals.css` con postcss y asiertan sobre el resultado (**REGLA 7**: un gate que sólo corre sobre la réplica no mide producción). |
+
+**Sobre RFC-01 §2, que quedó mintiendo.** La línea *"ovillo ASCII de fondo **solo en login** (no en
+register)"* **está derogada desde `bdb11b0`** y se corrige en el propio §2, con la reversión anotada y no
+borrada (misma política que se siguió en `feature_list.json` #31 al saldar la deuda 116). Igual quedan
+derogadas, por E12(d), las dos palabras *"de fondo"*: el ovillo de auth ya no es una capa de fondo.
+
+**Lo que E12 NO decide, a propósito:** si el ovillo de auth debe seguir siendo `interactive={true}`. El
+rediseño lo cambió (antes era el valor por defecto) y **nada lo vigila**; no hay regresión de solapamiento
+porque vive en otra columna de la rejilla, así que se deja como está y se ficha.
+
+**Deudas que cierra:** **117** (E12 d) y **118** (E12 a + c). La **116** ya estaba saldada.
+**Fuentes medidas:** `progress/reports/explore_deuda117_data_slot.md` y
+`progress/reports/explore_deuda118_responsive_auth.md`.
 
 **Lo que NO cambia:** la paleta, las texturas, las tipografías y el lockup de etiqueta. Se porta la
 **mecánica** de la referencia, no su estética blanco-sobre-blanco — el SDD §0 es explícito en que

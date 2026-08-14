@@ -69,6 +69,26 @@ export const PROJECTS_COMPARISONS = [
 ] as const;
 export type ProjectsComparison = (typeof PROJECTS_COMPARISONS)[number];
 
+/**
+ * Medidas de aguja en **milímetros** que la UI ofrece como opciones de filtro
+ * (RFC-03, enmienda E1(c)).
+ *
+ * Es una **lista fija**, y eso es la decisión: no hay ningún endpoint de
+ * "medidas usadas", `needles` es una columna jsonb por proyecto y el filtro
+ * `?needle=` es contención jsonb (un solo valor por petición). Derivar las
+ * opciones de los proyectos ya cargados sería **circular** —la lista que se
+ * tiene delante ya está filtrada, así que elegir una medida podría dejarla como
+ * única opción—. Las medidas de aguja son un conjunto estándar del dominio, no
+ * un dato del usuario, así que viven donde ya viven las demás listas fijas.
+ *
+ * Ascendente, y en el paso habitual del mercado (medio milímetro hasta 7 mm,
+ * entero hasta 10 y luego los gruesos).
+ */
+export const NEEDLE_SIZES = [
+  2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 8, 9, 10, 12, 15, 20,
+] as const;
+export type NeedleSize = (typeof NEEDLE_SIZES)[number];
+
 export const COLOR_FAMILIES = [
   "red",
   "orange",
@@ -85,3 +105,30 @@ export const COLOR_FAMILIES = [
   "multicolor",
 ] as const;
 export type ColorFamily = (typeof COLOR_FAMILIES)[number];
+
+/**
+ * Nombre visible de cada familia de color (el código va en inglés, la UI en
+ * español, `conventions.md` §Idioma).
+ *
+ * Existe porque el selector de "lana usada" del filtro de proyectos etiqueta las
+ * lanas **sólo por color** (RFC-03, enmienda E1(d)): `GET /api/yarns` devuelve la
+ * fila cruda, con `brandId`/`typeId` como UUID y sin nombres, así que la única
+ * etiqueta legible es `colorName` — y cuando dos lanas repiten nombre de color,
+ * la familia es lo que las desambigua. Es un `Record<ColorFamily, string>`, así
+ * que añadir una familia sin su etiqueta **no compila**.
+ */
+export const COLOR_FAMILY_LABELS: Record<ColorFamily, string> = {
+  red: "Rojo",
+  orange: "Naranja",
+  yellow: "Amarillo",
+  green: "Verde",
+  blue: "Azul",
+  violet: "Violeta",
+  pink: "Rosa",
+  brown: "Marrón",
+  gray: "Gris",
+  black: "Negro",
+  white: "Blanco",
+  neutral: "Neutro",
+  multicolor: "Multicolor",
+};
