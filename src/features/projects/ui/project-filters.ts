@@ -16,14 +16,18 @@ export const CRAFT_TYPE_LABELS: Record<CraftType, string> = {
 export const CRAFT_TYPE_ORDER: readonly CraftType[] = CRAFT_TYPES;
 
 /**
- * El segmentado activo/inactivo (RFC-03 §1, enmienda **E1(i)**).
+ * El segmentado activo/inactivo (RFC-03 §1, enmienda **E2(c)**).
  *
- * Son **dos** opciones y **siempre hay exactamente una** elegida: el `Toggle` es
- * un control superponible y `ToggleGroup` es un `role="group"` que **no impone
- * exclusividad** —lo dice su propio JSDoc—, así que la exclusividad la impone
- * este consumidor. Se descartó crear un primitivo de segmentado: tocaría
- * `public-api.test.ts`, que está anclado al literal, y es una slice de design
- * system, no de #20.
+ * Son **dos** opciones y **siempre hay exactamente una** elegida. Esa
+ * exclusividad es **estructural del primitivo `SegmentedControl`**, no una
+ * convención que imponga este consumidor: su prop `value` es un escalar, así
+ * que "ninguna elegida" y "dos elegidas" no se pueden ni representar.
+ *
+ * **E1(i)** —dos `Toggle` con la exclusividad impuesta desde el consumidor—
+ * quedó **enmendada por E2(c)**, y se deja escrita en vez de borrada: el
+ * primitivo vive en `shared/ui/primitives/segmented-control/` y su ancla en
+ * `public-api.test.ts` **se pagó a propósito**. No revertir E2(c) "restaurando"
+ * el par de `Toggle`.
  *
  * "Inactivo" **no** es "todo menos en curso": el backend niega el par activo, o
  * sea `finished` + `abandoned`.

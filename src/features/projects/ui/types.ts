@@ -34,13 +34,19 @@ export type ProjectListPayload = { projects: SerializedProject[] };
 
 /**
  * Lo que la tarjeta necesita, y nada más (RFC-02 §2 / enmienda E2.1): foto,
- * nombre, progreso y tiempo. Se declara como subconjunto del proyecto real para
- * que un `SerializedProject` entero encaje sin adaptador y para que la tarjeta
- * no pueda leer campos que no le tocan.
+ * nombre, progreso, tiempo **y la clase de tejido**. Se declara como subconjunto
+ * del proyecto real para que un `SerializedProject` entero encaje sin adaptador
+ * y para que la tarjeta no pueda leer campos que no le tocan.
+ *
+ * `type` entra con la enmienda **E2(g)**: cuando no hay foto, el hueco nombra la
+ * clase de tejido en vez de ser un rectángulo liso con una letra diminuta. Es un
+ * dato **del proyecto**, así que el `Pick` puede crecer sin contradecir la deuda
+ * 109 —que lo que prohíbe es meter aquí cosas que **no** son del proyecto, como
+ * "hay una petición en vuelo"—.
  */
 export type ProjectCardData = Pick<
   SerializedProject,
-  "id" | "name" | "image" | "progress" | "time"
+  "id" | "name" | "image" | "progress" | "time" | "type"
 >;
 
 /**

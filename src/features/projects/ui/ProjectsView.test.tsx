@@ -20,14 +20,19 @@ import {
   needleOptionLabel,
 } from "./ProjectsToolbar";
 import {
+  CLEAR_FILTERS_LABEL,
   CREATE_PROJECT_LABELS,
+  EMPTY_DESCRIPTION,
   EMPTY_TITLE,
   ERROR_TITLE,
+  LIST_SECTION_TITLE,
   LOADING_MESSAGE,
   LOADING_REGION_LABEL,
+  NO_FILTER_MATCHES_TITLE,
   NO_MATCHES_TITLE,
   PAGE_TITLE,
   ProjectsView,
+  QUICK_START_NOTES,
   QUICK_START_REGION_LABEL,
   quickStartResumedMessage,
   quickStartStartedMessage,
@@ -233,6 +238,35 @@ describe("ProjectsView (smoke y composición)", () => {
     expect(
       screen.getByRole("heading", { name: BUFANDA.name }),
     ).toBeInTheDocument();
+  });
+
+  /**
+   * ENMIENDA E2(a): la lista es una **sección con título visible**, como las dos
+   * del Dashboard. Antes era una pila plana colgando de un `h1` suelto.
+   *
+   * Las dos direcciones importan: el título tiene que **estar** y el `h1` tiene
+   * que **seguir siendo uno solo** (el gate de composición de la página cuenta
+   * exactamente uno, y una sección nueva es la forma fácil de romperlo).
+   */
+  it("pone la lista en una sección con título visible, sin tocar el único h1", async () => {
+    const { container } = await renderReady();
+
+    const title = screen.getByRole("heading", {
+      level: 2,
+      name: LIST_SECTION_TITLE,
+    });
+    expect(title).toBeInTheDocument();
+    expect(title.className).not.toContain(["sr", "only"].join("-"));
+
+    const section = container.querySelector(
+      `section[aria-labelledby="${title.id}"]`,
+    );
+    expect(section).not.toBeNull();
+    expect(
+      within(section as HTMLElement).getAllByRole("heading", { level: 3 }),
+    ).toHaveLength(2);
+
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
   });
 
   it("no tiene violaciones de axe con la lista cargada", async () => {
@@ -441,6 +475,82 @@ describe("los tres estados (RFC-03 §4)", () => {
     }
   });
 
+  /**
+   * LA TRAMPA DE E2(e), ANCLADA: **el estado por defecto no cuenta como
+   * filtrar**. La primera carga manda `?active=true` porque el backend no tiene
+   * default (E1(i)), así que la regla ingenua "hay parámetros → el vacío es de
+   * filtros" haría que un cesto de verdad vacío dijera "ningún proyecto pasa
+   * esos filtros" **y escondiera los dos botones de crear**.
+   */
+  it("el vacío de arranque es el cesto vacío, no un vacío de filtros", async () => {
+    await renderReady({ projects: [] });
+
+    expect(screen.getByText(EMPTY_TITLE)).toBeInTheDocument();
+    expect(screen.queryByText(NO_FILTER_MATCHES_TITLE)).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: CLEAR_FILTERS_LABEL }),
+    ).toBeNull();
+  });
+
+  it("no le explica el andamiaje del proyecto a quien no tiene ninguno", async () => {
+    await renderReady({ projects: [] });
+
+    expect(screen.getByText(EMPTY_DESCRIPTION)).toBeInTheDocument();
+    expect(screen.queryByText(/en dos pasos/i)).toBeNull();
+    expect(screen.queryByText(/te llevan al inicio/i)).toBeNull();
+  });
+
+  /**
+   * El defecto medido en navegador: con "Inactivos" pulsado y un proyecto en el
+   * cesto, la página decía *"Tu cesto está vacío — empezá un proyecto"* y
+   * empujaba a crear otro. Ahora dice qué pasó y ofrece la salida.
+   */
+  it("distingue 'tus filtros no devuelven nada' de 'no tenés proyectos'", async () => {
+    await renderReady();
+
+    serve({ projects: [] });
+    await userEvent.click(statusToggle(1));
+    await settle();
+
+    expect(screen.getByText(NO_FILTER_MATCHES_TITLE)).toBeInTheDocument();
+    expect(screen.queryByText(EMPTY_TITLE)).toBeNull();
+    for (const label of Object.values(CREATE_PROJECT_LABELS)) {
+      expect(screen.queryByRole("link", { name: label })).toBeNull();
+    }
+  });
+
+  /** Sin este control el usuario queda en un callejón sin salida. */
+  it("ofrece quitar los filtros y con eso vuelve a la vista por defecto", async () => {
+    await renderReady();
+
+    serve({ projects: [] });
+    await userEvent.click(statusToggle(1));
+    await settle();
+    expect(lastListUrl()).toBe(`${PROJECTS_ENDPOINT}?active=false`);
+
+    serve({ projects: [BUFANDA, GORRO] });
+    await userEvent.click(
+      screen.getByRole("button", { name: CLEAR_FILTERS_LABEL }),
+    );
+    await settle();
+
+    expect(lastListUrl()).toBe(`${PROJECTS_ENDPOINT}?active=true`);
+    expect(statusToggle(0)).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("heading", { name: BUFANDA.name }),
+    ).toBeInTheDocument();
+  });
+
+  it("no tiene violaciones de axe en el vacío por filtros", async () => {
+    const { container } = await renderReady();
+
+    serve({ projects: [] });
+    await userEvent.click(statusToggle(1));
+    await settle();
+
+    expect(await axe(container)).toHaveNoViolations();
+  });
+
   it("muestra 'Se soltó un punto' con el mensaje del servidor y reintenta", async () => {
     await renderReady({ listStatus: 500, listError: "La base se cayó." });
 
@@ -529,6 +639,115 @@ describe("quick-start del cronómetro (E1(e))", () => {
     expect(
       screen.getByRole("heading", { name: BUFANDA.name }),
     ).toBeInTheDocument();
+  });
+
+  /**
+   * ENMIENDA E2(d): el aviso **se ve**. Medido en navegador real, la región viva
+   * medía un píxel por un píxel con `clip-path`, o sea que el único feedback de
+   * la acción era para lector de pantalla: quien miraba veía un parpadeo de dos
+   * décimas y después nada.
+   *
+   * Se comprueba que el nodo **no** lleva la clase de "sólo lector de pantalla"
+   * comparando la LISTA de clases, no la cadena: la variante que la aplica
+   * cuando está vacío contiene ese nombre como sufijo y un `toContain` sobre el
+   * texto daría un falso rojo.
+   */
+  it("el aviso del quick-start se ve, no sólo se anuncia", async () => {
+    await renderReady();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: quickStartLabel(BUFANDA.name) }),
+    );
+    await waitFor(() =>
+      expect(quickStartRegion().textContent).toBe(
+        quickStartStartedMessage(BUFANDA.name),
+      ),
+    );
+
+    expect(quickStartRegion().className.split(/\s+/)).not.toContain(
+      ["sr", "only"].join("-"),
+    );
+  });
+
+  /**
+   * El agujero que señaló el explore de tests: ningún test comprobaba que la
+   * región viva estuviera **montada antes** de que llegue el mensaje, que es la
+   * condición para que un lector de pantalla anuncie el cambio. Si alguien la
+   * convierte en render condicional, la suite seguía verde y la región dejaba de
+   * anunciar. Ya no.
+   */
+  it("la región del cronómetro está montada antes de tocar nada", async () => {
+    await renderReady();
+
+    expect(quickStartRegion()).toBeInTheDocument();
+    expect(quickStartRegion().textContent).toBe("");
+  });
+
+  /**
+   * Un aviso lejos del botón es feedback débil en una grilla de N tarjetas
+   * iguales, así que **la tarjeta que arrancó queda marcada**. Y las dos
+   * respuestas del servidor dejan marcas distintas, porque el servidor sí las
+   * distingue: 201 = la arrancaste vos, 200 = ya venía corriendo.
+   */
+  it("marca la tarjeta que arrancó, y sólo esa", async () => {
+    await renderReady();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: quickStartLabel(BUFANDA.name) }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByText(QUICK_START_NOTES.started)).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(QUICK_START_NOTES.resumed)).toBeNull();
+    expect(screen.getAllByText(QUICK_START_NOTES.started)).toHaveLength(1);
+  });
+
+  it("dice con otras palabras que el cronómetro ya venía en marcha", async () => {
+    await renderReady({ sessionStatus: 200 });
+
+    await userEvent.click(
+      screen.getByRole("button", { name: quickStartLabel(GORRO.name) }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByText(QUICK_START_NOTES.resumed)).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(QUICK_START_NOTES.started)).toBeNull();
+  });
+
+  /** Un fallo no puede dejar una marca que diga que algo arrancó. */
+  it("no marca nada cuando el arranque falla", async () => {
+    await renderReady();
+    fetchSpy.mockImplementation((url: string) =>
+      String(url).includes("/sessions/start")
+        ? Promise.resolve(jsonResponse(404, { error: "El proyecto no existe." }))
+        : Promise.resolve(jsonResponse(200, { projects: [BUFANDA, GORRO] })),
+    );
+
+    await userEvent.click(
+      screen.getByRole("button", { name: quickStartLabel(BUFANDA.name) }),
+    );
+
+    await waitFor(() =>
+      expect(quickStartRegion().textContent).toBe("El proyecto no existe."),
+    );
+    for (const note of Object.values(QUICK_START_NOTES)) {
+      expect(screen.queryByText(note)).toBeNull();
+    }
+  });
+
+  it("no tiene violaciones de axe con el aviso a la vista", async () => {
+    const { container } = await renderReady();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: quickStartLabel(BUFANDA.name) }),
+    );
+    await waitFor(() =>
+      expect(quickStartRegion().textContent).not.toBe(""),
+    );
+
+    expect(await axe(container)).toHaveNoViolations();
   });
 
   it("monta un quick-start por tarjeta y ninguno fuera de ellas", async () => {

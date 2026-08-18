@@ -1,6 +1,8 @@
+import { type CraftType } from "@/shared/config";
 import { Button, Card, ProgressBar } from "@/shared/ui";
 import { formatDuration, formatInteger } from "@/shared/lib/format";
 
+import { CRAFT_TYPE_LABELS } from "./project-filters";
 import type { ProjectCardData } from "./types";
 
 /** Niveles admitidos para el nombre. Mismo criterio que `StatePanel`. */
@@ -48,6 +50,20 @@ export interface ProjectCardProps {
    * y "hay una petición en marcha" no es un dato del proyecto.
    */
   quickStartPending?: boolean;
+  /**
+   * Marca corta de lo que acaba de pasar con el cronómetro de este proyecto
+   * (enmienda E2(d)). Es **presentación pura**: la tarjeta no sabe de dónde sale
+   * el texto ni cuánto dura, sólo lo pinta si se lo dan.
+   *
+   * **No monta ningún control**, y eso no es un detalle: la invariante de la
+   * deuda 132 —sin `onQuickStart`, cero controles— tiene que seguir en pie,
+   * porque el Dashboard monta esta misma tarjeta sin la acción. Marcar "en
+   * marcha" tampoco es ofrecer "parar": el quick-start **sólo arranca** (E1(e)).
+   *
+   * Va **fuera del encabezado** a propósito: el nombre accesible de la tarjeta
+   * es el nombre del proyecto y nada más.
+   */
+  quickStartNote?: string;
 }
 
 /**
@@ -74,18 +90,29 @@ export function ProjectCard({
   className,
   onQuickStart,
   quickStartPending = false,
+  quickStartNote,
 }: ProjectCardProps) {
   const Heading = `h${headingLevel}` as const;
 
   return (
     <Card className={className}>
       <div className="flex flex-col gap-(--space-3)">
-        <ProjectPhoto name={project.name} image={project.image} />
+        <ProjectPhoto
+          name={project.name}
+          image={project.image}
+          type={project.type}
+        />
 
         <div className="flex items-start justify-between gap-(--space-3)">
-          <Heading className="font-display text-xl leading-tight text-fg">
-            {project.name}
-          </Heading>
+          <div className="flex min-w-0 flex-col items-start gap-(--space-2)">
+            <Heading className="font-display text-xl leading-tight text-fg">
+              {project.name}
+            </Heading>
+
+            {quickStartNote === undefined ? null : (
+              <span className={QUICK_START_NOTE_CLASSES}>{quickStartNote}</span>
+            )}
+          </div>
 
           {/* El botón NO envuelve la tarjeta ni vive dentro de un enlace: en #20
               la tarjeta no es tocable (E1(f)), y un `button` dentro de un `a`
@@ -124,6 +151,24 @@ export function ProjectCard({
 }
 
 /**
+ * Marca de "esto acaba de pasar" en la tarjeta (enmienda E2(d)).
+ *
+ * Usa el color de **acierto** del sistema, que hasta ahora no tenía **ni un solo
+ * uso** en toda la app (deuda 144): la aplicación sabía decir "esto falló" y no
+ * sabía decir "esto salió bien". Se lee a 4.83:1 sobre la superficie elevada de
+ * la tarjeta, que es donde se monta.
+ *
+ * Es un `span`, no un botón ni un enlace: la tarjeta sin `onQuickStart` sigue
+ * sin montar ningún control (deuda 132).
+ */
+const QUICK_START_NOTE_CLASSES = [
+  "inline-flex items-center",
+  "border-(length:--border-width) border-solid border-success rounded-sm",
+  "px-(--space-2) py-(--space-1)",
+  "font-mono text-xs leading-base text-success",
+].join(" ");
+
+/**
  * La foto es **decorativa**: el nombre del proyecto está justo debajo, así que
  * un texto alternativo que lo repitiera sólo haría que un lector de pantalla lo
  * dijera dos veces. Por eso `alt=""` y no una descripción.
@@ -131,16 +176,53 @@ export function ProjectCard({
  * Sin foto se pinta un hueco con la misma silueta en vez de colapsar el bloque:
  * si no, las tarjetas de una misma fila tendrían alturas distintas según quién
  * subió imagen.
+ *
+ * **La proporción NO cambia** (enmienda E2(g)): el marco es el mismo con foto y
+ * sin ella, para que la rejilla no quede dentada cuando convivan las dos. Lo que
+ * cambia es lo que hay **dentro**: era el bloque más grande de la tarjeta y no
+ * decía nada —un rectángulo liso con una letra diminuta (deuda 140)—, y ahora se
+ * lee como algo puesto a propósito: la inicial en tamaño de titular y la clase
+ * de tejido nombrada debajo.
+ *
+ * **Los dos textos usan el primer plano normal, no el apagado**, y no es una
+ * preferencia: sobre la superficie hundida del marco, el apagado da 4.09:1 —vale
+ * para texto grande y **no** para texto chico—, y la clase de tejido es texto
+ * chico. La jerarquía entre los dos se hace con **familia, tamaño y espaciado**,
+ * que es lo que la convención pide ("énfasis por tipografía"), no bajando el
+ * contraste.
+ *
+ * Los dos siguen siendo **decorativos**: con foto no se anuncia nada y sin foto
+ * tampoco, así que lo que oye un lector de pantalla no depende de quién subió
+ * imagen.
  */
-function ProjectPhoto({ name, image }: { name: string; image: string | null }) {
+function ProjectPhoto({
+  name,
+  image,
+  type,
+}: {
+  name: string;
+  image: string | null;
+  type: CraftType;
+}) {
   const frame =
     "aspect-video w-full overflow-hidden rounded-sm border-(length:--border-width) border-solid border-border bg-surface-sunken";
 
   if (image === null) {
     return (
-      <div className={`${frame} flex items-center justify-center`}>
-        <span aria-hidden="true" className="font-mono text-lg text-fg-muted">
+      <div
+        className={`${frame} flex flex-col items-center justify-center gap-(--space-1)`}
+      >
+        <span
+          aria-hidden="true"
+          className="font-display text-3xl leading-tight text-fg"
+        >
           {initialOf(name)}
+        </span>
+        <span
+          aria-hidden="true"
+          className="font-mono text-xs uppercase tracking-label text-fg"
+        >
+          {CRAFT_TYPE_LABELS[type]}
         </span>
       </div>
     );

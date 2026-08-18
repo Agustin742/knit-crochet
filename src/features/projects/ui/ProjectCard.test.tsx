@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
@@ -8,6 +8,7 @@ import { SECONDS_PER_HOUR, SECONDS_PER_MINUTE } from "@/shared/config";
 import { formatDuration } from "@/shared/lib/format";
 
 import { ProjectCard, quickStartLabel } from "./ProjectCard";
+import { CRAFT_TYPE_LABELS } from "./project-filters";
 import type { ProjectCardData } from "./types";
 
 const BUFANDA: ProjectCardData = {
@@ -16,7 +17,17 @@ const BUFANDA: ProjectCardData = {
   image: "https://res.cloudinary.com/demo/image/upload/bufanda.jpg",
   progress: 42,
   time: SECONDS_PER_HOUR * 3 + SECONDS_PER_MINUTE * 20,
+  type: "knitting",
 };
+
+/** Texto de prueba de la marca: la tarjeta no lo elige, se lo pasan. */
+const RUNNING_NOTE = "Lo arrancaste recién";
+
+/* Fragmentos de clase armados en runtime: Tailwind escanea también los tests y
+   una clase citada como ejemplo se vuelve CSS de producción. */
+const SHAPE = ["aspect", "video"].join("-");
+const OBJECT_FIT = ["object", "cover"].join("-");
+const MUTED_FOREGROUND = ["text", "fg", "muted"].join("-");
 
 function cardWith(patch: Partial<ProjectCardData> = {}) {
   return <ProjectCard project={{ ...BUFANDA, ...patch }} />;
@@ -80,6 +91,80 @@ describe("ProjectCard", () => {
     expect(
       screen.getByRole("heading", { name: BUFANDA.name }),
     ).toBeInTheDocument();
+  });
+
+  /**
+   * ENMIENDA E2(g): el hueco de la foto era **el bloque más grande de la
+   * tarjeta** —el 61% de su altura, medido en navegador— y era un rectángulo
+   * liso con una letra diminuta (deuda 140). Ahora se lee como algo puesto a
+   * propósito.
+   *
+   * Lo que se ancla es **lo que la enmienda decidió**, no la maqueta: que se
+   * nombra la clase de tejido, que la proporción **no** cambió, y que no se cae
+   * en la trampa de contraste medida. Nada de esto lo puede ver `axe`
+   * (`color-contrast` sale `incomplete`) ni `happy-dom` (no maqueta).
+   */
+  it("names the craft on the empty photo slot", () => {
+    render(cardWith({ image: null }));
+
+    expect(screen.getByText(CRAFT_TYPE_LABELS.knitting)).toBeInTheDocument();
+    expect(screen.getByText("B")).toBeInTheDocument();
+  });
+
+  it("says nothing extra when there IS a photo", () => {
+    render(cardWith());
+
+    expect(screen.queryByText(CRAFT_TYPE_LABELS.knitting)).toBeNull();
+  });
+
+  /** Si la proporción cambiara, la rejilla quedaría dentada al mezclar tarjetas. */
+  it("keeps the very same frame shape with and without a photo", () => {
+    const withPhoto = render(cardWith());
+    const photoClasses = withPhoto.container
+      .querySelector("img")
+      ?.className.split(/\s+/);
+    withPhoto.unmount();
+
+    const without = render(cardWith({ image: null }));
+    const slot = [...without.container.querySelectorAll("div")].find((node) =>
+      node.className.includes(SHAPE),
+    );
+    const slotClasses = slot?.className.split(/\s+/) ?? [];
+
+    expect(photoClasses).toContain(SHAPE);
+    expect(slotClasses).toContain(SHAPE);
+    // Y **una sola** proporción: una segunda utilidad de proporción ganaría en
+    // el CSS y dejaría la de arriba de adorno, con el test en verde.
+    const shapePrefix = ["aspect", "-"].join("");
+    expect(
+      slotClasses.filter((className) => className.startsWith(shapePrefix)),
+    ).toEqual([SHAPE]);
+    // Todo el marco es compartido, no sólo la proporción: lo único que difiere
+    // es el ajuste de la imagen y la maqueta interna del hueco.
+    for (const className of photoClasses ?? []) {
+      if (className !== OBJECT_FIT) {
+        expect(slotClasses, className).toContain(className);
+      }
+    }
+  });
+
+  /**
+   * LA TRAMPA DE CONTRASTE, MEDIDA: sobre la superficie hundida del marco, el
+   * primer plano apagado da 4.09:1 — vale para texto grande y **no** para texto
+   * chico. La clase de tejido es texto chico, así que ninguno de los dos textos
+   * del hueco puede usarlo. La jerarquía se hace con familia y tamaño.
+   */
+  it("does not lean on the muted foreground inside the sunken slot", () => {
+    const { container } = render(cardWith({ image: null }));
+    const slot = [...container.querySelectorAll("div")].find((node) =>
+      node.className.includes(SHAPE),
+    );
+
+    for (const span of slot?.querySelectorAll("span") ?? []) {
+      expect(span.className.split(/\s+/), span.textContent ?? "").not.toContain(
+        MUTED_FOREGROUND,
+      );
+    }
   });
 
   /**
@@ -171,6 +256,49 @@ describe("ProjectCard", () => {
 
     await userEvent.click(button);
     expect(onQuickStart).not.toHaveBeenCalled();
+  });
+
+  /**
+   * LA MARCA DE "ESTO ACABA DE PASAR" (enmienda E2(d)).
+   *
+   * Se prueba **contra la invariante de la deuda 132**, no aparte: la marca es
+   * un añadido a la misma tarjeta que monta el Dashboard sin la acción, así que
+   * lo que hay que demostrar es que **no monta ningún control** y que **no se
+   * mete en el encabezado** — el Dashboard compara los nombres de sus
+   * encabezados de nivel 3 con una lista exacta.
+   */
+  it("does not mark anything without the note", () => {
+    render(cardWith());
+
+    expect(screen.queryByText(RUNNING_NOTE)).toBeNull();
+  });
+
+  it("shows the note without mounting a single control", () => {
+    render(<ProjectCard project={BUFANDA} quickStartNote={RUNNING_NOTE} />);
+
+    expect(screen.getByText(RUNNING_NOTE)).toBeInTheDocument();
+    expect(screen.queryAllByRole("button")).toHaveLength(0);
+    expect(screen.queryAllByRole("link")).toHaveLength(0);
+  });
+
+  it("keeps the note out of the heading's accessible name", () => {
+    render(<ProjectCard project={BUFANDA} quickStartNote={RUNNING_NOTE} />);
+
+    const heading = screen.getByRole("heading", { name: BUFANDA.name });
+    expect(heading.textContent).toBe(BUFANDA.name);
+    expect(within(heading).queryByText(RUNNING_NOTE)).toBeNull();
+  });
+
+  it("has no axe violations with the note", async () => {
+    const { container } = render(
+      <ProjectCard
+        project={BUFANDA}
+        quickStartNote={RUNNING_NOTE}
+        onQuickStart={() => {}}
+      />,
+    );
+
+    expect(await axe(container)).toHaveNoViolations();
   });
 
   it("has no axe violations (with and without photo)", async () => {
