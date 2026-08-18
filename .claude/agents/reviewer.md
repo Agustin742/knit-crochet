@@ -22,7 +22,31 @@ cambios. No editas código.
    - ¿Tiene su test correspondiente?
 4. Ejecuta `bash ./init.sh`. Tiene que terminar verde.
 5. Recorre `CHECKPOINTS.md`. Marca `[x]` los que se cumplen, `[ ]` los que no.
-6. Emite veredicto.
+6. **Si el cambio toca UI**, aplica además el bloque de abajo.
+7. Emite veredicto.
+
+## Si el cambio toca UI: el template es un SUELO, no un techo
+
+Regla completa en `docs/harness/conventions.md` §"El template es un SUELO, no un
+techo". Preguntas que tenés que contestar explícitamente en tu informe:
+
+- **¿Hay jerarquía visual, o todo pesa lo mismo?** Controles primarios, secundarios
+  y accesorios tienen que distinguirse por tamaño, peso o superficie. Una pantalla
+  puede tener todos los tokens correctos y estar mal.
+- **¿Hay dos controles con comportamiento distinto renderizados igual?** Un grupo
+  excluyente y uno acumulable, uno al lado del otro, con la misma primitiva y el
+  mismo tamaño, es un defecto **aunque los tests pasen**. Precedente: deuda **142**.
+- **¿Alguna decisión visual está justificada por el coste del arnés?** Si el
+  implementer escribió "no creé la pieza correcta porque tocaría `public-api.test.ts`"
+  o equivalente, **eso no es una justificación válida**: o se crea la pieza, o queda
+  fichado como apaño y como deuda. Verificá que esté fichado.
+- **¿Toda acción con efecto tiene feedback VISIBLE?** Un aviso que sólo vive en un
+  `role="status"` con clase `sr-only` **no cuenta**: para quien mira la pantalla es
+  indistinguible de un botón roto. Es la deuda **137**, y pasó un review entero sin
+  que nadie la viera.
+- **No confundas "los tests pasan" con "se ve bien".** Ningún gate de este repo mide
+  el eje visible (deuda **141**). Si no podés verificarlo, **escribí en tu informe
+  que el aspecto quedó sin verificar** en vez de aprobarlo por omisión.
 
 ## Formato del veredicto
 

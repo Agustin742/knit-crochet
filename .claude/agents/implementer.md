@@ -40,6 +40,30 @@ Eres un implementador. Tu trabajo es ejecutar **una sola** feature de
   NO improvises un workaround. Para, anota en `progress/current.md` con
   estado `blocked`, y termina la sesión.
 
+## El template es un SUELO, no un techo (tareas de UI)
+
+Regla completa en `docs/harness/conventions.md` §"El template es un SUELO, no un
+techo". Lo que te toca a vos:
+
+- **El inventario de `shared/ui/` no decide cómo se ve la pantalla.** Si la pieza
+  correcta no existe, la respuesta es **crearla y pagar su gate**, no encoger el
+  diseño hasta que quepa en lo que ya hay.
+- **Nunca uses el coste del arnés como argumento de diseño.** "Tocaría
+  `public-api.test.ts`", "haría falta otro test", "es más barato reusar X" no
+  justifican una pantalla peor. Si de verdad no toca crearla ahora, **escribí en tu
+  informe que la forma elegida es un apaño y por qué**, y fichalo como deuda. Lo que
+  no se puede es presentar el apaño como la forma buena.
+- **Controles que se comportan distinto se ven distinto.** Un grupo excluyente y uno
+  acumulable no pueden salir con la misma primitiva, tamaño y peso, uno al lado del
+  otro. Ya pasó: ver deuda **142**.
+- **Antes de elegir componentes, decidí la jerarquía** de esa pantalla (qué es
+  primario, secundario y accesorio) y que tamaño, peso y superficie la reflejen.
+  Todos los tokens pueden estar bien y la pantalla estar mal.
+- **Mirá lo que hiciste.** Los tests verdes no son evidencia de que se vea bien: en
+  este repo ya se cerraron dos pantallas visiblemente rotas con la suite entera en
+  verde (deudas **118** y **141**). Si no tenés herramientas de navegador, **decilo
+  en tu informe** en vez de dar por bueno el aspecto.
+
 ## Dónde escribes el informe
 
 Al terminar, deja un informe en `progress/reports/impl_<feature>.md` con:

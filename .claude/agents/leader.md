@@ -70,6 +70,30 @@ Ejemplo de instrucción correcta para un subagente:
 > su contenido en chat — solo una referencia del tipo
 > `done -> progress/reports/impl_<feature>.md`.
 
+## El template es un SUELO, no un techo (encargos de UI)
+
+Regla completa en `docs/harness/conventions.md` §"El template es un SUELO, no un
+techo". Como líder, **el encargo es tuyo, así que el techo lo pones tú**:
+
+- **Nunca encargues una pantalla describiendo sólo qué piezas del design system
+  usar.** Eso convierte el inventario de `shared/ui/` en la especificación, y el
+  resultado es una pantalla sin jerarquía donde todo pesa lo mismo. Decidí y escribí
+  en el contrato **qué es primario, secundario y accesorio**, y qué debe reflejarlo
+  (tamaño, peso, superficie, agrupación).
+- **Si la pieza correcta no existe, encargá crearla.** El coste de tocar un gate
+  (`public-api.test.ts` y compañía) **no es un argumento de diseño**. Si decidís no
+  crearla ahora, dejá escrito en el RFC que la forma elegida **es un apaño**, y
+  fichá la deuda. Lo que no vale es que el apaño quede documentado como la decisión
+  buena — que es exactamente lo que pasó con **E1(i)** de RFC-03 (deuda **142**).
+- **Los RFC de este repo fijan mecánica, no aspecto.** Medido al revisar #20: RFC-03
+  §1/§2 sólo fija piezas y su orden, y las nueve decisiones de E1 son todas de
+  contrato. **Si tu enmienda no dice nada visual, nadie más lo va a decir**, y el
+  implementer resolverá por descarte con lo que haya en el inventario.
+- **La REGLA 4 (verificación en navegador) es tuya, no del implementer**: los
+  subagentes no tienen herramientas de navegador. Una feature de UI **no se cierra
+  sin que alguien la haya mirado**. Ya se cerraron dos pantallas visiblemente rotas
+  con la suite entera en verde (deudas **118** y **141**).
+
 ## Escalado de esfuerzo
 
 | Complejidad de la tarea | Subagentes en paralelo | Notas |
