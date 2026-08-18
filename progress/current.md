@@ -3,6 +3,269 @@
 > Este archivo se vacía al cerrar cada sesión y se mueve a `history.md`.
 > Mientras trabajas, **mantenlo actualizado en tiempo real**, no al final.
 
+## ✅ ESTADO AL CERRAR (2026-08-15) — VERDE. Lote de arreglo visual de `/proyectos` CERRADO
+
+> **`bash ./init.sh` → `EXIT_CODE=0`.** `Test Files 77 passed | 3 skipped (80)` ·
+> `Tests 1336 passed | 13 skipped (1349)`. `pnpm build` EXIT 0.
+> **Medido por el leader por su cuenta**, no heredado de ningún subagente.
+> **Reviewer APROBADO en la ronda 2.** Informe de cierre:
+> `progress/informs/23.informe-fix20_visual_E2.md`.
+>
+> **NO fue una feature.** `feature_list.json` no se tocó; **#20 sigue `done`**.
+
+**Cadena:** leader (auditoría del estado real + relanzamiento) → 1 implementer → 1 reviewer
+(**cambios requeridos, 1 bloqueante**) → ronda 2 → **APROBADO**.
+Partida `1281/1294` en 77 archivos → **+55 tests, +3 archivos**, aritmética cerrada sin residuo.
+
+**El bloqueante fue un comentario y bloqueó con razón:** el recibo prohibido de la deuda 142 se borró de
+`ProjectsToolbar.tsx` y **sobrevivió verbatim en `project-filters.ts`**, en el JSDoc de la constante que
+alimenta al primitivo nuevo. Resuelto en un archivo, **cero tests movidos**.
+
+### 🔴 Corrección honesta del leader
+
+**Declaré que "el recibo desapareció del código" tras mirar UN solo archivo.** Lo cazó el reviewer.
+**Quinta aparición de la misma raíz de este libro mayor: *nadie vuelve a la fuente a comprobarlo*.**
+Corrección de método: al verificar que algo se eliminó, **se barre el árbol entero**, no el archivo donde
+uno espera encontrarlo.
+
+### ⚠️ El eje visible lo cerró EL USUARIO, no el leader — y hay que leerlo como lo que es
+
+La **verificación en navegador del leader (REGLA 4) no se llegó a hacer**: el `next dev` se levantó y
+Chrome quedó parado en `/login?next=%2Fproyectos`, sin sesión y por tanto sin datos con los que juzgar
+nada. **Lo cerró el usuario mirando la pantalla él mismo** (*"lo acabé de revisar yo, se ve perfecto"*).
+Se registra como **su juicio, que sobre el eje visible es la autoridad final — no una medición
+instrumentada**.
+
+**SIGUE SIN MEDIR el comportamiento en MÓVIL**, que E2(h) declaraba obligatorio: **segunda sesión
+consecutiva**. Y siguen sin medición instrumentada los cuatro puntos por orden de sospecha: la fila del
+toolbar en angosto, el segmentado junto a las fichas de tipo **con un tipo ya marcado**, el aviso del
+quick-start empujando la rejilla, y la rejilla con tarjetas con foto y sin foto mezcladas.
+
+### 🆕 Deudas nuevas: 145-148
+
+- **145 🔴 la que más pesa** — `password.test.ts` es **frágil por tiempo**: el verde o rojo de `init.sh`
+  depende de lo cargada que esté la máquina. Es la peor propiedad de una puerta de calidad porque
+  **enseña a desconfiar del rojo**. Arreglo: `testTimeout` propio, no abaratar el hasheo. Familia de la 103.
+- **146 🟠** — el gate de CSS compilado existe **sólo** para el segmentado.
+- **147 🟠** — `DashboardView.tsx:49` conserva el andamiaje que E2(f) borró de la lista. Hermano de la 139.
+- **148 🟠** — el comentario del segmentado **promete un absoluto que el tipo no sostiene** (el reviewer lo
+  probó: con `value` fuera del juego salen cero pulsadas y con dos opciones de igual `value`, dos).
+
+### ⏳ Pendiente operativo al cerrar
+
+- **NADA DE ESTA SESIÓN ESTÁ COMITEADO.** El árbol lleva sin comitear todo el lote E2 (código y tests),
+  la enmienda E2 del RFC-03, la regla del template en `conventions.md`, los tres agentes, las fichas
+  136-148, este archivo, `history.md`, el informe 23 y los informes de subagentes.
+  **No se comiteó porque el usuario no lo pidió.**
+- **`.claude/settings.json`** ganó 29 reglas de permiso, todas de **lectura** (inspección de navegador,
+  búsqueda en memoria, docs). Se descartaron a propósito `javascript_tool` y `evaluate_script` (ejecución
+  arbitraria), `computer`/`browser_batch` (clics), `mem_save` (escribe) y cualquier comodín sobre `bash`,
+  `node`, `python` o `pnpm run`. **`settings.local.json` sigue con seis entradas muertas** (contienen un
+  marcador literal `__TRACKED_VAR__` y no van a coincidir nunca): limpiarlas quedó ofrecido y sin respuesta.
+- **`next dev` levantado por el leader en el puerto 3000 y apagado al cerrar.**
+
+---
+
+## 🔴 CORRECCIÓN DE LIBRO MAYOR (2026-08-14) — la sesión del 13 se CONGELÓ y el bloque de abajo describe un trabajo que NO EXISTE
+
+**El implementer del lote E2 nunca entregó nada.** El bloque siguiente lo da por "en curso"; auditado
+archivo por archivo por el leader, el estado real es:
+
+| Lo que el bloque de abajo dice | Lo que hay medido |
+|---|---|
+| `impl_fix20_visual.md` en curso | **El archivo NO EXISTE** |
+| Primitivo `SegmentedControl` (tanda 1) | **`src/shared/ui/primitives/` sigue con ocho carpetas, ninguna es `segmented-control/`** |
+| Lote E2(a)-(g) implementándose | **`git status` no lista ni un archivo de `src/**`** |
+
+**El recibo de la deuda 142 sigue textualmente en su sitio**, releído hoy: `ProjectsToolbar.tsx:51-54`
+justifica E1(i) con *"crear un primitivo de segmentado tocaría `public-api.test.ts`"*. Los cuatro
+`Toggle` idénticos siguen en `:89-97` (excluyentes) y `:104-112` (acumulables); el buscador sigue en su
+`Card` suelta dentro de la fila `items-end` (`:84`, `:115`); el `<summary>` sigue en `text-fg-inverse`
+(`:184`). **Nada del arreglo se aplicó.**
+
+**Lo que SÍ quedó hecho, y es todo documentación** (comprobado en el diff, +465 líneas en 7 archivos):
+RFC-03 §7-ter con E2(a)-(h) y E1(i) marcada como enmendada (+127) · `conventions.md` § *"El template es
+un SUELO, no un techo"* (+36) · la regla replicada en los **tres** agentes · las nueve fichas **136-144**
+en `deudas.md` (+111). **El contrato está entero; lo que faltó fue ejecutarlo.**
+
+**Gate de arranque de hoy, medido por el leader, no heredado:** `bash ./init.sh` → **EXIT 0** · lint ✓ ·
+typecheck ✓ · `Test Files 74 passed | 3 skipped (77)` · `Tests 1281 passed | 13 skipped (1294)`.
+**Coincide exacto con el cierre de #20**, así que el árbol está limpio para reintentar.
+
+**Todo #20 está comiteado** en `abbc31a` (46 archivos). Corrige la nota de más abajo que decía
+*"45 archivos siguen sin comitear"*: **ya no es cierto**; lo único pendiente de comitear es la
+documentación de E2 recién listada.
+
+### 🔁 Lote E2 RELANZADO (2026-08-14) — con un cambio de método por la congelación
+
+Mismo encargo, mismo orden de cinco tandas, mismos contrastes y trampas. **La diferencia:** se le exige
+al implementer **crear `impl_fix20_visual.md` ANTES de tocar código y actualizarlo al terminar cada
+tanda**, no al final. El intento anterior se cortó y **se perdió todo porque el informe era un paso
+final**. Ahora un corte a mitad deja escrito lo que llegó a hacerse.
+
+**Sigue pendiente y es del leader, no del implementer:** la verificación en navegador del resultado,
+**incluido móvil** — que quedó SIN MEDIR en la primera pasada porque `resize_window` reporta éxito pero
+la ventana no baja de 1536px.
+
+### ✅ El lote E2 ENTREGADO (2026-08-14) — a la espera del reviewer
+
+**Gate medido por el leader por su cuenta, no heredado del informe:** `bash ./init.sh` → **EXIT 0** ·
+lint ✓ · typecheck ✓ · `Test Files 77 passed | 3 skipped (80)` · `Tests 1336 passed | 13 skipped (1349)`.
+**Coincide al dígito con lo que declara el implementer.** Baseline `1281/1294` en 77 archivos →
+**+55 tests, +3 archivos**. `pnpm build` EXIT 0 según el informe.
+
+**Lo que el leader verificó del árbol antes de lanzar el review:**
+- **El primitivo existe de verdad**: `src/shared/ui/primitives/segmented-control/` con cuatro archivos
+  (componente, variantes, test de comportamiento y **test de tokens sobre CSS compilado**).
+  **`public-api.test.ts` aparece modificado: el ancla se pagó**, que era el punto entero de E2(c).
+- **El recibo de la deuda 142 DESAPARECIÓ del código.** La justificación *"crear un primitivo de
+  segmentado tocaría `public-api.test.ts`"* ya no está en `ProjectsToolbar.tsx`; en su lugar hay
+  comentarios que citan E2(c) y dicen que **la forma de cada grupo dice lo que hace**.
+- **El `<summary>` pasó de `text-fg-inverse` a `text-fg`**, como exigía E2(b) al meterlo en la Card.
+
+**Informe: `progress/reports/impl_fix20_visual.md`** (543 líneas, escrito tanda a tanda como se pidió).
+
+**Las dos cosas que el leader NO dio por buenas y mandó a verificar:**
+1. **Su baseline salió `EXIT 1`** por un timeout en `src/shared/lib/auth/password.test.ts` (2,54 s
+   aislado contra un tope de 5 s; 5064 ms bajo la carga de la pasada completa). Propone ficha nueva:
+   *frágil por tiempo*. **En la pasada del leader no apareció**, lo que apoya la hipótesis. Familia de la
+   deuda 103. Lo que lo hace importante lo escribe él mismo: **el verde o rojo de `init.sh` depende de lo
+   cargada que esté la máquina, y eso enseña a desconfiar del rojo.**
+2. **Afirma haber compilado `globals.css` y verificado que las 30 utilidades nuevas emiten regla real**
+   ("ALL PRESENT"), con un script descartable que **ya no existe en el repo**: número que sólo produjo
+   quien lo mide y **no reproducible desde el árbol**. Se le pidió al reviewer un **control positivo**.
+
+**El hallazgo de método del implementer, que se le reconoce:** su test *"keeps the very same frame
+shape"* **nació más débil de lo que parecía** — comprobaba que la clase de proporción **estuviera**, y una
+segunda proporción encima habría ganado en el CSS **con el test en verde**. Lo descubrió porque REGLA 3 le
+obligó a romperlo de verdad, y lo endureció a "**una sola** utilidad de proporción". Es el argumento
+entero de la condición doble.
+
+**Reviewer lanzado** → `progress/reports/review_fix20_visual.md`. Encargo con las **cuatro preguntas
+obligatorias** de la regla del template (¿hay jerarquía?, ¿dos controles distintos se ven igual?, ¿alguna
+decisión visual se justificó por el coste del arnés?, ¿toda acción tiene feedback visible?) y **con el
+límite escrito**: el eje visible **no lo puede cerrar él** (no tiene navegador), es del leader.
+
+---
+
+## 🚧 IMPLEMENTER (2026-08-13) — lote de arreglo visual de `/proyectos` (E2 del RFC-03, deudas 136-144)
+
+**No es una feature: `feature_list.json` NO se toca.** Baseline heredado del leader y no re-medido para
+arrancar: `init.sh` EXIT 0, `Test Files 74 passed | 3 skipped (77)`, `Tests 1281 passed | 13 skipped (1294)`.
+
+**Plan (orden pedido por el leader, para que un corte a mitad deje algo coherente):**
+1. **E2(c)** — primitivo `SegmentedControl` en `src/shared/ui/primitives/segmented-control/` (contenedor
+   continuo, sin hueco entre opciones, elegida rellena) + test de comportamiento + **test de tokens sobre
+   CSS compilado** + `public-api.test.ts` (se paga el ancla, decidido en E2(c)3).
+2. **E2(b)+E2(a)** — toolbar entero en **una** `Card` `raised`, etiquetas visibles de los dos grupos,
+   `<summary>` de `text-fg-inverse` → `text-fg`; la lista pasa a `<section>` con `<h2>` visible.
+3. **E2(e)+E2(f)** — tres vacíos distinguidos + "quitar filtros"; fuera `SEARCH_HINT`, reescrito
+   `EMPTY_DESCRIPTION`.
+4. **E2(d)** — el aviso del quick-start deja de ser `sr-only` (mismo `role`/`aria-label`) + marca
+   "en marcha" en la tarjeta, honesta sobre que es de esta sesión.
+5. **E2(g)** — placeholder de foto (misma proporción, inicial en tamaño display + clase de tejido).
+
+**Contrastes recalculados antes de decidir nada** (WCAG 2.x sobre los hex de `globals.css`):
+crema/espresso **12,83:1** · foco/espresso **4,68:1** · foco/raised **3,13:1** · fg-muted/sunken
+**4,09:1** (vale para texto grande, NO para texto chico) · fg/sunken **11,30:1** ·
+success/raised **4,83:1** · danger/raised **4,86:1**.
+
+**Estado:** 🚧 en curso. Informe: `progress/reports/impl_fix20_visual.md`.
+
+## 🚧 EN CURSO (2026-08-13) — LOTE DE ARREGLO VISUAL de `/proyectos` (enmienda E2 del RFC-03)
+
+**Encargo del usuario:** *"revisa visualmente cómo se ve la página de proyecto, que es evidente que no
+está bien… está horrible este laburo"*, y después *"mandá el lote de arreglo completo, espero que
+también se arregle visualmente"*. **NO es una feature**: es deuda técnica (fichas **136-144**).
+`feature_list.json` **no se toca**; #20 sigue `done`.
+
+### ✅ Gate de arranque VERDE — medido por el leader, no heredado
+
+`bash ./init.sh` → **`EXIT_CODE=0`** · lint ✓ · typecheck ✓ ·
+`Test Files 74 passed | 3 skipped (77)` · `Tests 1281 passed | 13 skipped (1294)`.
+**Coincide exacto con lo que declaraba el cierre de #20.** *(Redirigido a archivo, no por tubería.)*
+
+### 🔴 El origen: #20 pasó TODOS los gates y la página está visiblemente rota
+
+Verificación en navegador real del leader (REGLA 4), con el `next dev` del usuario y su sesión.
+Informe: **`progress/reports/verificacion_navegador_proyectos.md`**. Seis defectos medidos con
+`getBoundingClientRect`, no a ojo. Los dos graves:
+
+- **El buscador se lee como un diálogo flotante** (deuda 136): fila `items-end` con hijos de alturas
+  incompatibles (dos grupos de botones bajos y una `Card` alta), ~78px de hueco muerto, y una superficie
+  elevada con sombra dura centrada sobre el ovillo.
+- **El quick-start es indistinguible de un botón roto** (deuda 137): funciona, pero **su único feedback
+  vive en un `role="status"` `sr-only` de 1x1 px**. La tarjeta sigue diciendo `0%` / `0 min`.
+
+**Lo que SÍ funciona, medido:** exclusividad del segmentado, filtro de tipo
+(`/api/projects?active=true&type=knitting`), filtro de aguja, buscar de cliente insensible a mayúsculas,
+consola limpia, rejilla 1/2/3 columnas. **"Lana usada" con una sola opción NO es bug**: `/api/yarns`
+devuelve `{"yarns":[]}`.
+
+### 🔴 Las TRES causas de fondo, y la primera la levantó el usuario, no un test
+
+1. **Deuda 142 — un gate del arnés terminó dictando la interfaz.** El usuario lo dijo así: *"se está
+   usando el template como fuente definitiva y eso limita mucho la creación… los botones de activo e
+   inactivo son iguales a los demás filtros, lo cual hace que se pierda el entendimiento"*. **Tiene el
+   recibo escrito en el propio código:** `ProjectsToolbar.tsx:51-54` justifica E1(i) con *"crear un
+   primitivo de segmentado tocaría `public-api.test.ts`"*. Resultado: cuatro botones idénticos, **dos
+   excluyentes y dos acumulables**, sin distinción visual. **Y la premisa era falsa**: un componente en
+   `features/**/ui/` no toca ese ancla.
+2. **Deuda 143 — la fuente de verdad visual NO EXISTE.** RFC-03 §1/§2 fija piezas y su orden y **ni una
+   línea** de jerarquía, contenedor, proporción o placeholder; **las nueve decisiones de E1 son todas de
+   contrato**. El **SDD §9 remite a un mockup, un brief y un `visual.md` que no existen en el repo**.
+   Cuando el contrato calla, el inventario de `shared/ui/` pasa a ser la especificación por descarte.
+   **Es la causa raíz de las deudas 136, 140 y 142.**
+3. **Deuda 141 — ningún gate de este repo mide el eje visible.** Segunda vez (la primera fue la 118).
+   El caso puro es la 137: **el `sr-only` hizo que la accesibilidad TAPARA el agujero visual** en vez de
+   delatarlo.
+
+### ✅ Regla nueva escrita donde pidió el usuario: "el template es un SUELO, no un techo"
+
+`docs/harness/conventions.md` (sección propia dentro de UI/Design system) y **replicada en los tres
+agentes**: `leader.md` (el techo lo pone el encargo), `implementer.md` (si la pieza no existe, se crea y
+se paga su gate) y `reviewer.md` (preguntas obligatorias: ¿hay jerarquía?, ¿dos controles distintos se
+ven igual?, ¿alguna decisión visual se justificó por el coste del arnés?, ¿toda acción tiene feedback
+**visible**?).
+
+### ✅ ENMIENDA E2 del RFC-03 (§7-ter) ESCRITA — el contrato visual que faltaba
+
+Ocho decisiones: **(a)** jerarquía de secciones al estilo Dashboard · **(b)** todo el toolbar en **una
+sola `Card` `raised`** (obligatorio: única superficie donde el foco llega a 3:1) · **(c)** **se crea un
+primitivo de segmentado de verdad en `shared/ui/primitives/` y se paga `public-api.test.ts`** + etiquetas
+**visibles** de los dos grupos · **(d)** feedback **visible** de toda acción con efecto, con el límite
+honesto de que la marca "en marcha" **se pierde al recargar** (el backend no expone si el cronómetro
+corre) · **(e)** tres estados vacíos distinguidos + control de **quitar filtros** · **(f)** copy sin
+andamiaje (fuera `SEARCH_HINT`, reescrito `EMPTY_DESCRIPTION`) · **(g)** placeholder de foto que se lea
+como algo puesto a propósito, **sin cambiar la proporción** · **(h)** fuera de alcance explícito.
+
+**E1(i) quedó marcada como enmendada por E2(c), escrito y no borrado**, con el aviso de no revertirla.
+
+### Cadena lanzada
+
+| Carril | Subagente | Informe |
+|---|---|---|
+| Inventario de `shared/ui` + contrastes + guardrails | `general-purpose` | ✅ `progress/reports/explore_fix20_design_system.md` |
+| Red de tests que se mueve con cada cambio | `general-purpose` | ✅ `progress/reports/explore_fix20_red_de_tests.md` |
+| Qué dice (y qué no) la spec + precedente del Dashboard | `general-purpose` | ✅ `progress/reports/explore_fix20_spec_y_precedente.md` |
+| **Implementación del lote E2(a)-(g)** | `implementer` | 🚧 `progress/reports/impl_fix20_visual.md` |
+
+**Trampas medidas que van en el encargo** (para que no se descubran a golpes): `text-fg` y `--bg` son
+**el mismo color (1.00:1)**; el `<summary>` debe cambiar de primer plano al entrar en la Card;
+`no-hardcode.test.ts` prohíbe medidas en píxeles **incluso en comentarios**; **`axe` NO gatea contraste**
+(`color-contrast` sale `incomplete` y `vitest-axe` sólo mira `violations`); **25 tests cuelgan del helper
+`settle()`** y 3 usan `toBe` sobre el `textContent` de la región "Cronómetro"; y el vacío por defecto
+(`active=true`) **no debe contar como "filtrado"**.
+
+### ⏳ Pendiente al cerrar
+
+- **Verificación en navegador del resultado, incluido MÓVIL** — es del leader, no del implementer
+  (los subagentes no tienen navegador). **El móvil quedó SIN MEDIR** en la primera pasada:
+  `resize_window` reporta éxito pero la ventana no baja de 1536px.
+- **45 archivos siguen sin comitear** desde `bdb11b0` (todo #19, #20 y las deudas 117-120).
+
+---
+
 ## 🚧 IMPLEMENTER (2026-08-12) — Feature en curso: **20 — `projects_list_ui`**
 
 **Plan (5 puntos):**

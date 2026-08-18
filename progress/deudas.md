@@ -1871,3 +1871,146 @@ bloqueante **no era un bug de código**, era una frase que afirmaba que ese test
      Es la clase ya fichada (deudas **6**, **73**, **81**, **82**), no un defecto nuevo de #20, y su
      medicina es la conocida: un ancla que derive los nombres de `projectFiltersSchema` en vez de
      reescribirlos a mano.
+
+---
+
+> **Deudas 136-141 — nacidas de la VERIFICACIÓN EN NAVEGADOR REAL de `/proyectos` (2026-08-13),
+> pedida por el usuario tras ver la página.** Informe:
+> `progress/reports/verificacion_navegador_proyectos.md`. Medidas por el leader con `getBoundingClientRect`
+> sobre el `next dev` real, viewport 1521×753 CSS, con datos reales (un proyecto, cero lanas).
+> **#20 estaba cerrada, verde y APROBADA a la primera cuando aparecieron.**
+
+136. **🔴 El toolbar de `/proyectos` parte su superficie en dos y el buscador se lee como un diálogo
+     flotante.** `ProjectsToolbar.tsx:84` abre `flex flex-wrap items-end gap-(--space-4)` con tres hijos
+     de alturas incompatibles: `ToggleGroup` estado `24,164 206x44`, `ToggleGroup` tipo `246,164 224x44`
+     y el **`Card` del buscador `487,86 509x123`**. Con `items-end` los botones se pegan al borde
+     inferior y la tarjeta se queda arriba → **~78px de hueco muerto** sobre los botones, y una
+     superficie `bg-surface-raised` + `shadow-hard-lg` **centrada sobre el ovillo ASCII**, que el ojo lee
+     como un modal abierto.
+     **⚠️ El `Card` NO es decorativo y no se puede quitar a lo bruto:** `ProjectsToolbar.tsx:61-64`
+     documenta que es la medicina de la **deuda 31** — `Field` pinta su etiqueta con el primer plano
+     oscuro, ilegible sobre el espresso, y la variante elevada es la única superficie donde el anillo de
+     foco llega al contraste mínimo. **La deuda real es tener medio toolbar sobre el fondo y medio sobre
+     una tarjeta**, no la tarjeta en sí.
+
+137. **🔴 El quick-start funciona y es INDISTINGUIBLE de un botón roto: su único feedback es
+     `sr-only`.** Medido pulsando el ▶: a `+150ms` el botón queda `disabled` con glifo `✳`; a `+2s`
+     vuelve a `▶` y el aviso aparece en la región viva (`"asdasd ya tenía el cronómetro en marcha."`).
+     Pero **las dos regiones vivas miden `23,188 1x1`**, con `class="sr-only"`, `position:absolute` y
+     `clip-path: inset(50%)`. Quien mira la pantalla ve un parpadeo de 200ms y **nada más**: la card
+     sigue diciendo `0%` y `0 min`, el botón vuelve a su estado inicial, no hay aviso visible.
+     **Por qué pasó el review:** los tests asertan justo sobre esa región viva (nombre accesible, deuda
+     114) y `axe` mide el árbol accesible. **El eje que falla es el visible, y ahí no hay ningún gate**
+     (ver deuda 141).
+
+138. **🟠 El estado vacío MIENTE cuando el vacío lo produjo un filtro.** `ProjectsView.tsx:241` decide
+     con `listIsEmpty` —la lista que devuelve el servidor— y pinta `EMPTY_TITLE`/`EMPTY_DESCRIPTION`
+     (`:39-41`): *"Tu cesto está vacío — Empezá un proyecto…"*. **Medido:** ese mensaje sale con
+     **"Inactivos"** activo y con **"Aguja = 3 mm"**, teniendo el usuario un proyecto. Le dice "no tenés
+     proyectos" a alguien que sí tiene, y lo empuja a crear otro en vez de a quitar el filtro.
+     **Sólo el buscador de cliente lo hace bien** (`:259`, "Ningún proyecto coincide con la búsqueda").
+     Es exactamente la asimetría de **E1(a)**: lo que se filtra en cliente distingue, lo que se filtra en
+     servidor no. Falta además la salida obvia: **un control de "quitar filtros"**.
+
+139. **🟠 Copy de interfaz que le explica el andamiaje del proyecto al usuario final.** Dos casos:
+     `EMPTY_DESCRIPTION` (`ProjectsView.tsx:40-41`) — *"…los dos botones de acá abajo te llevan al
+     inicio, **que es donde hoy se crea en dos pasos**"* — y `SEARCH_HINT`
+     (`ProjectsToolbar.tsx:19-20`) — *"Filtra por nombre sobre los proyectos ya cargados, **sin volver a
+     pedirlos**"*. El primero explica que el formulario de #22 todavía no existe; el segundo explica una
+     decisión de arquitectura (E1(a), filtrado de cliente). **El "hoy" del primero delata que es una
+     excusa de andamiaje escrita en la cara del usuario.** Un usuario no sabe ni le importa cuántos
+     pasos tiene la creación ni si la lista se vuelve a pedir.
+
+140. **🟠 El hueco de la foto vacía es el bloque más grande de la página y no comunica nada.**
+     Card `480x405`; el `aspect-video` de la foto mide **`437x246`** = **61% de la altura de la card**, y
+     con `image === null` es un rectángulo liso con **una letra de `11x28` px** centrada. Para comparar:
+     el nombre del proyecto ocupa `56x26`. La pantalla dedica su mayor superficie a un vacío.
+
+141. **🔴 DEUDA DE MÉTODO, la que explica a las otras cinco: NINGÚN gate de este repo mide el eje
+     visible.** `/proyectos` se cerró con `init.sh` verde (`1281 passed`), `axe` sobre la vista, gate de
+     composición, región viva con nombre y un review **aprobado a la primera con 0 bloqueantes** — y al
+     abrirla en un navegador **está visiblemente rota**. Los gates existentes miden **tokens, roles,
+     nombres accesibles y CSS compilado**; ninguno mide **dónde cae un elemento en la pantalla ni si un
+     mensaje se ve**.
+     **Es la SEGUNDA vez que pasa lo mismo:** la deuda **118** (la rejilla de auth aplastada en móvil) se
+     descubrió igual, y su ficha ya decía *"cero gates se rompen al arreglarla porque cero gates miden lo
+     que denuncia"*. Entonces se ató el CSS compilado (`yarn-host-responsive.test.ts`); **la geometría
+     resultante sigue sin atarse por nadie**.
+     **El caso más puro es la 137:** el `sr-only` hizo que la accesibilidad **tapara** el agujero visual
+     en vez de delatarlo — el test verde y la pantalla muda son el mismo hecho.
+     **Medicina candidata (no decidida):** la **REGLA 4** existe pero es humana y se aplica a ojo; hoy
+     depende de que alguien mire. Lo que falta es o bien hacerla obligatoria en el cierre de toda feature
+     de UI, o bien un gate que asierte geometría (alturas compatibles en una fila, feedback no
+     `sr-only` para toda acción con efecto).
+
+142. **🔴 UN GATE DEL ARNÉS TERMINÓ DICTANDO LA INTERFAZ, y la pantalla perdió la distinción entre dos
+     controles que se comportan distinto.** **Lo levantó el usuario mirando la pantalla**, no un test.
+     `ProjectsToolbar.tsx:51-54` deja escrito el motivo de **E1(i)**: el segmentado activo/inactivo son
+     *"dos `Toggle`"* porque *"crear un primitivo de segmentado tocaría `public-api.test.ts`, anclado al
+     literal"*. Resultado medido en navegador: **cuatro botones idénticos de 44px en fila**
+     (`206x44` y `224x44`), donde **los dos primeros son EXCLUYENTES** (estado: o activos o inactivos) y
+     **los dos siguientes ACUMULABLES** (tipo: podés marcar los dos), **sin una sola señal visual que lo
+     distinga**. Quien mira no tiene forma de saber cuál es cuál hasta que lo prueba.
+     **La justificación además era evitable, y está medido:** `public-api.test.ts` ancla listas literales
+     de `primitives` y `feedback`; **un componente que viva en `features/projects/ui/` no lo toca**. El
+     coste que decidió la interfaz ni siquiera se habría pagado.
+     **Por qué es la deuda más importante de este lote:** no es un defecto de una pantalla, es un
+     **defecto de proceso**. El inventario de `shared/ui/` se convirtió en la especificación por
+     descarte, y el criterio "qué es barato para el arnés" desplazó al criterio "qué entiende quien usa
+     la app". Regla escrita a raíz de esto en `docs/harness/conventions.md` §"El template es un SUELO,
+     no un techo", y replicada en los tres agentes (`leader`, `implementer`, `reviewer`).
+
+143. **🔴 LA FUENTE DE VERDAD VISUAL NO EXISTE, y por eso el template ocupó su lugar.** Medido por
+     explorador sobre `docs/`:
+     - **RFC-03 §1/§2 fija piezas y su orden** (toolbar: segmentado → tipo → más filtros → buscar;
+       card: foto/nombre/progreso/tiempo + quick-start) y **ni una línea** sobre jerarquía de página,
+       contenedor, proporción de la card, número de columnas o placeholder de foto.
+     - **Las nueve decisiones de la enmienda E1 son TODAS de contrato y mecánica. Ninguna es visual.**
+     - **El SDD §9 remite "al mockup de referencia" y al brief de identidad, y cita un `visual.md`:
+       ninguno de los tres existe en el repo.** El SDD nombra `--surface-raised` y `--shadow-hard` pero
+       **no da regla de cuándo elevar**.
+     **Consecuencia directa:** cuando el contrato no dice nada del aspecto, el implementer resuelve por
+     descarte con lo que hay en el inventario — y sale una pantalla sin jerarquía donde todo pesa igual.
+     **Es la causa raíz de la 136, la 140 y la 142.** Mientras esto siga así, cada pantalla de UI nueva
+     va a reproducirlo.
+
+144. **🟠 En TODA la app no existe feedback visible de una acción que sale bien.** Medido por barrido:
+     **no hay ningún `Toast` construido** (el token `--z-toast` está declarado **sin implementación** y
+     `--success` **sin un solo uso**), y no existe ninguna primitiva de aviso (Alert/Notice/Banner/
+     Callout) en `shared/ui`. **Lo único visible son los errores**: `AuthFormError`, el `role="alert"` de
+     `NewProjectDialog` y `ErrorState` (que es un panel de página completa, no un aviso).
+     **Esto reencuadra la deuda 137:** el `sr-only` del quick-start **no fue un descuido del
+     implementer, era el único patrón que existía**. La app sabe decir "esto falló" y no sabe decir
+     "esto salió bien".
+
+> **Deudas 145-148 — nacidas del review del lote E2 (2026-08-15). Ninguna bloqueó la aprobación.**
+
+145. **🔴 `src/shared/lib/auth/password.test.ts` es frágil por tiempo, y eso enseña a desconfiar del
+     rojo.** Confirmado por el reviewer midiendo, no leyendo: **1217 ms aislado**, sin `testTimeout`
+     propio en `vitest.config.ts` (o sea el tope por defecto), y **bajo la carga de la pasada completa lo
+     rebasa** — el implementer del lote E2 lo vio salir en rojo en su baseline, y en las dos pasadas del
+     leader no apareció. Es hasheo de contraseña: el coste de CPU es **deliberado**, así que el arreglo
+     es **darle un `testTimeout` propio a ese archivo**, no abaratar el hasheo.
+     **Por qué importa más de lo que parece:** el verde o rojo de `init.sh` pasa a depender de lo cargada
+     que esté la máquina, y **ésa es la peor propiedad que puede tener una puerta de calidad** — entrena
+     a todo el mundo a encogerse de hombros ante un rojo. Familia de la **deuda 103**.
+
+146. **🟠 El gate de CSS compilado existe SÓLO para el segmentado.** `ProjectsView.tsx`,
+     `ProjectCard.tsx` y `ProjectsToolbar.tsx` no tienen quien verifique que sus utilidades emiten una
+     regla real. Hoy están bien —el reviewer lo midió reconstruyendo el "ALL PRESENT" del implementer con
+     un control positivo— pero **mañana no hay quien avise**. Una clase inventada se queda inerte en el
+     atributo y **todos los gates salen verdes**. Es REGLA 7 aplicada al CSS.
+
+147. **🟠 `DashboardView.tsx:49` conserva el andamiaje que E2(f) borró de `/proyectos`.** Dice al usuario
+     final *"los botones de arriba lo crean en dos pasos"*: le explica la mecánica interna del proyecto a
+     quien sólo quiere tejer. Es **el hermano vivo de la deuda 139**, y quedó fuera del alcance de E2
+     porque la enmienda sólo cubría la lista.
+
+148. **🟠 El comentario del `SegmentedControl` promete un absoluto que el TIPO no sostiene.** El JSDoc de
+     `STATUS_FILTERS` (reescrito en la ronda 2) afirma que "ninguna elegida" y "dos elegidas" **no se
+     pueden ni representar**. El reviewer **lo probó en vez de leerlo**: con un `value` fuera del juego de
+     opciones salen **cero** pulsadas, y con dos `options` de igual `value` salen **dos** — y
+     `pnpm typecheck` **acepta las dos cosas**, porque `value: string` no está atado a `options`.
+     El consumidor real está a salvo y ningún gate cubre el hueco. **No se bloqueó** porque el comentario
+     describe de más una decisión correcta en vez de empujar a la equivocada. Arreglo: hacer el primitivo
+     **genérico sobre sus opciones**, para que el tipo sostenga lo que el comentario promete.

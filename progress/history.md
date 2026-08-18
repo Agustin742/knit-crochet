@@ -1136,3 +1136,41 @@ navegador**) → 3 exploradores en paralelo → 1 implementer → 1 reviewer →
   conté las del usuario y me olvidé de la mía, que está marcada como tal en mi propio documento.
   **Lo levantó el implementer leyendo el texto en vez de fiarse del título.** Corregido en el RFC,
   escrito y no borrado. Cuarta aparición de la misma raíz: **nadie vuelve a la fuente a comprobarlo.**
+
+## 2026-08-15 — Lote de arreglo visual de `/proyectos` (enmienda E2 del RFC-03) — CERRADO
+
+**No fue una feature.** Deuda técnica (fichas 136-144). `feature_list.json` no se tocó; #20 sigue `done`.
+Cadena: leader (auditoría del estado real + relanzamiento) → 1 implementer → 1 reviewer
+(**cambios requeridos, 1 bloqueante**) → ronda 2 → **APROBADO**.
+Informe de cierre: `progress/informs/23.informe-fix20_visual_E2.md`.
+
+**Estado final medido por el leader:** `bash ./init.sh` EXIT 0 · `Test Files 77 passed | 3 skipped (80)` ·
+`Tests 1336 passed | 13 skipped (1349)` · `pnpm build` EXIT 0. Partida `1281/1294` en 77 archivos →
+**+55 tests, +3 archivos**, aritmética cerrada sin residuo.
+
+### Lo que hay que recordar de esta sesión
+
+- **La sesión anterior se congeló y el libro mayor describía un trabajo inexistente.** `current.md` daba
+  el lote por "en curso" y no había ni una línea de `src/**`. El informe del implementer era el **último**
+  paso, así que el corte se llevó también el rastro de qué se había intentado: **no hubo desde dónde
+  reanudar**. Se relanzó exigiendo **informe incremental, escrito antes de empezar y actualizado por
+  tanda**. El plan ya estaba partido para que un corte dejara algo coherente; le faltaba que el
+  **registro** lo estuviera también.
+- **El bloqueante fue un comentario, y bloqueó con razón.** El recibo prohibido se borró de
+  `ProjectsToolbar.tsx` y **sobrevivió verbatim en `project-filters.ts`**, en el JSDoc de la constante que
+  alimenta al primitivo nuevo. Dejar la fuente mintiendo es sembrar la próxima reincidencia.
+- **Y una del leader sobre sí mismo:** declaré que "el recibo desapareció del código" **tras mirar un solo
+  archivo**. Lo cazó el reviewer. **Quinta aparición de la misma raíz: nadie vuelve a la fuente a
+  comprobarlo.** Corrección de método: al verificar que algo se eliminó, **se barre el árbol entero**, no
+  el archivo donde uno espera encontrarlo.
+- **Los dos subagentes aportaron hallazgos que nadie les pidió**, y los dos por atacar en vez de leer: el
+  implementer descubrió que un test propio **nació más débil de lo que parecía** (la condición doble lo
+  delató), y el reviewer probó que la exclusividad del primitivo **no es del todo estructural** — el
+  comentario promete un absoluto que el tipo no sostiene (deuda 148).
+- **El eje visible lo cerró el usuario, no el leader.** La verificación en navegador quedó parada en el
+  login por falta de sesión; el usuario revisó la pantalla él mismo y dio el visto bueno. Se registra como
+  su juicio, **no como una medición**. **El móvil sigue sin medir**, segunda sesión consecutiva.
+
+**Deudas nuevas: 145-148.** La 145 es la que más pesa: `password.test.ts` es frágil por tiempo, así que el
+verde o rojo de `init.sh` **depende de lo cargada que esté la máquina** — la peor propiedad que puede
+tener una puerta de calidad, porque **enseña a desconfiar del rojo**.
