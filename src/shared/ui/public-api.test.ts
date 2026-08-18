@@ -30,6 +30,10 @@ const PRIMITIVES = [
   "PROGRESS_TONES",
   "ProgressBar",
   "SKELETON_SHAPES",
+  // Enmienda E2(c) del RFC-03: el segmentado excluyente. El ancla se paga a
+  // propósito — esconder la pieza en `features/` para no tocar esta lista es
+  // justo el antipatrón que la regla "el template es un SUELO" prohíbe.
+  "SegmentedControl",
   "Skeleton",
   "Toggle",
   "ToggleGroup",
