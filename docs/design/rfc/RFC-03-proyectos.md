@@ -228,6 +228,133 @@ página tiene que mandar `?active=true` **explícitamente**, igual que ya hace
 `dashboard-client.ts:123-126`. Y `active` **sólo acepta las cadenas `"true"`/`"false"`**: `?active=1` da
 **400**.
 
+> 🔴 **ENMENDADA POR E2(c) el 2026-08-13. La parte mecánica de E1(i) sigue vigente; su justificación
+> era mala y el resultado en pantalla era malo.** *"Sin crear un primitivo nuevo ni tocar
+> `public-api.test.ts`"* **es un argumento de coste del arnés usado para decidir una cuestión de
+> experiencia de usuario**, y produjo cuatro botones idénticos donde dos son excluyentes y dos
+> acumulables. Además la premisa era falsa: un componente en `features/**/ui/` no toca ese ancla.
+> Ver **deuda 142** y `docs/harness/conventions.md` §"El template es un SUELO, no un techo".
+> **No revertir E2(c) "restaurando" esto.**
+
+---
+
+## 7-ter. Enmienda E2 — las decisiones VISUALES de `/proyectos` (2026-08-13)
+
+**Por qué existe esta enmienda.** #20 se cerró verde (`1281 passed`), con `axe`, gate de composición y
+review aprobado a la primera. El usuario abrió la página y **se veía mal**. La verificación en navegador
+real del leader (`progress/reports/verificacion_navegador_proyectos.md`) midió seis defectos, y la
+exploración de `docs/` encontró la causa raíz: **este RFC fija piezas y su orden, y nada de aspecto**
+(deuda **143**). Las nueve decisiones de E1 son todas de contrato. Cuando el contrato calla, el
+inventario de `shared/ui/` pasa a ser la especificación por descarte.
+
+**E2 es el contrato visual que faltaba.** No es una feature: es deuda técnica (**136-144**).
+`feature_list.json` **no se toca**; #20 sigue `done`.
+
+### E2(a) — La página adopta la jerarquía del Dashboard: secciones con título visible
+
+Hoy `/proyectos` tiene un `h1` suelto y **ninguna sección titulada**, mientras el Dashboard (#19, la
+otra página de contenido) usa `<section>` con `<h2>` **visible** y los controles en la fila del título.
+La lista se alinea con ese precedente: deja de ser una pila plana de bloques.
+**Sigue habiendo exactamente un `h1`** — el gate de composición no se toca.
+
+### E2(b) — Todo el toolbar vive en UNA sola superficie, y desaparece la fila de alturas incompatibles
+
+Hoy medio toolbar flota sobre el fondo espresso (los `Toggle`) y medio sobre una tarjeta elevada (el
+buscador), en una fila `items-end` que mezcla hijos de 44px con uno de 123px: la tarjeta se lee como un
+**diálogo abierto** y quedan ~78px de hueco muerto (deuda **136**).
+
+- **Segmentado + tipo + buscar + "más filtros" van dentro de un único `Card`.**
+- **El `Card` se queda en variante `raised`, obligatorio.** No es estética: es la **única superficie
+  clara donde el anillo de foco llega a 3:1** (medido: 4.68 / 3.13 / 2.95 / 2.41 — deuda **31**).
+  `flat` **no vale**.
+- **Trampa simétrica, medida, no la descubras a golpes:** al entrar en la `Card`, el `<summary>` de
+  "Más filtros" **tiene que pasar de `text-fg-inverse` a `text-fg`** (crema sobre `raised` = **1.14:1**,
+  la deuda **32** al revés). Y ojo con el dato que agrava todo lo anterior: **`text-fg` y `--bg` son el
+  mismo color (1.00:1)**, así que un `Field` suelto sobre el fondo no es "poco legible": es **invisible**.
+
+### E2(c) — El segmentado deja de parecerse a los filtros de tipo (la observación del usuario)
+
+**El defecto:** cuatro botones idénticos de 44px en fila, de los cuales **los dos primeros son
+excluyentes** (estado) y **los dos siguientes acumulables** (tipo). Nada en la pantalla lo dice.
+
+1. **Los dos grupos llevan etiqueta VISIBLE.** Hoy sus nombres (`STATUS_GROUP_LABEL`,
+   `TYPE_GROUP_LABEL`) existen **sólo como nombre accesible**: quien mira la pantalla no los ve. Es la
+   mitad del arreglo y es barata.
+2. **Se crea un componente de segmentado de verdad** para el grupo excluyente: **un solo contenedor
+   continuo, sin separación entre opciones**, con la opción elegida rellena — la forma que promete
+   "elegís una". Los filtros de **tipo se quedan como fichas separadas con hueco entre ellas** — la
+   forma que promete "podés marcar varias". **La diferencia de comportamiento tiene que verse sin
+   probar los botones.**
+3. **Dónde vive y qué gate paga.** Va en **`src/shared/ui/primitives/`**, y **sí, hay que añadirlo a la
+   lista literal de `public-api.test.ts`: se paga y punto.** Es un control genérico, no algo de
+   proyectos. *(Medido: meterlo en `features/projects/ui/` esquivaría ese ancla — y precisamente por eso
+   no se hace: esconder la pieza para no tocar un gate es la enfermedad que E2 viene a curar.)*
+4. **Accesibilidad, sin retroceder:** se conserva `aria-pressed` (lo pide §5) y el nombre accesible del
+   grupo. No se usa `radiogroup` ni `tablist` por el motivo que ya daba el JSDoc de `ToggleGroup`.
+
+### E2(d) — Toda acción con efecto tiene feedback VISIBLE. Se acaba el aviso sólo para lector de pantalla
+
+**Contexto medido, y es peor que un descuido:** en **toda la app no existe feedback visible de una
+acción que sale bien** (deuda **144**) — no hay `Toast` construido, `--success` sin un solo uso,
+`--z-toast` declarado sin implementación. **La app sabe decir "esto falló" y no sabe decir "esto salió
+bien".** El `sr-only` del quick-start no fue un despiste: era el único patrón que existía.
+
+- **El aviso del quick-start pasa a ser visible.** Sigue siendo región viva y **conserva su
+  `aria-label`** (deuda **114**): se le quita el `sr-only`, no el rol.
+- **Además, la tarjeta que arrancó marca su estado.** Un aviso lejos del botón es feedback débil.
+  Tras un arranque con éxito, esa tarjeta queda marcada como *en marcha* **durante la sesión de
+  navegación**.
+  ⚠️ **Límite honesto, escrito a propósito:** ese estado **se pierde al recargar**, porque
+  **no hay forma de saber desde la lista si el cronómetro corre** (ni columna, ni filtro, ni endpoint;
+  E2.2 del RFC-02 descartó abrir el backend). La marca es un hecho **de esta sesión**, y el texto tiene
+  que sonar a eso. **Prohibido inventar un estado persistente que la app no puede sostener.**
+- **E1(e) sigue en pie: el quick-start NO es un toggle.** Marcar "en marcha" no es ofrecer "parar".
+- **No se construye un sistema de toasts.** Queda fuera de alcance; la deuda **144** sigue viva.
+
+### E2(e) — El estado vacío distingue "no tenés proyectos" de "tus filtros no devuelven nada"
+
+Hoy `ProjectsView.tsx:241` decide con `listIsEmpty` y le dice *"Tu cesto está vacío — Empezá un
+proyecto"* a alguien que **sí tiene proyectos** y sólo filtró por Inactivos, por tipo o por aguja
+(deuda **138**). Sólo el buscador de cliente distingue bien.
+
+- **Tres casos, tres mensajes:** cesto vacío de verdad · filtros sin resultados · búsqueda sin
+  coincidencias (este último ya existe y **se conserva tal cual**).
+- **El caso "filtros sin resultados" ofrece la salida obvia: un control para quitar los filtros** que
+  devuelva la vista a su estado por defecto. Hoy el usuario queda en un callejón sin salida.
+
+### E2(f) — El copy deja de explicarle el andamiaje del proyecto al usuario
+
+Dos textos escritos para un desarrollador, no para quien teje (deuda **139**):
+`EMPTY_DESCRIPTION` (*"…te llevan al inicio, **que es donde hoy se crea en dos pasos**"* — el "hoy"
+delata que es una excusa por que #22 no existe) y `SEARCH_HINT` (*"…sobre los proyectos ya cargados,
+**sin volver a pedirlos**"* — explica E1(a), una decisión de arquitectura).
+
+- **`SEARCH_HINT` se elimina.** Un campo llamado "Buscar" no necesita explicación, y su pista es
+  además la causa de que la tarjeta mida 123px de alto.
+- **`EMPTY_DESCRIPTION` se reescribe sin hablar de pasos, de rutas ni de lo que todavía no existe.**
+- **Tono:** no hay guía de voz en `docs/` (dato medido). Se sigue **el precedente ya escrito en la
+  app**: voseo rioplatense ("Empezá", "Probá"), tratamiento de "tu/tus", metáforas de tejido en los
+  errores. **Imitar, no inventar un registro nuevo.**
+
+### E2(g) — El hueco de la foto vacía deja de ser un vacío del 61% de la tarjeta
+
+Con `image === null` la tarjeta dedica **su mayor superficie** a un rectángulo liso con una letra
+diminuta (deuda **140**). **La proporción NO cambia** —para que la rejilla no quede dentada cuando
+convivan tarjetas con foto y sin foto— pero **el placeholder tiene que leerse como algo puesto a
+propósito**: la inicial en tamaño de display y la clase de tejido nombrada, con los tokens que ya
+existen. Es la misma tarjeta que usa el Dashboard: **mejora las dos páginas a la vez, y por eso no se
+puede romper la invariante de E1(f)/deuda 132** (sin `onQuickStart` → cero botones).
+
+### E2(h) — Fuera de alcance de E2, explícito
+
+- **La card sigue sin ser tocable** (E1(f) intacta): el detalle es **#21**. La lista seguirá siendo un
+  escaparate sin puerta hasta entonces, y eso es una decisión tomada, no un olvido.
+- **No se construye sistema de toasts** (deuda 144), **ni se toca el backend**, ni se añaden filtros.
+- **El móvil no se pudo medir** en la verificación del leader (la ventana no baja de 1536px y no hay
+  emulación de dispositivo disponible). La fila del toolbar es la primera sospechosa en angosto:
+  **queda como verificación obligatoria del leader al cerrar**, no como algo que el implementer pueda
+  dar por bueno.
+
 ---
 
 ## 8. Slices de implementación (→ `feature_list.json`)

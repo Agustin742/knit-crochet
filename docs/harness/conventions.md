@@ -123,6 +123,42 @@
 - **Nada del template importa de una app**: ni de `features/`, ni de una capa de
   datos, ni del backend. Es portable por contrato (SDD §2).
 
+### El template es un SUELO, no un techo (regla dura, 2026-08-13)
+
+**El design system existe para que no haya que reinventar lo resuelto, no para
+decidir cómo se ve una pantalla.** Cuando una pantalla necesita una forma que el
+template no tiene, la respuesta correcta es **extender el template**, nunca
+encogerla hasta que quepa en las piezas que ya existen.
+
+- **Prohibido que el coste de tocar el arnés decida una cuestión de experiencia de
+  usuario.** "Crear un primitivo nuevo tocaría `public-api.test.ts`", "haría falta
+  otro gate", "es más barato reusar el `Toggle`" **no son argumentos de diseño**.
+  Si la pieza correcta no existe, se crea y se paga su gate. Si de verdad no se va
+  a crear ahora, **se ficha como deuda y se escribe en el RFC que la forma elegida
+  es un apaño**, no la forma buena.
+- **Controles que se comportan distinto tienen que verse distinto.** Dos controles
+  con la misma pinta prometen el mismo comportamiento. Un grupo **excluyente**
+  (elegís uno) y un grupo **acumulable** (podés marcar varios) **no pueden
+  renderizarse con la misma primitiva, el mismo tamaño y el mismo peso visual**
+  puestos uno al lado del otro: quien mira no tiene forma de saber cuál es cuál.
+- **El caso que originó la regla, para que no se discuta en abstracto:** en
+  `/proyectos`, **E1(i)** resolvió el segmentado activo/inactivo como *"dos `Toggle`
+  dentro de un `ToggleGroup`"* y dejó escrito el motivo en
+  `ProjectsToolbar.tsx:51-54`: *"crear un primitivo de segmentado tocaría
+  `public-api.test.ts`, anclado al literal"*. Resultado medido en navegador: **cuatro
+  botones idénticos de 44px en fila** (`206x44` + `224x44`), de los cuales los dos
+  primeros son excluyentes y los dos siguientes acumulables, **sin una sola señal
+  visual que los distinga**. Un gate del arnés terminó dictando la interfaz.
+  Ficha: **deuda 142**.
+- **Jerarquía visual antes que inventario de piezas.** Antes de elegir componentes,
+  decidí qué es primario, qué es secundario y qué es accesorio en esa pantalla, y
+  **que el tamaño, el peso y la superficie lo reflejen**. Una pantalla donde todo
+  tiene el mismo peso es una pantalla sin jerarquía, aunque cada pieza suelta esté
+  bien construida y todos los tokens sean correctos.
+- **El SDD y los RFC se enmiendan.** Son documentos vivos: si el template se queda
+  corto, la salida es una **enmienda** que lo amplía (y su entrada en el SDD), no
+  una pantalla peor. Proceso en [RFC-00](../design/rfc/RFC-00-proceso.md).
+
 ## Accesibilidad (baseline no negociable, parte de "done")
 
 - HTML semántico + roles/aria correctos (`Dialog`, `Tabs`, `Toast`, `Tooltip`,
