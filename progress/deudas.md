@@ -1985,7 +1985,7 @@ bloqueante **no era un bug de código**, era una frase que afirmaba que ese test
 
 > **Deudas 145-148 — nacidas del review del lote E2 (2026-08-15). Ninguna bloqueó la aprobación.**
 
-145. **🔴 `src/shared/lib/auth/password.test.ts` es frágil por tiempo, y eso enseña a desconfiar del
+145. ~~**🔴 `src/shared/lib/auth/password.test.ts` es frágil por tiempo, y eso enseña a desconfiar del
      rojo.** Confirmado por el reviewer midiendo, no leyendo: **1217 ms aislado**, sin `testTimeout`
      propio en `vitest.config.ts` (o sea el tope por defecto), y **bajo la carga de la pasada completa lo
      rebasa** — el implementer del lote E2 lo vio salir en rojo en su baseline, y en las dos pasadas del
@@ -1993,7 +1993,32 @@ bloqueante **no era un bug de código**, era una frase que afirmaba que ese test
      es **darle un `testTimeout` propio a ese archivo**, no abaratar el hasheo.
      **Por qué importa más de lo que parece:** el verde o rojo de `init.sh` pasa a depender de lo cargada
      que esté la máquina, y **ésa es la peor propiedad que puede tener una puerta de calidad** — entrena
-     a todo el mundo a encogerse de hombros ante un rojo. Familia de la **deuda 103**.
+     a todo el mundo a encogerse de hombros ante un rojo. Familia de la **deuda 103**.~~ → **SALDADA**
+     el 2026-08-18. Arreglo **por alcance, con números medidos, sin tocar el hasheo**: `BCRYPT_COST`
+     sigue en 12 y `bcryptjs` sigue siendo `bcryptjs`; no se saltó ni borró ningún test.
+     - `vitest.config.ts`: `testTimeout: 10_000` global. Justificado con medición propia, no a ojo:
+       fuera de los archivos de abajo, el test más lento de la suite bajo carga es el axe de
+       `ProjectsView` con **3219 ms** — sólo 1.5x de margen sobre el defecto de 5000 ms.
+     - `vi.setConfig({ testTimeout })` **por archivo** (no sale del archivo): 20 s en
+       `src/shared/lib/auth/password.test.ts` (peor medido 4543 ms) y en
+       `src/features/auth/api/auth-service.test.ts` (4315 ms); 30 s en
+       `src/app/api/auth/auth-routes.test.ts` (7501 ms).
+     - `it(nombre, { timeout: 20_000 }, fn)` **sólo en el primer `it`** de `src/shared/db/index.test.ts`
+       (peor medido 5837 ms): es el único que paga el arranque en frío de drizzle+neon; los otros tres
+       corren en milisegundos y se quedan con el tope global a propósito.
+     Cada tope lleva encima el comentario con por qué ese número y qué lo hace lento.
+     **Ampliación del alcance respecto de la ficha original:** `src/app/api/auth/auth-routes.test.ts`
+     **no estaba entre los rojos** y sin embargo es el archivo más lento de la suite (7501 ms y 7161 ms
+     los dos tests de login, ambos por encima del tope por defecto): pasaba **por suerte de reparto**.
+     Misma raíz (bcrypt real a través de los Route Handlers). Arreglar sólo los 3 rojos habría dejado
+     la puerta dependiendo de la carga, que es justo lo que esta ficha quiere eliminar.
+     **REGLA 3 (probado, no afirmado):** con `verifyPassword` devolviendo siempre `true` los tres
+     archivos bcrypt-bound salen en **rojo por aserción** (`expected true to be false`, `expected 200 to
+     be 401`, `promise resolved … instead of rejecting`), y con `createDbClient` devolviendo `{}` cae el
+     `it` cuyo tope se subió (`expected undefined to be function`). Los topes no tapan nada.
+     Verificación: `bash ./init.sh` **x2 → EXIT 0** (240.96 s en frío y 107.34 s en caliente), más una
+     pasada extra **con los 4 núcleos saturados a propósito** → también verde.
+     Salidas reales en `progress/reports/impl_deuda145_timeouts.md`.
 
 146. **🟠 El gate de CSS compilado existe SÓLO para el segmentado.** `ProjectsView.tsx`,
      `ProjectCard.tsx` y `ProjectsToolbar.tsx` no tienen quien verifique que sus utilidades emiten una
