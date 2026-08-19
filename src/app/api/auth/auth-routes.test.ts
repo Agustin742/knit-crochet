@@ -4,6 +4,15 @@ import type { AuthUserStore, NewUserRecord } from "@/features/auth/api/store";
 import type { UserRecord } from "@/features/auth/types";
 import { verifySessionToken } from "@/shared/lib/auth/jwt";
 
+// Tope propio SÓLO para este archivo. No estaba entre los rojos del baseline, pero
+// medido en una pasada completa es el MÁS lento de la suite: 7501 ms y 7161 ms los
+// dos tests de login, muy por encima del tope por defecto de 5000 ms — pasaban por
+// suerte de reparto de carga. Misma raíz que la deuda 145: este archivo dobla sólo
+// el borde de datos, así que el hashing (`bcryptjs` cost 12, coste deliberado) y la
+// firma del JWT son los reales, y encima paga el import de los Route Handlers.
+// 30 s ≈ 4x el peor tiempo medido (7501 ms).
+vi.setConfig({ testTimeout: 30_000 });
+
 const SECRET = "test-secret-suficientemente-largo-para-hs256";
 
 // Solo se dobla el borde de datos: los Route Handlers, la validación zod, el

@@ -13,6 +13,14 @@ import type { UserRecord } from "@/features/auth/types";
 import { verifySessionToken } from "@/shared/lib/auth/jwt";
 import { verifyPassword } from "@/shared/lib/auth/password";
 
+// Tope propio SÓLO para este archivo. Los cinco tests pasan por `registerUser` o
+// `loginUser`, que hashean/comparan con `bcryptjs` cost 12 de verdad (coste de CPU
+// deliberado, no se abarata). Medido: 1471-4315 ms por test con la máquina ociosa;
+// el peor NO es el que salía en rojo, así que el alcance correcto es el archivo
+// entero y no el test que casualmente perdió el sorteo de carga.
+// 20 s ≈ 4.6x el peor tiempo medido (4315 ms). Deuda 145.
+vi.setConfig({ testTimeout: 20_000 });
+
 const SECRET = "test-secret-suficientemente-largo-para-hs256";
 
 function createInMemoryStore(): AuthUserStore & { rows: UserRecord[] } {
