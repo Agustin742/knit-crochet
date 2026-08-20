@@ -2020,22 +2020,237 @@ bloqueante **no era un bug de código**, era una frase que afirmaba que ese test
      pasada extra **con los 4 núcleos saturados a propósito** → también verde.
      Salidas reales en `progress/reports/impl_deuda145_timeouts.md`.
 
-146. **🟠 El gate de CSS compilado existe SÓLO para el segmentado.** `ProjectsView.tsx`,
+146. ~~**🟠 El gate de CSS compilado existe SÓLO para el segmentado.** `ProjectsView.tsx`,
      `ProjectCard.tsx` y `ProjectsToolbar.tsx` no tienen quien verifique que sus utilidades emiten una
      regla real. Hoy están bien —el reviewer lo midió reconstruyendo el "ALL PRESENT" del implementer con
      un control positivo— pero **mañana no hay quien avise**. Una clase inventada se queda inerte en el
-     atributo y **todos los gates salen verdes**. Es REGLA 7 aplicada al CSS.
+     atributo y **todos los gates salen verdes**. Es REGLA 7 aplicada al CSS.~~ → **SALDADA** el
+     2026-08-18, **en tres rondas**, con **un archivo de test versionado** y no con un script descartable:
+     `src/features/projects/ui/projects-ui.classes.test.ts` (**9 tests**).
+     **Las rondas 1 y 2 NO la saldaron, y conviene que quede escrito:** el gate entregado **devolvía verde
+     con una clase inerte en el DOM por CUATRO caminos distintos** —comparación por subcadena, llamada a
+     función externa, atributo esparcido y reasignación con `+=`—, y **las cuatro las destapó el reviewer
+     probando el gate, no leyéndolo**. Un gate con verde falso es peor que no tener gate, y la lección de
+     método es esa: **a un verificador se le mide, no se le lee**.
+     - **Cómo se resolvió el obstáculo real.** El gate del segmentado deriva sus clases de
+       `segmented-control.variants.ts`; estos tres las escriben sueltas **dentro del JSX**, así que esa
+       técnica no se traslada. **No** se extrajeron a un archivo de variantes por componente —eso mueve el
+       literal de sitio pero deja el agujero: la siguiente clase suelta vuelve a quedar fuera y el gate
+       pasa a depender de la disciplina—. Se **derivan del fuente**: se parsea el TSX con el **compilador
+       de TypeScript** (AST, no regex), se recogen los `className` y se resuelve lo que cada uno vale
+       (cadenas, plantillas, constantes locales, arrays con `join`, ternarios, funciones que devuelven
+       clases), y cada nombre se busca en el **CSS compilado**. Cubre lo de hoy y lo que se escriba
+       mañana, sin lista que mantener — mismo criterio que `canonical-tailwind-classes.test.ts`.
+     - **Cobertura medida por el propio gate:** `ProjectsView.tsx` 14 atributos / 47 clases,
+       `ProjectCard.tsx` 12 / 38, `ProjectsToolbar.tsx` 11 / 23.
+     - **El barrido se vigila a sí mismo**, que es lo que impide un verde vacío: cuenta los `className`
+       del AST contra los escritos en el texto crudo, exige que ninguna forma de expresión quede sin
+       seguir, y **fija la lista exacta de fuentes externas** (`className` de la prop y `inputClasses` del
+       design system). Una fuente de clases nueva que el gate no sepa seguir lo pone en **rojo**.
+     - **La comparación contra el CSS exige FRONTERA DE NOMBRE (arreglo de ronda 2).** La ronda 1 buscaba
+       el selector como **subcadena**, y una utilidad recortada es prefijo de la buena: aparecía dentro
+       del selector de la otra y pasaba en verde estando inerte. **Y la técnica del precedente tampoco
+       basta** —la ficha decía "misma técnica que el gate del segmentado" y **era falso**: se comparte la
+       compilación, no la comparación; el anclado a la llave de apertura de
+       `segmented-control.tokens.test.ts:126-131` deja que `[^{,]*` se trague las letras que faltan, así
+       que **también daría verde falso**. Ahora se exige que el nombre **termine ahí**: detrás no puede ir
+       letra, dígito, guion bajo, guion **ni barra invertida** (Tailwind escapa así variantes y tokens).
+     - **Una llamada a función de OTRO archivo ya no se traga las clases (arreglo de ronda 2).** Devolvía
+       los **argumentos** como si fueran el resultado: con un argumento resoluble el atributo salía "no
+       vacío", nadie denunciaba nada y **lo que la función devuelve de verdad no se comprobaba jamás**.
+       Ahora el nombre llamado entra en la lista de fuentes externas, que se compara **exacta**.
+     - **Colisión de nombres y REASIGNACIÓN (rondas 2 y 3).** `locals` indexa por nombre a cualquier
+       profundidad, así que dos declaraciones homónimas se pisaban; y `resolve` devolvía **sólo el
+       inicializador**, así que `let x = "…"; x += " …";` —TypeScript corriente, con las clases escritas
+       dentro del archivo— perdía la mitad. No se resuelve el ámbito ni se interpreta el programa: se
+       **denuncian** los dos casos si el nombre llega a usarse para resolver un `className`.
+     - **Camino que el barrido no atraviesa (arreglo de ronda 3).** Un `className` que llega por un
+       **atributo esparcido** o como **propiedad de un literal de objeto** no era visto por el AST **ni**
+       por el contraste contra el texto crudo, que buscaba el nombre seguido de igual: **las dos redes
+       tenían el mismo agujero**, y una segunda red que falla donde falla la primera no es una segunda
+       red. Ahora el spread y la propiedad se registran, y la cuenta cruda admite el igual **y** los dos
+       puntos.
+     - **Qué promete este gate, dicho sin absolutos (arreglo de ronda 3).** El JSDoc afirmaba que se
+       recogen **todos** los `className`: falso, y es la misma clase de brecha comentario/código que la
+       deuda 148 **en el archivo que existe para denunciarla**. Ahora enumera lo que resuelve y sus
+       **cuatro cajones de denuncia** (`unhandled`, `external`, `ambiguous`, `bypassed`). La promesa no es
+       entenderlo todo: es **no callarse**.
+     - **Restricción respetada — a la segunda.** El JSDoc declaraba "ni un nombre de clase literal" y
+       **era falso**: dos palabras de la propia prosa (los nombres en inglés de la utilidad de flujo y la
+       de rejilla) eran candidatos, y una **metía su regla en el CSS de producción**. Reescritas en
+       castellano. Comprobado por compilación con y sin el archivo: **37616 bytes de CSS en los dos
+       casos**, o sea que el test aporta **cero** CSS.
+     - **Controles positivos, con salida real (los tres en el informe):** clase inventada
+       (`bg-surface-inventada` en `ProjectCard.tsx`) → rojo, y **los gates viejos verdes con la clase
+       puesta** (`23 archivos / 772 tests`), que es el defecto que la ficha describía; **clase recortada**
+       (`items-en` en `ProjectsToolbar.tsx`) → rojo con la comparación nueva y **verde con la vieja**;
+       **helper importado** con argumento resoluble → rojo nombrando la función, y **verde** anulando el
+       arreglo; **atributo esparcido** con una utilidad recortada nueva → rojo nombrando los dos caminos,
+       **verde** con la lógica de ronda 2; **reasignación con `+=`** → rojo nombrando la variable,
+       **verde** sin la comprobación. Todo restaurado, `git status --porcelain` **sin residuo**.
+     - **Coste:** ~1.3 s el archivo aislado (~180 ms de test; el resto es arranque del worker), o sea lo
+       mismo que el gate del segmentado (959 ms / 170 ms). El tope de 120 s heredado es un guardarraíl, no
+       un coste medido. **La duración de la suite completa NO prueba nada** (74.18 / 76.94 / 116 / 121.72 s
+       con el mismo código, según quién y cuándo): el número válido es el del archivo aislado.
+     Salidas reales en `progress/reports/impl_deudas_146_147_148.md` (§RONDA 2) y review en
+     `progress/reports/review_deudas_146_147_148.md`.
 
-147. **🟠 `DashboardView.tsx:49` conserva el andamiaje que E2(f) borró de `/proyectos`.** Dice al usuario
+147. ~~**🟠 `DashboardView.tsx:49` conserva el andamiaje que E2(f) borró de `/proyectos`.** Dice al usuario
      final *"los botones de arriba lo crean en dos pasos"*: le explica la mecánica interna del proyecto a
      quien sólo quiere tejer. Es **el hermano vivo de la deuda 139**, y quedó fuera del alcance de E2
-     porque la enmienda sólo cubría la lista.
+     porque la enmienda sólo cubría la lista.~~ → **SALDADA** el 2026-08-18 **con el criterio de E2(f), no
+     con uno nuevo**: imperativo corto + qué se va a ver, sin rutas, sin pasos y sin nombrar controles.
+     `EMPTY_STATE_DESCRIPTION` pasa a *"Empezá el primero y acá van a estar tus horas, tus proyectos y lo
+     que llevás tejido de cada uno."*, con el porqué escrito encima de la constante.
+     **No promete metros de lana** a propósito: son un agregado *lifetime* que no se mueve con el año
+     (E1.5), así que en el vacío **del año** sería otra promesa que la pantalla no sostiene.
+     **El ancla que faltaba:** ni `EMPTY_STATE_DESCRIPTION` ni `emptyStateTitle` aparecían en **ningún**
+     test — la copia visible no tenía quien la sostuviera. `DashboardView.test.tsx` gana **1 test** que
+     comprueba las dos direcciones (que la copia buena está y que las dos frases de andamiaje no vuelven),
+     igual que E2(f) hizo en `ProjectsView.test.tsx`. **REGLA 3:** restaurando la copia vieja el test sale
+     en rojo (*"expected `<p …>Estrená el año con un proyecto: los botones de arriba lo crean en dos
+     pasos.</p>` to be null"*).
 
-148. **🟠 El comentario del `SegmentedControl` promete un absoluto que el TIPO no sostiene.** El JSDoc de
+148. ~~**🟠 El comentario del `SegmentedControl` promete un absoluto que el TIPO no sostiene.** El JSDoc de
      `STATUS_FILTERS` (reescrito en la ronda 2) afirma que "ninguna elegida" y "dos elegidas" **no se
      pueden ni representar**. El reviewer **lo probó en vez de leerlo**: con un `value` fuera del juego de
      opciones salen **cero** pulsadas, y con dos `options` de igual `value` salen **dos** — y
      `pnpm typecheck` **acepta las dos cosas**, porque `value: string` no está atado a `options`.
      El consumidor real está a salvo y ningún gate cubre el hueco. **No se bloqueó** porque el comentario
      describe de más una decisión correcta en vez de empujar a la equivocada. Arreglo: hacer el primitivo
-     **genérico sobre sus opciones**, para que el tipo sostenga lo que el comentario promete.
+     **genérico sobre sus opciones**, para que el tipo sostenga lo que el comentario promete.~~ →
+     **SALDADA** el 2026-08-18 **haciendo que el tipo sostenga la promesa**, no bajando el comentario:
+     bajarlo era legítimo pero dejaba en pie un estado imposible que el consumidor descubre en pantalla.
+     Ahora el comentario y el tipo dicen lo mismo, **y dicen qué cierra cada cosa**:
+     - **"Ninguna elegida" lo cierra el TIPO.** `SegmentedControlOption<TValue extends string = string>` y
+       `SegmentedControlProps<TValue>`, con **`value: NoInfer<TValue>`** — la pieza clave: sin `NoInfer`,
+       `TValue` se infiere también desde `value` y un valor ajeno se cuela **ampliando la unión**, o sea
+       que el genérico solo no arreglaba nada. El parámetro por defecto es `string`, así que
+       `readonly SegmentedControlOption[]` sigue compilando sin anotar (compatibilidad comprobada).
+     - **"Dos elegidas" NO lo puede cerrar el tipo** —nada impide dos `options` con el mismo `value`—, así
+       que lo cierra el **render**: la elegida pasa a ser una **posición** (`findIndex`), se marca la
+       primera y ninguna más, y lo sostiene un test.
+     - **Lo que no cierra ninguno de los dos** queda escrito y medido, en orden de probabilidad:
+       **(1) anotar `options` con el parámetro por defecto** (`readonly SegmentedControlOption[]`)
+       **colapsa `TValue` a `string`** y vuelve a aceptar cualquier `value` —no es "llamar sin tipos", es
+       una anotación idiomática, y era **la del propio archivo de test del primitivo**: lo cazó el
+       reviewer con `tsc` (EXIT 0) y fue bloqueante de ronda 2, porque una brecha comentario/tipo es
+       literalmente el enunciado de esta ficha—; **(2)** llamar sin tipos (JS puro) o forzar con un `as`.
+       En los dos casos salen cero pulsadas y no se defiende en runtime a propósito. **Arreglo de ronda 2,
+       sin tocar comportamiento:** la enumeración incluye el caso, las dos frases absolutas quedan
+       condicionadas a que `TValue` se infiera, la constante `OPTIONS` del test lleva encima el aviso de
+       que **no está protegida**, y el test del `ref` pasa a usar la forma inferida (era el único sitio
+       donde se pasaba un `value` sin protección de tipo sin que se notara al leerlo).
+     **REGLA 3, los dos rojos con salida real:** quitando `NoInfer`, `tsc` →
+     *"SegmentedControl.test.tsx(97,9): error TS2578: Unused '@ts-expect-error' directive."*; volviendo
+     `aria-pressed` al valor, *"expected [ `<button>`, …(1) ] to have a length of 1 but got 2"*.
+     **+3 tests** (ancla de tipo con `@ts-expect-error`, opciones duplicadas y reenvío del `ref`, que es
+     lo único que la aserción sobre `forwardRef` podía romper).
+     **Efecto colateral bueno:** `ProjectsToolbar` pierde `handleStatus` —ya no hace falta reconstruir el
+     tipo del dominio buscando la opción— y el JSDoc de `STATUS_FILTERS`, que repetía la misma promesa
+     falsa (fue el bloqueante de la ronda 2 de E2), queda alineado. `public-api.test.ts` intacto.
+
+> **Deudas 149-152 — nacidas del residuo del review del lote 146/147/148 (2026-08-18). Ninguna bloqueó
+> la aprobación; las cuatro las dejó el reviewer explícitamente en el tejado del leader.**
+
+149. **🟠 El gate viejo del segmentado tiene el defecto 146-A, por partida doble.**
+     `src/shared/ui/primitives/segmented-control/segmented-control.tokens.test.ts` es el **precedente**
+     del que nació el gate nuevo, y arrastra el fallo que la deuda 146 corrigió en el hijo pero no en el
+     padre. **Confirmado por medición del reviewer en la ronda 2**, no por lectura, y **no tocado a
+     propósito** (estaba fuera del alcance del encargo).
+     **Escenario concreto de fallo, las dos vías:**
+     - **Existencia por subcadena.** Comprueba que la clase aparece en el CSS compilado buscando el
+       nombre **como trozo de texto**, sin exigir frontera. Una utilidad **recortada** es prefijo de la
+       buena, así que una clase que **no emite ninguna regla** pasa por verde si otra clase más larga la
+       contiene. Es literalmente el bloqueante 146-A.
+     - **`ruleBody` puede devolver el cuerpo de OTRA regla.** El anclado con el que recorta el cuerpo de
+       la regla no garantiza que lo que devuelve pertenezca al selector que se le pidió; encima de ese
+       texto se asientan **todas sus aserciones de forma**. O sea: el test puede estar afirmando cosas
+       ciertas **sobre la regla equivocada**.
+     **Por qué importa:** es el gate del primitivo del que cuelgan dos pantallas, y un verde falso aquí
+     no se nota nunca — es la propiedad que hace peligrosa a esta familia de tests. Arreglo: adoptar la
+     **frontera de nombre** y el recorte de regla del gate nuevo
+     (`src/features/projects/ui/projects-ui.classes.test.ts`), con control positivo (rojo **y** el verde
+     de antes) como manda la REGLA 3. Familia de las deudas 141 y 146.
+
+150. **🟠 El gate de clases cubre 3 archivos de los ~20 que pintan clases.**
+     `projects-ui.classes.test.ts` deriva las clases del fuente por AST y las contrasta contra el CSS
+     compilado, pero su lista `COMPONENTS` tiene **tres entradas**. En el resto de la UI, una clase
+     inerte en el DOM —un `className` que no emite ninguna regla— **sigue sin que nadie la vea**, que es
+     exactamente el agujero que la deuda 141 nombró.
+     **Por qué no se hizo ya y por qué ahora sí conviene:** mientras el gate tenía vías de verde falso,
+     extenderlo por directorio **multiplicaba un verde falso conocido** — habría dado confianza sin
+     medir. Con los **cuatro cajones de denuncia** de la ronda 3 cerrados, extenderlo ya suma en vez de
+     mentir. Arreglo: pasar de lista explícita a **barrido por directorio**, y medir cuántos archivos
+     entran y cuánto cuesta la pasada antes de fijarlo.
+     **Aviso para quien lo haga (nota práctica del reviewer):** `EXTERNAL_SOURCES` es una lista
+     **exacta**, así que adoptar el `cn()` que la convención manda —hoy ninguno de los tres archivos lo
+     llama— pondrá el gate **rojo** hasta que se añada `cn` a esa lista. Es el comportamiento diseñado
+     (obliga a decidir en vez de tragarse las clases en silencio), pero sorprende si no se sabe.
+
+151. **🟢 La expresión regular de la línea 478 del gate nuevo no hace lo que su código dice, y está verde
+     por accidente.** En `src/features/projects/ui/projects-ui.classes.test.ts:478`,
+     ``new RegExp(`${CLASS_ATTRIBUTE}\s*[=:]`, "g")`` pierde la barra invertida **dentro del template
+     literal** (en una cadena de JS, `\s` es un escape desconocido y se queda en `s`), así que el patrón
+     que corre de verdad es **`classNames*[=:]`**: "className", cero o más letras `s`, y luego `=` o `:`.
+     **Verificado por el leader el 2026-08-20**, después de que el reviewer lo dejara anotado.
+     **Escenario concreto de fallo:** hoy pasa porque `s*` casa con **cero** repeticiones y nadie escribe
+     espacio antes del `=`. El día que alguien escriba `className = "…"` o `className : "…"` —con
+     espacio, que es justo lo que `\s*` decía cubrir—, **la cuenta cruda no lo verá**, y esa cuenta existe
+     precisamente para ser la **segunda red** del AST. El lint no avisa. Arreglo: escapar la barra
+     (`\s`) o construir la expresión sin template literal, con un control positivo que la deje en rojo.
+
+152. **🟢 Una clase puesta con `classList` desde un `ref` es invisible para el gate, y eso hoy sólo está
+     en la cabeza del que lo escribió.** El gate declara su alcance —clases **escritas en el fuente**—, y
+     el reviewer midió las dos salidas: el atributo `class` a secas **lo caza `tsc`** (comprobado), pero
+     `elemento.classList.add("…")` desde un `ref` **typechequea y el gate no lo ve**.
+     **Cero ocurrencias en el repo hoy**, y por eso se dictaminó no bloqueante. Arreglo: **media línea en
+     el JSDoc** del gate que nombre la vía, para que quien la use sepa que se está saliendo de la red en
+     vez de descubrirlo por una clase inerte en pantalla. No hay test que escribir: es documentación de
+     un límite conocido.
+
+> **Deudas 153-154 — nacidas de la VERIFICACIÓN EN NAVEGADOR (REGLA 4) del 2026-08-20, hecha por el
+> leader al cerrar el lote 146/147/148. Ninguna la produjo ese lote: las dos son anteriores y
+> aparecieron por mirar la pantalla, que es exactamente para lo que existe la regla.**
+
+153. **🔴 El estado vacío del año es INALCANZABLE para quien tenga un proyecto en curso — y es el mismo
+     error que el código de al lado se cuidó de no cometer.** Medido en pantalla el 2026-08-20:
+     con el año en **2026** y en **2027** el Dashboard muestra `0 horas tejidas` **y aun así no sale el
+     vacío**, porque el panel "Proyectos en curso" sigue mostrando el mismo proyecto en los dos años.
+     **Escenario concreto de fallo:** `DashboardView.tsx:189` decide `isEmpty` exigiendo, además de las
+     métricas en cero, que **`data.projects.length === 0`**. Esa lista la trae
+     `getActiveProjects({ year, type })` de `dashboard-client.ts:119`, **que recibe `year` y NUNCA lo
+     manda**: su `queryString` sólo lleva `active` y `type`. Y no es un olvido de una línea — **el
+     endpoint no tiene filtro de año**: el schema de `src/features/projects/validation.ts:40` sólo
+     conoce `active`, así que la lista es **de por vida**, no del año.
+     **Por qué duele especialmente:** el comentario de `DashboardView.tsx:185-187` razona, sobre los
+     metros, que *"«vacío» es del AÑO, así que los metros no cuentan: son un agregado lifetime […] quien
+     hubiera cargado una lana alguna vez no vería nunca el estado vacío"*. **Es literalmente la misma
+     trampa, y `projects` cae en ella tres líneas más abajo.** El título que promete el vacío
+     (*"Todavía no tejiste nada en {año}"*) es una afirmación **sobre el año** condicionada a un hecho
+     **que no es del año**.
+     **Consecuencia directa sobre la deuda 147:** la copia que ese lote reescribió **no se puede ver en
+     pantalla** mientras haya un proyecto activo. Se saldó bien y está anclada por test, pero **su
+     camino de llegada está roto**.
+     **Dos arreglos posibles, y la decisión no es obvia:** (a) sacar `projects` de `isEmpty` y dejarlo
+     como juicio del año puro —coherente con el argumento de los metros—; o (b) darle al endpoint un
+     filtro de año de verdad y que el panel sea del año. **Hay que elegir a sabiendas**, porque cambia
+     qué significa "Proyectos en curso". Lo que no se puede es dejarlo como está: hoy el parámetro
+     `year` de `getActiveProjects` **miente**, y eso vale para las dos salidas.
+
+154. **🟠 El Dashboard no recibió el trabajo de jerarquía visual que `/proyectos` sí recibió (E2), y a
+     ancho de escritorio se ve roto.** Medido en pantalla el 2026-08-20 a ~1536 px de ancho.
+     **NO lo produjo el lote 146/147/148** —lo único que ese lote cambia en pantalla es una línea de
+     copia—: es estado anterior, de la época de #19, y sale a la luz ahora porque **por fin alguien
+     miró**. Dos síntomas concretos:
+     - **"Tu año en números" pinta UNA tarjeta ocupando un tercio del ancho, con dos tercios de vacío
+       marrón a su derecha**, mientras los tres selectores (`Horas`/`Proyectos`/`Metros`) viven pegados
+       al borde derecho, a media pantalla de distancia de la tarjeta que gobiernan. Por defecto sólo
+       `Horas` está elegida, así que **el estado por defecto de la página es el que peor se ve**.
+     - **El bloque "Ordenar por" flota suelto**: aparece **por encima y a la derecha** del título
+       "Proyectos en curso" con el que forma fila, sin alinearse con él, y **"Ver todos" queda FUERA de
+       la tarjeta**, colgando de su borde derecho. Se lee como un panel a la deriva, no como la cabecera
+       de una sección.
+     **Por qué importa:** es la **página de entrada** de la app —lo primero que se ve al entrar—, y es la
+     misma clase de problema que las deudas 136-144 describieron para `/proyectos`. Familia de la
+     **141** (*ningún gate mide el eje visible*): esto pasó todos los gates durante meses.

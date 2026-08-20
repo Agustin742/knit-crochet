@@ -33,7 +33,15 @@ export const ANY_OPTION_LABEL = "Todas";
 const STATUS_GROUP_LABEL_ID = "projects-status-label";
 const TYPE_GROUP_LABEL_ID = "projects-type-label";
 
-/** Las dos mitades del segmentado, en la forma que pide el primitivo. */
+/**
+ * Las dos mitades del segmentado, en la forma que pide el primitivo.
+ *
+ * El `value` que sale de aquí es `StatusFilter`, no `string`: el segmentado es
+ * **genérico sobre sus opciones** (deuda 148), infiere el juego desde esta lista
+ * y devuelve el tipo del dominio en `onValueChange`. Por eso el consumidor ya no
+ * reconstruye el tipo buscando la opción a mano — y un `value` que no fuera una
+ * de estas dos mitades ni siquiera compilaría.
+ */
 const STATUS_OPTIONS = STATUS_FILTERS.map((option) => ({
   value: option.value,
   label: option.label,
@@ -105,16 +113,6 @@ export function ProjectsToolbar({
   onYarnChange,
   yarnChoices,
 }: ProjectsToolbarProps) {
-  /* El primitivo habla en cadenas (es genérico). Se vuelve al tipo del dominio
-     buscando la opción, no con un cast: si mañana el segmentado pintara una
-     mitad que no es un filtro de estado, un cast lo dejaría pasar. */
-  function handleStatus(value: string) {
-    const chosen = STATUS_FILTERS.find((option) => option.value === value);
-    if (chosen !== undefined) {
-      onStatusChange(chosen.value);
-    }
-  }
-
   return (
     <section aria-label={TOOLBAR_LABEL}>
       <Card className="flex flex-col gap-(--space-5)">
@@ -128,7 +126,7 @@ export function ProjectsToolbar({
               aria-labelledby={STATUS_GROUP_LABEL_ID}
               options={STATUS_OPTIONS}
               value={status}
-              onValueChange={handleStatus}
+              onValueChange={onStatusChange}
             />
           </div>
 

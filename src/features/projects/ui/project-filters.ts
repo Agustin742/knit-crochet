@@ -19,9 +19,12 @@ export const CRAFT_TYPE_ORDER: readonly CraftType[] = CRAFT_TYPES;
  * El segmentado activo/inactivo (RFC-03 §1, enmienda **E2(c)**).
  *
  * Son **dos** opciones y **siempre hay exactamente una** elegida. Esa
- * exclusividad es **estructural del primitivo `SegmentedControl`**, no una
- * convención que imponga este consumidor: su prop `value` es un escalar, así
- * que "ninguna elegida" y "dos elegidas" no se pueden ni representar.
+ * exclusividad la sostiene el primitivo `SegmentedControl`, no una convención de
+ * este consumidor: su prop `value` es un escalar **atado al juego de opciones**
+ * —el primitivo es genérico sobre ellas—, así que un estado que no fuera una de
+ * estas dos mitades no compilaría, y si dos opciones compartieran valor el
+ * render marca la primera y ninguna más. El detalle de qué cierra el tipo y qué
+ * cierra el render está en el JSDoc del primitivo (deuda 148).
  *
  * **E1(i)** —dos `Toggle` con la exclusividad impuesta desde el consumidor—
  * quedó **enmendada por E2(c)**, y se deja escrita en vez de borrada: el

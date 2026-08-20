@@ -35,7 +35,36 @@
       "Bash(pnpm dev)",
       "Bash(pnpm build)",
       "Bash(pnpm install)",
-      "Bash(pnpm run:*)"
+      "Bash(pnpm run:*)",
+
+      "mcp__chrome-devtools__take_screenshot",
+      "mcp__chrome-devtools__take_snapshot",
+      "mcp__chrome-devtools__resize_page",
+      "mcp__chrome-devtools__emulate",
+      "mcp__chrome-devtools__new_page",
+      "mcp__chrome-devtools__navigate_page",
+      "mcp__chrome-devtools__select_page",
+      "mcp__chrome-devtools__list_pages",
+      "mcp__chrome-devtools__list_console_messages",
+      "mcp__chrome-devtools__list_network_requests",
+      "mcp__chrome-devtools__get_network_request",
+      "mcp__chrome-devtools__wait_for",
+
+      "mcp__claude-in-chrome__navigate",
+      "mcp__claude-in-chrome__tabs_context_mcp",
+      "mcp__claude-in-chrome__read_page",
+      "mcp__claude-in-chrome__get_page_text",
+      "mcp__claude-in-chrome__find",
+      "mcp__claude-in-chrome__read_console_messages",
+      "mcp__claude-in-chrome__read_network_requests",
+      "mcp__claude-in-chrome__resize_window",
+      "mcp__claude-in-chrome__list_connected_browsers",
+
+      "mcp__engram__mem_search",
+      "mcp__engram__mem_context",
+      "mcp__engram__mem_get_observation",
+      "mcp__context7__query-docs",
+      "mcp__context7__resolve-library-id"
     ]
   }
 }

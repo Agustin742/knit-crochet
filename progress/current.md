@@ -3,6 +3,74 @@
 > Este archivo se vacía al cerrar cada sesión y se mueve a `history.md`.
 > Mientras trabajas, **mantenlo actualizado en tiempo real**, no al final.
 
+## ✅ ESTADO AL CERRAR (2026-08-20) — VERDE. Lote de deudas 146, 147 y 148 CERRADO
+
+> **NO es una feature.** `feature_list.json` **no se tocó** (33 features: 23 `done`, 10 `pending`,
+> 0 `in_progress`).
+>
+> **`bash ./init.sh` → EXIT 0**, medido por el leader **el 2026-08-20 sobre el árbol de hoy**.
+> `Test Files 78 passed | 3 skipped (81)` · `Tests 1349 passed | 13 skipped (1362)` · 207.17 s.
+> Partida original `77 / 1336` → **+1 archivo, +13 tests**, aritmética cerrada sin residuo
+> (+3 segmentado, +1 Dashboard, +9 gate nuevo).
+>
+> **Reviewer: APROBADO en la ronda 3.** Informe de cierre:
+> `progress/informs/25.informe-deudas_146_147_148.md`.
+
+**Cadena:** leader → 1 implementer → 1 reviewer (**4 bloqueantes**) → ronda 2 (**3 bloqueantes más**)
+→ ronda 3 → **APROBADO**.
+
+- **148** — `SegmentedControl` **genérico sobre sus opciones** con `value: NoInfer<TValue>`: el tipo
+  cierra "ninguna elegida"; el **render** (la elegida es una posición) cierra "dos elegidas", que el
+  tipo no puede; lo que no cierra ninguno queda escrito. Consumidor simplificado (`handleStatus` fuera).
+- **147** — `EMPTY_STATE_DESCRIPTION` del Dashboard reescrito con el criterio de **E2(f)**, y **el ancla
+  que no existía**: la copia visible no la sostenía ningún test.
+- **146** — gate nuevo `src/features/projects/ui/projects-ui.classes.test.ts`: deriva las clases del
+  **fuente TSX por AST** y comprueba contra el **CSS compilado** exigiendo **frontera de nombre**.
+  Devolvía **verde falso por cuatro caminos** (subcadena, función importada, atributo esparcido,
+  reasignación con `+=`) y **las cuatro las encontró el reviewer PROBÁNDOLO, ninguna leyéndolo**.
+
+### 🧊 Esta sesión se congeló, y el cierre se hizo dos días después
+
+El reviewer escribió **APROBADO a las 23:44:45 del 2026-08-18** y **no ocurrió nada más**: este archivo
+se quedó en su estado de las 23:30 (*"pendiente de re-review"*), sin entrada en `history.md`, sin
+informe, sin fichas de deuda y sin commit. **Congelación inversa a la del 13**, que declaraba trabajo
+inexistente; ésta **callaba trabajo real y aprobado**. El **informe incremental funcionó**: los reports
+estaban completos y no hubo que reconstruir nada.
+
+**Se volvió a medir el gate** porque dos archivos se tocaron **después** del último verde
+(`projects-ui.classes.test.ts` 23:39 y `ProjectsToolbar.tsx` 23:41, el reviewer restaurándolos tras sus
+controles positivos — comprobado, sin andamiaje inyectado). El verde heredado **no cubría el árbol en
+disco**; el de hoy sí.
+
+**Y una del verificador:** el **checkpoint C5 afirmó *"`history.md` con su entrada"* y era falso**.
+Sexta aparición de la raíz de este libro mayor: *nadie vuelve a la fuente a comprobarlo*.
+
+### Deudas nuevas: 149-152 (residuo del review, todas del tejado del leader)
+
+- **149 🟠** — el gate **viejo** del segmentado arrastra el defecto 146-A **por partida doble**.
+- **150 🟠** — el gate nuevo cubre **3 archivos de ~20**; extenderlo ya no multiplica un verde falso.
+- **151 🟢** — la barra invertida perdida de la línea 478: corre `classNames*[=:]`, **verde por accidente**.
+- **152 🟢** — la vía `classList` desde un `ref` queda fuera del alcance declarado del gate.
+
+### ✅ REGLA 4 — HECHA el 2026-08-20 (primera vez en tres sesiones)
+
+Con `pnpm dev` en `localhost:3001` y **sesión iniciada por el usuario**. **Lo que este lote cambia no
+rompió nada**: ninguna clase de CSS cambió y el segmentado marca exactamente una opción.
+**Y encontró dos cosas que ningún gate podía encontrar:**
+
+- **Deuda 153 🔴 — la copia de la 147 NO SE PUEDE VER.** Probado con año 2026 y 2027: dice
+  `0 horas tejidas` y aun así no sale el vacío, porque `isEmpty` exige que la lista de proyectos
+  activos esté vacía y esa lista **es de por vida** (`getActiveProjects` recibe un `year` que **nunca
+  manda**; el endpoint ni tiene ese filtro). El código, tres líneas más arriba, **razona por qué un
+  agregado lifetime no puede decidir un vacío del año** — y cae en la trampa con `projects`.
+- **Deuda 154 🟠 — el Dashboard a ancho de escritorio se ve roto**, y **no por este lote**: una tarjeta
+  de métrica ocupando un tercio con dos tercios de vacío, y "Ordenar por" flotando desalineado sobre el
+  título con el que forma fila, con "Ver todos" fuera de la tarjeta. Estado anterior, de #19.
+
+⚠️ **El MÓVIL sigue sin medir, tercera sesión** — y esta vez con causa instrumentada, no por olvido:
+`resize_window` informa éxito y **el viewport no cambia** (comprobado con captura), y el MCP
+`chrome-devtools` figura conectado pero **no expone herramientas**. Se paró tras dos intentos.
+
 ## ✅ ESTADO AL CERRAR (2026-08-15) — VERDE. Lote de arreglo visual de `/proyectos` CERRADO
 
 > **`bash ./init.sh` → `EXIT_CODE=0`.** `Test Files 77 passed | 3 skipped (80)` ·

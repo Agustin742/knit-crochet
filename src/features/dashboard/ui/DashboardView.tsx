@@ -45,8 +45,19 @@ export function emptyStateTitle(year: number): string {
   return `Todavía no tejiste nada en ${year}`;
 }
 
+/**
+ * El vacío del año **cuenta qué va a haber acá**, no cómo funciona la app
+ * (deuda 147, el hermano vivo de la 139).
+ *
+ * La copia anterior decía *"los botones de arriba lo crean en dos pasos"*: le
+ * explicaba la mecánica interna del proyecto —dónde están los controles y por
+ * cuántas pantallas pasa el alta— a alguien que sólo quiere tejer, y además
+ * envejece sola en cuanto el alta cambie de forma. Mismo criterio que **E2(f)**
+ * aplicó al `EMPTY_DESCRIPTION` de `/proyectos`: nada de rutas, ni de pasos, ni
+ * de lo que todavía no existe.
+ */
 export const EMPTY_STATE_DESCRIPTION =
-  "Estrená el año con un proyecto: los botones de arriba lo crean en dos pasos.";
+  "Empezá el primero y acá van a estar tus horas, tus proyectos y lo que llevás tejido de cada uno.";
 
 type DashboardData = {
   metrics: DashboardMetrics;

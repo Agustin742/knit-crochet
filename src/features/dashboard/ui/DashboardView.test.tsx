@@ -10,7 +10,12 @@ import type { DashboardMetrics } from "@/features/dashboard/types";
 import type { SerializedProject } from "@/features/projects/ui";
 import { SECONDS_PER_HOUR } from "@/shared/config";
 
-import { DashboardView, ERROR_TITLE, LOADING_MESSAGE } from "./DashboardView";
+import {
+  DashboardView,
+  EMPTY_STATE_DESCRIPTION,
+  ERROR_TITLE,
+  LOADING_MESSAGE,
+} from "./DashboardView";
 import {
   METRICS_ENDPOINT,
   NETWORK_ERROR_MESSAGE,
@@ -489,6 +494,23 @@ describe("estados de carga, vacío y error (RFC-02 §4)", () => {
     expect(
       screen.getByRole("button", { name: "Nuevo dos agujas" }),
     ).toBeInTheDocument();
+  });
+
+  /**
+   * Ancla de la copia visible del vacío (deuda 147, mismo criterio que **E2(f)**
+   * en `/proyectos`). Hasta ahora **ninguna prueba la sostenía**, así que el
+   * texto que ve el usuario podía volver a explicarle la mecánica de la app sin
+   * que nada se pusiera rojo. Se comprueba lo que dice **y** lo que ya no dice.
+   */
+  it("no le explica el andamiaje de la app a quien todavía no tejió nada", async () => {
+    await renderReady({
+      metrics: metricsBody({ hours: 0, projects: 0, yarnMeters: 500 }),
+      projects: [],
+    });
+
+    expect(screen.getByText(EMPTY_STATE_DESCRIPTION)).toBeInTheDocument();
+    expect(screen.queryByText(/en dos pasos/i)).toBeNull();
+    expect(screen.queryByText(/los botones de arriba/i)).toBeNull();
   });
 
   it("muestra el error con su reintento, y reintentar vuelve a pedir", async () => {

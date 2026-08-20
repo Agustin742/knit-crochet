@@ -1174,3 +1174,79 @@ Informe de cierre: `progress/informs/23.informe-fix20_visual_E2.md`.
 **Deudas nuevas: 145-148.** La 145 es la que más pesa: `password.test.ts` es frágil por tiempo, así que el
 verde o rojo de `init.sh` **depende de lo cargada que esté la máquina** — la peor propiedad que puede
 tener una puerta de calidad, porque **enseña a desconfiar del rojo**.
+
+---
+
+## 2026-08-18 / 2026-08-20 — Lote de deudas 146, 147 y 148 — CERRADO (con congelación en medio)
+
+**No fue una feature.** Deuda técnica (fichas 146, 147, 148). `feature_list.json` no se tocó
+(33 features, 23 `done`, 10 `pending`, 0 `in_progress`).
+Cadena: leader → 1 implementer → 1 reviewer (**cambios requeridos, 4 bloqueantes**) → ronda 2
+(**3 bloqueantes más**) → ronda 3 → **APROBADO**.
+Informe de cierre: `progress/informs/25.informe-deudas_146_147_148.md`.
+
+**Estado final medido por el leader el 2026-08-20 sobre el árbol de hoy** (no heredado):
+`bash ./init.sh` EXIT 0 · `Test Files 78 passed | 3 skipped (81)` ·
+`Tests 1349 passed | 13 skipped (1362)` · 207.17 s. Partida `1336/1349` en 77 archivos →
+**+13 tests, +1 archivo**, aritmética cerrada sin residuo (+3 segmentado, +1 Dashboard, +9 gate nuevo).
+
+- **146** — gate nuevo `src/features/projects/ui/projects-ui.classes.test.ts`: deriva los nombres de
+  clase del fuente TSX **por AST** y comprueba contra el **CSS compilado** que cada uno emite regla real,
+  exigiendo **frontera de nombre**. Sin una sola clase literal escrita en el test (Tailwind escanea los
+  tests, y un verificador no puede provocar lo que verifica).
+- **147** — `EMPTY_STATE_DESCRIPTION` del Dashboard reescrito con el criterio de E2(f), y **el ancla que
+  no existía**: la copia visible no la sostenía ningún test.
+- **148** — `SegmentedControl` **genérico sobre sus opciones** con `value: NoInfer<TValue>`. El tipo
+  cierra "ninguna elegida"; el **render** (la elegida es una posición) cierra "dos elegidas", que el tipo
+  no puede; lo que no cierra ninguno de los dos **queda escrito**.
+
+### Lo que hay que recordar de esta sesión
+
+- **Segunda congelación en seis días, y esta vez al revés.** La del 13 dejó el libro mayor
+  **adelantado** (describía trabajo inexistente); ésta lo dejó **atrasado**: el reviewer escribió
+  **APROBADO a las 23:44:45** y no ocurrió nada más — `current.md` se quedó en su estado de las 23:30
+  (*"pendiente de re-review"*), sin entrada en `history.md`, sin informe, sin fichas y sin commit.
+  **El informe incremental funcionó**: los reports de los dos subagentes estaban completos, así que el
+  cierre se pudo hacer dos días después sin reconstruir nada.
+- **El chequeo que localiza una congelación en dos minutos:** comparar las **marcas de tiempo de los
+  fuentes** contra la hora del **último `init.sh` verde**. Aquí delató que dos archivos se tocaron
+  después del verde de la ronda 3 (23:26): eran del reviewer restaurándolos tras sus controles
+  positivos —comprobado, sin andamiaje inyectado—, pero **el verde heredado no cubría el árbol en
+  disco**, así que se volvió a medir.
+- **A un verificador se le mide, no se le lee.** El gate entregado devolvía **verde con una clase inerte
+  en el DOM por CUATRO caminos** (subcadena, función importada que se tragaba las clases, atributo
+  esparcido, y reasignación con `+=`), y además **metía una regla real en el CSS de producción por dos
+  palabras de su propia prosa**, en el archivo cuyo JSDoc declaraba no hacerlo. **Las cuatro vías
+  aparecieron probando el gate, ninguna leyéndolo**, y dos las encontró el reviewer buscándolas a
+  propósito después de que el implementer ya hubiera cerrado la anterior.
+- **Arreglar una deuda reintroduciéndola no es arreglarla.** El JSDoc del segmentado, reescrito en la
+  ronda 1, **volvió a prometer un absoluto que el tipo no sostenía**; el reviewer lo bloqueó porque una
+  brecha comentario/tipo es literalmente el enunciado de la deuda 148.
+- **El implementer refutó con salida real una instrucción equivocada del reviewer** en vez de
+  obedecerla. Queda escrito porque es lo que se quiere que pase.
+- **Y una del propio verificador:** el **checkpoint C5 afirmó *"`history.md` con su entrada"* y era
+  falso** — `git status` daba el archivo sin tocar. **Sexta aparición de la misma raíz de este libro
+  mayor: nadie vuelve a la fuente a comprobarlo.**
+
+**Deudas nuevas: 149-152**, las cuatro del residuo que el reviewer dejó en el tejado del leader. La que
+más pesa es la **149**: el gate **viejo** del segmentado arrastra el mismo defecto 146-A que se corrigió
+en el hijo —por partida doble—, confirmado midiendo. La **150** propone extender el gate a los ~20
+archivos que pintan clases, cosa que antes habría **multiplicado un verde falso conocido** y ahora ya no.
+
+**REGLA 4 — hecha el 2026-08-20, por primera vez en tres sesiones** (las dos anteriores encallaron en el
+login; las credenciales las escribe el usuario, no el agente). **Lo que el lote cambia en pantalla no
+rompió nada**, y la verificación **encontró dos cosas que ningún gate podía encontrar**:
+
+- **Deuda 153 🔴 — la copia que este lote reescribió (147) NO SE PUEDE VER.** Con el año en 2026 y en
+  2027 el Dashboard dice `0 horas tejidas` y aun así no sale el vacío: `isEmpty` exige que la lista de
+  proyectos activos esté vacía, y esa lista **es de por vida** — `getActiveProjects` recibe un `year`
+  que **nunca manda** y el endpoint ni siquiera tiene ese filtro. Lo que lo vuelve notable es que el
+  comentario de tres líneas más arriba **razona exactamente por qué un agregado lifetime no puede
+  decidir un vacío del año** —lo aplicó a los metros— y `projects` cae en la misma trampa.
+- **Deuda 154 🟠 — el Dashboard a ancho de escritorio se ve roto**, y **no por este lote**: estado
+  anterior de #19 que llevaba meses pasando todos los gates. Familia de la 141.
+
+**El móvil sigue sin medir, tercera sesión consecutiva**, pero esta vez **con causa instrumentada**:
+`resize_window` informa éxito y el viewport no cambia (comprobado con captura), y el MCP
+`chrome-devtools` figura conectado sin exponer herramientas. Se paró tras dos intentos en vez de
+insistir. **Deudas nuevas totales de este cierre: 149-154.**

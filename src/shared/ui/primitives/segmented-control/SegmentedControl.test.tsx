@@ -1,4 +1,6 @@
 // @vitest-environment happy-dom
+import { createRef } from "react";
+
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -8,10 +10,29 @@ import { SegmentedControl, type SegmentedControlOption } from "./SegmentedContro
 
 const GROUP_LABEL = "Estado del proyecto";
 
+/**
+ * Anotadas con el parámetro por defecto (`string`): así queda escrito que hacer
+ * genérico el primitivo (deuda 148) **no rompió a ningún consumidor ya escrito**.
+ *
+ * **Ojo con leerlas como si estuvieran protegidas: no lo están.** Anotar así
+ * colapsa `TValue` a `string`, o sea que en los tests que usan `OPTIONS` el
+ * `value` no lo comprueba el tipo — es el hueco que el JSDoc del componente
+ * enumera, y por eso el ancla de tipo usa `INFERRED_OPTIONS` y no éstas.
+ */
 const OPTIONS: readonly SegmentedControlOption[] = [
   { value: "active", label: "Activos" },
   { value: "inactive", label: "Inactivos" },
 ];
+
+/**
+ * Las mismas, pero **sin anotar**: así el juego de valores se infiere y `TValue`
+ * queda en `"active" | "inactive"`, que es lo que hace un consumidor real
+ * (`STATUS_OPTIONS` en `ProjectsToolbar`).
+ */
+const INFERRED_OPTIONS = [
+  { value: "active", label: "Activos" },
+  { value: "inactive", label: "Inactivos" },
+] as const;
 
 function renderControl(
   value = "active",
@@ -60,6 +81,92 @@ describe("SegmentedControl", () => {
     expect(pressed).toHaveLength(1);
     expect(pressed[0]).toBe(optionNamed("Inactivos"));
     expect(optionNamed("Activos")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  /**
+   * **Ancla de TIPO, no de comportamiento** (deuda 148). Quien la sostiene es
+   * `pnpm typecheck`: `value` va envuelto en `NoInfer`, así que `TValue` sale
+   * sólo de `options` y un valor ajeno al juego es un error de compilación. Si
+   * mañana alguien desata `value` de `options`, el `@ts-expect-error` se queda
+   * **sin error que esperar** y `tsc` se pone rojo por directiva sin usar.
+   *
+   * **Usa `INFERRED_OPTIONS` y no `OPTIONS`, y ahí está media gracia:** con las
+   * anotadas (`readonly SegmentedControlOption[]`) `TValue` colapsa a `string` y
+   * este `@ts-expect-error` no tendría error que esperar. La protección **existe
+   * cuando `options` se deja inferir**, y este test es también dónde eso se lee.
+   *
+   * Se renderiza además —forzando el tipo— para dejar escrito **lo que el tipo
+   * no cierra**: quien se salte esa protección se queda sin ninguna pulsada, y el
+   * primitivo no se inventa una elegida por su cuenta.
+   */
+  it("el tipo rechaza un value que no es el de ninguna opción", () => {
+    render(
+      <SegmentedControl
+        label={GROUP_LABEL}
+        options={INFERRED_OPTIONS}
+        // @ts-expect-error — no es el `value` de ninguna de las dos opciones
+        value="cualquier-otra-cosa"
+        onValueChange={() => {}}
+      />,
+    );
+
+    const pressed = screen
+      .getAllByRole("button")
+      .filter((option) => option.getAttribute("aria-pressed") === "true");
+
+    expect(pressed).toHaveLength(0);
+  });
+
+  /**
+   * La otra mitad de la deuda 148, **la que el tipo no puede cerrar**: nada en
+   * TypeScript impide listar dos opciones con el mismo `value`. Antes salían
+   * **dos** pulsadas y el JSDoc juraba que eso no se podía ni representar; ahora
+   * la elegida es una POSICIÓN, así que se marca la primera y ninguna más.
+   */
+  it("con dos opciones del mismo valor marca la primera y sólo la primera", () => {
+    render(
+      <SegmentedControl
+        label={GROUP_LABEL}
+        options={[
+          { value: "active", label: "Activos" },
+          { value: "active", label: "Activos otra vez" },
+        ]}
+        value="active"
+        onValueChange={() => {}}
+      />,
+    );
+
+    const pressed = screen
+      .getAllByRole("button")
+      .filter((option) => option.getAttribute("aria-pressed") === "true");
+
+    expect(pressed).toHaveLength(1);
+    expect(pressed[0]).toBe(optionNamed("Activos"));
+    expect(optionNamed("Activos otra vez")).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  /**
+   * El genérico obligó a envolver el `forwardRef` en una aserción de tipo (los
+   * genéricos no sobreviven a su firma). La aserción **no toca el runtime**, y
+   * esto es lo que lo comprueba en vez de darlo por hecho.
+   */
+  it("sigue reenviando el ref al carril", () => {
+    const ref = createRef<HTMLDivElement>();
+    render(
+      <SegmentedControl
+        ref={ref}
+        label={GROUP_LABEL}
+        options={INFERRED_OPTIONS}
+        value="active"
+        onValueChange={() => {}}
+      />,
+    );
+
+    expect(ref.current).toBeInstanceOf(HTMLElement);
+    expect(ref.current?.dataset.slot).toBe("segmented-control");
   });
 
   it("avisa con el valor de la opción tocada", async () => {
