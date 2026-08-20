@@ -1250,3 +1250,51 @@ rompió nada**, y la verificación **encontró dos cosas que ningún gate podía
 `resize_window` informa éxito y el viewport no cambia (comprobado con captura), y el MCP
 `chrome-devtools` figura conectado sin exponer herramientas. Se paró tras dos intentos en vez de
 insistir. **Deudas nuevas totales de este cierre: 149-154.**
+
+---
+
+## 2026-08-20 — Enmienda E13 de RFC-01 (el ancho del contenido) — CERRADA, y el cierre del lote 146/147/148
+
+**No son features.** `feature_list.json` no se tocó. **Dos cierres en la misma sesión:** el lote de
+deudas **146/147/148**, que venía **aprobado y sin cerrar** desde la congelación del 18 (commit
+`91e76fd`), y la enmienda **E13**, nacida del *"la página de dashboard se ve horrible"* del usuario.
+Informes: `progress/informs/25.informe-deudas_146_147_148.md` y
+`progress/informs/26.informe-e13_ancho_contenido.md`.
+
+Cadena de E13: usuario (reporte + 3 decisiones) → leader (diagnóstico + enmiendas al RFC) →
+implementer → reviewer (**1 bloqueante**) → ronda 2 → reviewer (**1 bloqueante nuevo**) → ronda 3 →
+**APROBADO** → leader (REGLA 4 + cierre). Partida `78 / 1349` → **+3 archivos, +55 tests**.
+
+### Lo que hay que recordar de esta sesión
+
+- **La queja era sobre una página y la causa estaba en el caparazón.** No había **ningún** contenedor de
+  ancho máximo en toda la app, así que cada fila `justify-between` mandaba sus mitades a los bordes de
+  la ventana. **Ningún `justify-between` estaba mal escrito.** Se arregló una sola vez en el `AppShell`
+  en vez de parchear el Dashboard, porque las 5 rutas que faltan habrían nacido con el mismo defecto —
+  y eso ya había pasado dos veces (`/proyectos` y ahora el Dashboard).
+- **Las decisiones de diseño se escribieron en el RFC ANTES de lanzar al implementer.** Es la respuesta
+  a la deuda 143 (*la fuente de verdad visual no existe*), y es lo que evita que cada componente
+  improvise su propia respuesta.
+- **Dos bloqueantes, los dos verde-falso, los dos encontrados PROBANDO.** B1: comparación por subcadena,
+  y **el segundo cinturón tenía el mismo agujero, no otro**. B2: los gates verificaban el **nombre** del
+  token entero y **nada del valor** — con el token sin unidad la suite completa daba `1403 passed` y la
+  pantalla quedaba sin tope. **B2 apareció porque el reviewer siguió buscando después de cerrar B1**,
+  que es exactamente lo que se le pidió con el precedente de la deuda 146 sobre la mesa.
+- **Un control positivo que sólo se corre en la dirección que ya funcionaba no es un control positivo.**
+  Lo escribió el propio implementer: *"el bloqueante lo encontró el reviewer probando, no yo — mi
+  control existía y era falso por correrse en una sola dirección"*.
+- **No se mide la pantalla mientras otro agente muta el árbol.** El leader midió el contenedor sin tope
+  con el token en `1040em` y casi lo reportó como bug: era el control positivo del reviewer, en vuelo.
+  La casualidad valió —es la única vez que se vio en pantalla el fallo que B2 describe—, pero el método
+  es malo: el disco y el navegador contaban historias distintas.
+- **La corrida ROJA del leader se registra, no se esconde.** `auth-service.test.ts` rebasó su tope de
+  20 s por 479 ms al correr la suite **solapada** con la del reviewer (833 s contra ~90 s). Culpa del
+  leader, y **reabre parcialmente la deuda 145**: su arreglo subió el techo y no quitó la propiedad —un
+  tope absoluto no defiende un coste deliberado contra una carga variable.
+- **El MÓVIL sigue sin medir, cuarta sesión consecutiva**, ahora con hipótesis: `resize_window` cambia
+  el alto y **no el ancho**, probablemente porque la ventana está maximizada.
+
+**Deudas: saldadas 154 y 156; reducida la 150 (de 3 a 7 archivos cubiertos); reabierta parcialmente la
+145; nuevas 155, 157, 158 y 159.** La **158 la subió el leader a 🔴** sobre una medición del reviewer:
+un `--breakpoint-*` sin unidad mata **todas** las utilidades `desktop:` de las 6 rutas con la suite en
+verde.

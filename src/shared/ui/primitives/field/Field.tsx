@@ -10,6 +10,12 @@ import {
 
 import { cn } from "@/shared/ui/lib/cn";
 
+import {
+  type FieldTone,
+  fieldLabelVariants,
+  fieldMessageVariants,
+} from "./field.variants";
+
 type ControlProps = {
   id?: string;
   "aria-invalid"?: boolean;
@@ -22,6 +28,12 @@ export interface FieldProps {
   error?: ReactNode;
   id?: string;
   className?: string;
+  /**
+   * Sobre qué superficie se dibuja el campo (enmienda E13 c de RFC-01).
+   * `inverse` es el fondo oscuro de la app, donde vive todo control que ya no
+   * lleva `Card`. Por defecto, superficie clara.
+   */
+  tone?: FieldTone;
   /** El control (p. ej. <Input />). Field le cablea id + aria de accesibilidad. */
   children: ReactElement<ControlProps>;
 }
@@ -32,6 +44,7 @@ export function Field({
   error,
   id,
   className,
+  tone = "default",
   children,
 }: FieldProps) {
   const generatedId = useId();
@@ -54,7 +67,7 @@ export function Field({
     <div className={cn("flex flex-col gap-(--space-2)", className)}>
       <label
         htmlFor={fieldId}
-        className="font-body font-semibold text-sm text-fg"
+        className={fieldLabelVariants({ tone })}
       >
         {label}
       </label>
@@ -62,10 +75,7 @@ export function Field({
       {hasMessage ? (
         <span
           id={messageId}
-          className={cn(
-            "font-mono text-xs leading-base",
-            hasError ? "text-danger" : "text-fg-muted",
-          )}
+          className={fieldMessageVariants({ tone, invalid: hasError })}
         >
           {message}
         </span>

@@ -255,6 +255,42 @@ como referencia histórica del prototipo, igual que `<ascii-yarn>` en D1. Para `
 
 **Route groups (`src/app/`)**
 - `(app)/**` privado, envuelto por `AppShell`; `(auth)/**` público (login/register), pantalla limpia sin nav.
+### Sexta tanda — E13 (el ancho del contenido, que no estaba escrito en ningún sitio)
+
+**Qué la motiva.** El 2026-08-20, en la primera **verificación en navegador (REGLA 4)** que se llega a
+completar, el usuario reportó que el Dashboard *"se ve horrible"*. El diagnóstico del leader encontró una
+causa raíz que **no es del Dashboard**: en toda la app **no existe ningún contenedor de ancho máximo**, así
+que cada página se estira hasta el borde de la ventana y toda fila `justify-between` **manda sus dos
+mitades a los extremos de la pantalla**. En un monitor de 1536px el título "Tu año en números" y los
+selectores que lo gobiernan quedan a más de mil píxeles el uno del otro, y el bloque "Ordenar por" se lee
+como un panel a la deriva. Es la **deuda 143** otra vez (*la fuente de verdad visual no existe*): sin una
+línea escrita, cada componente improvisó su propia respuesta y ninguna coincide.
+
+**Las tres medidas que fuerzan las decisiones** (barrido del leader sobre `src/`, **[MEDIDO]**):
+
+| magnitud | valor | de dónde sale |
+|---|---|---|
+| contenedores de ancho máximo en las 6 rutas privadas | **CERO.** Los únicos `max-w-*` de `src/` son la tarjeta de login (`AuthPanel.tsx:31`), la celda del ovillo (`DashboardHero.tsx:58`) y los tamaños de diálogo — **ninguno acota una página** | `grep -rn "max-w-\|mx-auto" src` |
+| métricas elegidas por defecto, contra columnas de la rejilla | **1 elegida** (`DEFAULT_METRIC_KEYS = ["hours"]`) en una rejilla **fija** de 3 (`MetricsPanel.tsx:89`, `tablet:grid-cols-3`) | lectura de fuente |
+| trabajos distintos que hace hoy el mismo primitivo `Card` | **TRES**: contenido (`ProjectCard`, tarjeta de métrica), **envoltorio de control** (`DashboardView.tsx:214` el año, `ActiveProjectsPanel.tsx:76` el orden) y **contenedor de sección** (`ProjectsToolbar.tsx:118`, la barra entera) | inventario de `<Card` en `features/*/ui` |
+
+| # | Qué cambia | Por qué |
+|---|---|---|
+| **E13 (a)** | **El contenido de las 6 rutas privadas va en una COLUMNA CENTRADA con tope de ancho**, declarada **una sola vez en el `AppShell`**, no página por página. El tope se declara como **token** (ningún valor crudo), con el precedente de `--nav-tab-inset-start` y de E12(c). | Decisión del usuario sobre las tres medidas. Aplicarlo en el shell y no en el Dashboard es lo que separa **arreglar lo que se ve hoy** de **cerrar la clase de fallo**: las cinco páginas que faltan nacerían con el mismo defecto, y cada una lo redescubriría en su propia sesión — que es exactamente lo que pasó entre `/proyectos` (deudas 136-144) y el Dashboard, dos veces el mismo trabajo. Además ataca la causa y no el síntoma: **ningún `justify-between` está mal escrito**; están todos gobernados por un ancho que nadie acotó. |
+| **E13 (b)** | **La rejilla de métricas tiene tantas columnas como métricas elegidas** (1 → ancho completo, 2 → mitades, 3 → tercios). **No** se dejan huecos. | El default de la app es **una** métrica, así que **el estado por defecto del Dashboard es el peor que sabe pintar**: una tarjeta ocupando un tercio y dos tercios de vacío marrón, y es lo primero que ve cualquiera al entrar. El tope de la escala no cambia (3 columnas), sólo deja de reservarse sitio para lo que no está. **No toca RFC-02 §1**: la métrica sigue siendo conmutable y superponible. |
+| **E13 (c)** | **`Card` es para CONTENIDO. Ningún control lleva `Card`** — ni el selector de año, ni el de orden, ni los filtros de tipo. El uso de `Card` como **contenedor de sección** (`ProjectsToolbar`) queda **fuera de esta enmienda** y se ficha aparte. | Decisión del usuario. Hoy el mismo primitivo hace **tres trabajos distintos** (medido arriba), y la consecuencia visible es que dos controles llevan marco blanco y sus vecinos de la misma fila no: el bloque "Ordenar por" **parece un panel suelto** flotando sobre el título con el que forma fila, con "Ver todos" colgando fuera. No es un defecto de posición, es un defecto de **categoría**. Es la misma familia que la **deuda 142** (*segmentado y toggles con el mismo peso visual, uno al lado del otro*): cuando un marco no significa nada concreto, deja de comunicar jerarquía. |
+| **E13 (d)** | **Sin gate, E13 no se considera implementada**, y el gate tiene que llegar **al CSS compilado**, no quedarse en los nombres de clase. Mínimo: que el contenedor exista y aplique su tope, y que la rejilla de métricas declare columnas en función de cuántas hay elegidas. | Es la lección de E12(e) y de la **deuda 146**, y aquí aplica igual de fuerte: hoy se puede borrar el contenedor entero y **la suite sale verde**, porque ningún gate mide ancho. Vale además la advertencia de E12(b): las variantes son **min-width**, así que una columna escrita "para que desaparezca hacia abajo" **no compila a nada**. Precedente exacto y ya en el repo: `src/features/projects/ui/projects-ui.classes.test.ts` (deuda 146), que deriva las clases del fuente por AST y las contrasta contra el CSS compilado. |
+
+**Lo que E13 NO decide, a propósito:** el **valor exacto** del tope (se fija al implementar, sobre la
+rejilla de espaciado existente y comprobado en pantalla), y el **hueco vertical entre el hero y la fila de
+filtros**, que también se ve grande pero no comparte causa con lo de arriba. Tampoco toca `BottomNav` ni el
+archivero: **el caparazón no cambia de geometría**, sólo gana un contenedor para su contenido.
+
+**Deuda que cierra:** **154**. **Deuda que NO cierra y hay que leer aparte:** la **153** (el estado vacío
+del año es inalcanzable) es un fallo de **lógica**, no de layout, y va por su cuenta.
+**Fuente medida:** la verificación en navegador del 2026-08-20, en
+`progress/informs/25.informe-deudas_146_147_148.md` §REGLA 4.
+
   Protegidos por `src/proxy.ts` (ya existe).
 
 ## 4. Datos / backend

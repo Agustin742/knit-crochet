@@ -7,7 +7,6 @@ import type { SerializedProject } from "@/features/projects/ui";
 import { type CraftType } from "@/shared/config";
 import {
   Button,
-  Card,
   EmptyState,
   ErrorState,
   Field,
@@ -207,11 +206,18 @@ export function DashboardView() {
         className="flex flex-col gap-(--space-4) desktop:flex-row desktop:items-end desktop:justify-between"
       >
         <div className="flex flex-wrap items-end gap-(--space-4)">
-          {/* La tarjeta no es decoración: `Field` pinta su etiqueta con el
-              primer plano oscuro, ilegible sobre el fondo de la app, y la
-              variante elevada es la única donde el anillo de foco llega al
-              contraste mínimo (deuda 31). */}
-          <Card className="flex items-end gap-(--space-2) p-(--space-3)">
+          {/* SIN `Card` (enmienda E13 c): `Card` es para CONTENIDO —una tarjeta
+              de métrica, una de proyecto—, no para envolver un control. El marco
+              blanco alrededor del stepper de año lo hacía leerse como un panel
+              aparte flotando en medio de una fila cuyos vecinos van sueltos
+              sobre el fondo; no era un defecto de posición, era de categoría
+              (deuda 154, misma familia que la 142).
+              Lo que la tarjeta sí resolvía se resuelve ahora donde toca: la
+              etiqueta y el mensaje del campo salen en tono inverso
+              (`tone="inverse"`), y el anillo de foco MEJORA al perder la
+              tarjeta — `--focus` mide 4.68:1 sobre el fondo oscuro contra 2.95:1
+              sobre la superficie clara (deuda 31). */}
+          <div className="flex items-end gap-(--space-2)">
             <Button
               size="icon"
               aria-label={PREVIOUS_YEAR_LABEL}
@@ -220,6 +226,7 @@ export function DashboardView() {
               −
             </Button>
             <Field
+              tone="inverse"
               label={YEAR_LABEL}
               error={yearIsValid ? undefined : YEAR_RANGE_MESSAGE}
             >
@@ -240,7 +247,7 @@ export function DashboardView() {
             >
               +
             </Button>
-          </Card>
+          </div>
 
           <ToggleGroup
             label={TYPE_GROUP_LABEL}

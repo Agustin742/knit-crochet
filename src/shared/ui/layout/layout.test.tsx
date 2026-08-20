@@ -4,9 +4,18 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
 
+import { usesToken } from "../testing/css-tokens";
+
 import { AppShell } from "./app-shell";
 import { ArchiveNav } from "./archive-nav";
 import { BottomNav } from "./bottom-nav";
+
+/**
+ * El token del tope de ancho del contenido (enmienda E13 a). Es el nombre de una
+ * variable CSS, no una clase, así que puede escribirse al literal sin que
+ * Tailwind lo tome por una utilidad.
+ */
+const CONTENT_MAX_TOKEN = "--content-max-inline";
 
 const pathnameMock = vi.fn<() => string>(() => "/");
 
@@ -31,6 +40,56 @@ describe("layout shell (smoke)", () => {
     );
     expect(screen.getByText("Contenido")).toBeInTheDocument();
     expect(screen.getByRole("main")).toBeInTheDocument();
+  });
+
+  /**
+   * ENMIENDA E13 (a) — la columna de contenido, vista desde el DOM montado.
+   *
+   * El gate de CSS compilado (`app-shell.classes.test.ts`) comprueba que el tope
+   * existe, que sale del token y que llega al CSS. Acá se comprueba la otra
+   * mitad, que ese gate no puede ver: que el contenido de la página **cuelga de
+   * verdad** de ese contenedor. Una columna declarada al lado de los hijos en
+   * vez de alrededor no acota nada, y el compilado se ve idéntico.
+   *
+   * El nombre del TOKEN sí se escribe (es una variable CSS, no un candidato a
+   * clase); la utilidad que lo consume no se escribe literal: se busca por el
+   * token que lleva dentro.
+   */
+  it("mete el contenido en la columna acotada del caparazón", () => {
+    render(
+      <AppShell>
+        <p>Contenido</p>
+      </AppShell>,
+    );
+
+    const content = screen.getByText("Contenido");
+    const main = screen.getByRole("main");
+
+    let capped: Element | null = null;
+    for (
+      let node: Element | null = content.parentElement;
+      node !== null && node !== main.parentElement;
+      node = node.parentElement
+    ) {
+      /* RONDA 2: se compara el nombre del token ENTERO, no por subcadena. La
+         versión anterior usaba una comprobación de inclusión, así que una
+         utilidad escrita con un token de UNA LETRA DE MÁS la daba por buena — y
+         esta red tenía el MISMO agujero que el gate de CSS compilado, que es
+         justo lo que prohíbe el comentario de `writtenClassAttributes`: una
+         segunda red que falla donde falla la primera no es una segunda red. */
+      if (
+        [...node.classList].some((name) => usesToken(name, CONTENT_MAX_TOKEN))
+      ) {
+        capped = node;
+        break;
+      }
+    }
+
+    expect(
+      capped,
+      "el contenido no cuelga de ningún contenedor con el tope de ancho: la columna de E13(a) no existe o no lo envuelve",
+    ).not.toBeNull();
+    expect(main.contains(capped)).toBe(true);
   });
 
   it("renders the injected background inside the 3D slot", () => {

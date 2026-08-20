@@ -3,6 +3,125 @@
 > Este archivo se vacía al cerrar cada sesión y se mueve a `history.md`.
 > Mientras trabajas, **mantenlo actualizado en tiempo real**, no al final.
 
+## ✅ ESTADO AL CERRAR (2026-08-20) — Enmienda E13 CERRADA (aprobada en ronda 3) + lote 146/147/148
+
+> **NO son features.** `feature_list.json` **no se tocó** (33 features: 23 `done`, 10 `pending`,
+> 0 `in_progress`).
+>
+> **Dos cierres en esta sesión.** El primero, el lote de deudas **146/147/148**, que venía **aprobado y
+> sin cerrar** desde la congelación del 2026-08-18 (commit `91e76fd`). El segundo, la enmienda **E13**,
+> que nació del *"la página de dashboard se ve horrible"* del usuario.
+>
+> **Informes de cierre:** `progress/informs/25.informe-deudas_146_147_148.md` y
+> `progress/informs/26.informe-e13_ancho_contenido.md`.
+
+### E13 — qué se hizo y por qué en el caparazón
+
+El usuario reportó el Dashboard. **La causa raíz no era del Dashboard:** en toda la app **no existía
+ningún contenedor de ancho máximo** (barrido: cero en las 6 rutas privadas), así que cada fila
+`justify-between` mandaba sus mitades a los bordes de la ventana. Se arregló **una sola vez en el
+`AppShell`**, no página por página, porque las 5 rutas que faltan habrían nacido con el mismo defecto.
+
+Las tres decisiones **las eligió el usuario y se escribieron en el RFC ANTES de tocar código**
+(`RFC-01` §"Sexta tanda — E13", `RFC-02` §7-quater): columna centrada con tope en el caparazón;
+la rejilla de métricas con tantas columnas como métricas elegidas; y **`Card` sólo para contenido**.
+
+### Los dos bloqueantes, los dos verde-falso, los dos encontrados PROBANDO
+
+- **B1** — el gate comparaba el token **por subcadena**: con `--content-max-inlinee` (una `e` de más,
+  token inexistente) la suite daba **44 passed** y la pantalla quedaba **sin tope**. Y el segundo
+  cinturón tenía **el mismo agujero, no otro**. Es la deuda **146-A** otra vez.
+- **B2** — los gates verificaban el **nombre** del token hasta el último carácter y **nada del valor**:
+  con `--content-max-inline: 1040` (sin unidad) la **suite completa** daba `1403 passed`. Apareció
+  **porque el reviewer siguió buscando después de cerrar B1**, que es lo que se le pidió.
+
+### ✅ REGLA 4 — hecha por el leader, escritorio
+
+Ventana 1536px: contenedor **1040px, x=240 → 1280**, centrado. **El tope funciona en el navegador, no
+sólo en los tests.** Las tres decisiones se cumplen en pantalla. **Cierra la deuda 156** con juicio
+explícito: 1040px es el ancho correcto, no se cambia.
+
+> **Anécdota que quedó en el informe 26:** el leader midió la pantalla **mientras el reviewer mutaba el
+> árbol** y encontró el contenedor sin tope, con el token en `1040em`. Casi lo reporta como bug antes de
+> verificar el archivo. **La casualidad valió**: es la única vez que alguien vio en pantalla cómo se ve
+> el fallo que B2 describe. Regla nueva: *no se mide la pantalla mientras otro agente muta el árbol*.
+
+### El gate: DOS corridas del leader, la roja y la verde — se registran las dos
+
+**Corrida final, con la máquina libre → `bash ./init.sh` EXIT 0**, medida por el leader:
+`Test Files 81 passed | 3 skipped (84)` · `Tests 1404 passed | 13 skipped (1417)` · 424.91 s.
+Partida `78 / 1349` → **+3 archivos, +55 tests**, aritmética cerrada sin residuo.
+
+**Y antes, una corrida ROJA que NO se esconde.**
+
+Esa primera medición **salió en rojo** —`auth-service.test.ts` rebasó su tope de 20 s por
+479 ms— **porque la corrió solapada con la del reviewer**: 833 s contra los ~90 s habituales. Es
+**culpa del leader** y es **exactamente la deuda 145**, que figura como saldada y **no lo está del
+todo**: el arreglo subió el techo y no quitó la propiedad. La ficha 145 lleva ahora su **reapertura
+parcial** con la salida real pegada. **No se esconde la corrida roja.**
+
+### Deudas
+
+- **SALDADAS:** **154** (Dashboard roto a ancho de escritorio) y **156** (el tope sin ver en pantalla).
+- **REDUCIDA:** la **150** pasa de **3 a 7** archivos cubiertos, y la técnica deja de ser copiable a mano.
+- **REABIERTA PARCIALMENTE:** la **145**.
+- **NUEVAS:** **155** 🟠 (caparazón y contenido desalineados por encima del tope — inherente a E13),
+  **157** 🟢 (`--danger-inverse` sin mirar), **158** 🔴 (**subida por el leader**: un `--breakpoint-*`
+  sin unidad mata **todas** las utilidades `desktop:` de las 6 rutas con la suite verde),
+  **159** 🟠 (la fila de "Proyectos en curso", tres piezas y tres líneas de base).
+- **Del cierre anterior, siguen vivas:** **149**, **151**, **152**, **153**.
+
+### ⚠️ Lo que queda sin medir
+
+**El MÓVIL, cuarta sesión consecutiva.** Con causa instrumentada e hipótesis nueva: `resize_window`
+informa éxito y **cambia el alto pero no el ancho** (medido: 860→730 de alto, 1536 de ancho invariable).
+La sospecha es que **la ventana de Chrome está maximizada** y Chrome ignora el ancho mientras lo esté.
+El MCP `chrome-devtools` figura conectado y **no expone herramientas**.
+
+---
+
+## 🗂️ Detalle de la tanda E13 (CERRADA — el estado final es el bloque de arriba) — Enmienda **E13** de RFC-01 (+ **E3** de RFC-02): el ancho del contenido
+
+> **NO es una feature.** `feature_list.json` **no se toca**. Cierra la **deuda 154**.
+> Informe incremental (fuente de verdad de esta tanda):
+> **`progress/reports/impl_e13_ancho_contenido.md`**.
+
+- **Baseline medido y coincidente:** `bash ./init.sh` EXIT 0 ·
+  `Test Files 78 passed | 3 skipped (81)` · `Tests 1349 passed | 13 skipped (1362)`.
+- **RONDA 1 → CHANGES_REQUESTED. Bloqueante B1:** el gate salía **verde con el tope apuntando a un
+  token que no existe** —comparaba el nombre por subcadena— y **los dos cinturones tenían el mismo
+  agujero**. Mi control positivo no lo vio porque corrí la mutación **en una sola dirección**.
+- **RONDA 2 → CHANGES_REQUESTED. B1 cerrado y APROBADO** por el reviewer (reprodujo el arreglo).
+  **Bloqueante B2, cuarta vía:** los gates verificaban el **nombre** del token hasta el último
+  carácter y **nada de su valor**. Con `--content-max-inline: 1040` (sin unidad) **la suite entera
+  —1403 tests— salía verde** y en el navegador `max-width` cae a `none`: **sin tope**. El leader lo
+  **midió en pantalla** mientras el reviewer corría la mutación.
+- **RONDA 3: TERMINADA, pendiente de re-review.** `bash ./init.sh` **EXIT 0** medido por mí ·
+  `Test Files 81 passed | 3 skipped (84)` · `Tests 1404 passed | 13 skipped (1417)`.
+  Contra la ronda 2 (`81 / 1403`): **+0 archivos, +1 test**. Acumulado desde el baseline
+  (`78 / 1349`): **+3 archivos, +55 tests**.
+- **⏱️ VENTANA DE MUTACIONES CERRADA.** `globals.css` volvió a su md5
+  `eed29f5373e3748adb94497902633b0a`. **El árbol está quieto: se puede medir la pantalla.**
+- **Cómo se cerró B2:** `isAbsolutePxLength()` en la pieza compartida `shared/ui/testing/css-tokens.ts`,
+  **con el criterio de alcance escrito** (vale para tokens que se consumen como longitud CSS; **no**
+  para los que legítimamente no llevan unidad). Aplicada en **dos capas** —dentro de `tokenLength()`,
+  que de paso protege `--space-*` y `--bp-tablet`, y como **test propio con nombre**, porque la
+  **deuda 156 planifica editar esa línea exacta**—, más la comparación del **valor crudo** en la
+  derivación. Control positivo en **cuatro** direcciones (sin unidad · unidad equivocada · valor no
+  numérico · un token de la derivación sin unidad), con salidas reales en la §16.3 del informe.
+- **E13(a)** token `--content-max-inline: 1040px` (derivado, no a ojo) + columna centrada
+  declarada **una vez** en `AppShell`.
+- **E13(b)** rejilla de métricas con tantas columnas como métricas elegidas.
+- **E13(c)** fuera la `Card` del stepper de año y del selector de orden; `Field` gana `tone`
+  y nace `--danger-inverse` (el rojo de error no llegaba al mínimo sobre el espresso).
+- **E13(d)** dos gates hasta el **CSS compilado** + la técnica de la deuda 146 subida a pieza
+  compartida. **REGLA 3: los dieciséis controles positivos están con su salida real de rojo en el
+  informe** (nueve de la ronda 1, tres de la ronda 2, cuatro de la ronda 3).
+- **Lo que NO se pudo medir:** el eje visible. Sin navegador en esta sesión (REGLA 4 la mide
+  el leader). Deudas **155**, **156**, **157** y **158** fichadas en `deudas.md`.
+
+---
+
 ## ✅ ESTADO AL CERRAR (2026-08-20) — VERDE. Lote de deudas 146, 147 y 148 CERRADO
 
 > **NO es una feature.** `feature_list.json` **no se tocó** (33 features: 23 `done`, 10 `pending`,

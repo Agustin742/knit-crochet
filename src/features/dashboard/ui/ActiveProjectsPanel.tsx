@@ -68,28 +68,31 @@ export function ActiveProjectsPanel({
         </h2>
 
         <div className="flex flex-col gap-(--space-3) tablet:flex-row tablet:items-end">
-          {/* El campo va DENTRO de una tarjeta y no suelto sobre el fondo:
-              `Field` pinta su etiqueta con el primer plano oscuro, que sobre el
-              espresso de la app sería ilegible. Y sobre la variante elevada
-              porque es la única superficie donde el anillo de foco llega al
-              contraste mínimo (deuda 31). */}
-          <Card className="p-(--space-3)">
-            <Field label={SORT_LABEL} hint={SORT_HINT}>
-              <select
-                className={inputClasses}
-                value={order}
-                onChange={(event) =>
-                  onOrderChange(event.target.value as SortOrder)
-                }
-              >
-                {SORT_ORDERS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </Card>
+          {/* SIN `Card` (enmienda E13 c): el marco no significaba nada acá y
+              hacía que este bloque se leyera como un panel a la deriva, flotando
+              sobre el título con el que forma fila y con "Ver todos" colgando
+              fuera de su marco. `Card` es para CONTENIDO —la tarjeta de
+              proyecto que hay justo debajo—, no para envolver un control
+              (deuda 154).
+              Lo que la tarjeta tapaba se resuelve en el propio campo: en tono
+              inverso la etiqueta y la ayuda se leen sobre el espresso, y el
+              anillo de foco pasa al caso BUENO —`--focus` mide 4.68:1 sobre el
+              fondo oscuro y 2.95:1 sobre la superficie clara (deuda 31)—. */}
+          <Field tone="inverse" label={SORT_LABEL} hint={SORT_HINT}>
+            <select
+              className={inputClasses}
+              value={order}
+              onChange={(event) =>
+                onOrderChange(event.target.value as SortOrder)
+              }
+            >
+              {SORT_ORDERS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </Field>
 
           <Link href={PROJECTS_ROUTE} className={SEE_ALL_CLASSES}>
             {SEE_ALL_LABEL}

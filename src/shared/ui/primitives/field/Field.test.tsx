@@ -4,8 +4,11 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 import { axe } from "vitest-axe";
 
+import { cn } from "../../lib/cn";
+
 import { Field } from "./Field";
 import { Input } from "./Input";
+import { fieldLabelVariants, fieldMessageVariants } from "./field.variants";
 
 afterEach(cleanup);
 
@@ -78,6 +81,54 @@ describe("Field", () => {
 
     expect(screen.getByText("error real")).toBeInTheDocument();
     expect(screen.queryByText("pista")).not.toBeInTheDocument();
+  });
+
+  /**
+   * ENMIENDA E13 (c). El tono inverso existe porque los controles del Dashboard
+   * perdieron su `Card` y pasaron a dibujarse sobre el fondo oscuro de la app.
+   * Acá se comprueba que el `prop` **llega al marcado**: que la etiqueta y el
+   * pie salgan con la piel del tono pedido y no con la de superficie clara.
+   *
+   * Las clases NO se escriben literales —Tailwind escanea los tests—: se piden a
+   * las mismas variantes que usa el componente, así que el test compara la
+   * salida real contra la fuente real. El contraste de cada tono se mide aparte,
+   * en `field.variants.test.ts`.
+   */
+  it("dibuja la etiqueta y el pie con la piel del tono pedido", () => {
+    render(
+      <Field tone="inverse" label="Año" error="fuera de rango">
+        <Input />
+      </Field>,
+    );
+
+    const label = screen.getByText("Año");
+    for (const className of cn(
+      fieldLabelVariants({ tone: "inverse" }),
+    ).split(" ")) {
+      expect(label).toHaveClass(className);
+    }
+
+    const message = screen.getByText("fuera de rango");
+    for (const className of cn(
+      fieldMessageVariants({ tone: "inverse", invalid: true }),
+    ).split(" ")) {
+      expect(message).toHaveClass(className);
+    }
+  });
+
+  /** Y sin `tone` sigue saliendo la piel de superficie clara: nada regresa. */
+  it("sin tono explícito conserva la piel de superficie clara", () => {
+    render(
+      <Field label="Nombre">
+        <Input />
+      </Field>,
+    );
+
+    for (const className of cn(
+      fieldLabelVariants({ tone: "default" }),
+    ).split(" ")) {
+      expect(screen.getByText("Nombre")).toHaveClass(className);
+    }
   });
 
   it("has no axe violations (valid and error states)", async () => {

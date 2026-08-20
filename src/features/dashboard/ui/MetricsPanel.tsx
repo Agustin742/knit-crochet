@@ -1,7 +1,7 @@
 "use client";
 
 import type { DashboardMetrics } from "@/features/dashboard/types";
-import { Card, Skeleton, Toggle, ToggleGroup } from "@/shared/ui";
+import { Card, Skeleton, Toggle, ToggleGroup, cn } from "@/shared/ui";
 
 import {
   LIFETIME_METRIC_NOTE,
@@ -13,6 +13,38 @@ import {
   formatMetricValue,
   isLifetimeMetric,
 } from "./metrics-display";
+
+/**
+ * Columnas de la rejilla de tarjetas: **tantas como métricas elegidas** (RFC-01
+ * §3, enmienda E13 b; reflejo en RFC-02 §7-quater E3 b). 1 → ancho completo,
+ * 2 → mitades, 3 → tercios. No se reserva sitio para lo que no está.
+ *
+ * **Por qué importa tanto:** el default de la app es UNA métrica
+ * (`DEFAULT_METRIC_KEYS`), y con la rejilla fija de tres eso pintaba una tarjeta
+ * ocupando un tercio y dos tercios de fondo vacío — o sea que el estado por
+ * defecto era el peor que la página sabía dibujar, y es lo primero que ve
+ * cualquiera al entrar.
+ *
+ * **Las variantes son MIN-WIDTH** (enmienda E12 b, escrita justo para que no se
+ * repita el error): la base es UNA columna y las demás se añaden **hacia
+ * arriba**. Una columna escrita para "desaparecer hacia abajo" no compila a
+ * nada. Por eso el caso de una métrica no lleva ninguna variante: ya es ancho
+ * completo en la base.
+ *
+ * Se exporta porque el gate de CSS compilado (`dashboard-ui.classes.test.ts`)
+ * la recorre para cada cantidad posible y comprueba que cada utilidad emite
+ * regla de verdad: un nombre de clase que Tailwind no genera es una cadena
+ * inerte en el atributo y la pantalla simplemente no tiene esa rejilla (E13 d).
+ */
+export function metricGridColumns(count: number): string {
+  if (count >= 3) {
+    return "grid-cols-1 tablet:grid-cols-3";
+  }
+  if (count === 2) {
+    return "grid-cols-1 tablet:grid-cols-2";
+  }
+  return "grid-cols-1";
+}
 
 export const METRICS_SECTION_TITLE = "Tu año en números";
 export const METRICS_GROUP_LABEL = "Métricas visibles";
@@ -86,7 +118,10 @@ export function MetricsPanel({
            haría parpadear el panel entero. */
         <ul
           aria-busy={loading}
-          className="grid grid-cols-1 gap-(--space-4) tablet:grid-cols-3"
+          className={cn(
+            "grid gap-(--space-4)",
+            metricGridColumns(visible.length),
+          )}
         >
           {visible.map((key) => (
             <li key={key}>

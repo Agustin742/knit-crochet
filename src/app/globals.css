@@ -47,6 +47,15 @@
   --accent-fg: #fff8ee;
   --border: var(--brand-espresso);
   --danger: #c6432f;
+  /* Gemelo de `--danger` para el fondo OSCURO de la app, igual que
+     `--fg-inverse` lo es de `--fg` (RFC-01 §3, enmienda E13 c). Nace al sacar la
+     `Card` de los controles del Dashboard: el mensaje de error del campo de año
+     pasa a leerse sobre el espresso, y ahí `--danger` mide 3.02:1 —por debajo
+     del 4.5:1 que pide un texto—. Este tono mide 5.00:1 sobre `--bg`. Los dos
+     contrastes se comprueban de verdad en `field.variants.test.ts`, con la misma
+     fórmula de WCAG que usan `button.variants.test.ts` y
+     `archive-nav.tokens.test.ts`. */
+  --danger-inverse: #e8735a;
   --success: var(--brand-green);
   --focus: var(--brand-pink);
 
@@ -134,6 +143,41 @@
      que se le robaba al formulario en móvil. ---- */
   --auth-inset-inline: 80px;
 
+  /* ---- Contenido: tope de ancho de la columna de las 6 rutas privadas
+     (RFC-01 §3, enmienda E13 a; reflejo en RFC-02 §7-quater E3 a).
+     Es el ancho máximo que puede alcanzar el contenido dentro del `AppShell`.
+     Se declara UNA vez y lo aplica el caparazón, no cada página: las cinco
+     rutas que faltan nacen acotadas sin volver a decidirlo.
+
+     POR QUÉ EXISTE. Hasta la deuda 154 no había NI UN contenedor de ancho
+     máximo en las 6 rutas privadas (medido: los únicos `max-w-*` de `src/` son
+     la tarjeta de acceso, la celda del ovillo y los tamaños de diálogo, y
+     ninguno acota una página). Sin tope, una fila que reparte sus dos mitades a
+     los extremos manda el título a un borde de la ventana y sus controles al
+     otro: en un monitor de 1536px eso son 1488px de separación entre cosas que
+     forman una sola unidad. La causa no es la fila, es el ancho que nadie acotó.
+
+     DE DÓNDE SALE EL NÚMERO (derivación, no ojo). La composición más ancha que
+     el contenido tiene que servir es una rejilla de TRES columnas de tarjeta
+     (métricas y proyectos activos). Se le pide a esa rejilla que su columna no
+     crezca más allá de **320px**, que es el ancho de ventana más estrecho en el
+     que la app se dibuja entera (RFC-01 §3, enmienda E11 b: la banda de cuenta
+     "rige en TODOS los anchos, de 320px a desktop"). O sea: una tarjeta nunca se
+     dibuja más ancha que la pantalla más chica que la app soporta, porque a ese
+     ancho ya se sabe dibujar y por encima no gana nada. De ahí:
+
+         3 x 320 + 2 x --space-4 (hueco) + 2 x --space-6 (relleno de página)
+       = 960 + 32 + 48 = 1040
+
+     Cae exacto en la rejilla de espaciado (1040 = 260 x --space-1) y deja la
+     separación de esas dos mitades en 992px a 1536px de ventana, por debajo de
+     los "más de mil píxeles" con los que se reportó el defecto.
+
+     La aritmética la rehace `app-shell.classes.test.ts` a partir de ESTOS
+     tokens, y ahí mismo se comprueba que la utilidad llega al CSS compilado: un
+     tope que no emite regla es una cadena inerte en el atributo (E13 d). ---- */
+  --content-max-inline: 1040px;
+
   /* ---- Alias al namespace de color de Tailwind v4 (generan utilidades bg / text / border) ----
      Referencian los tokens de rol/marca de arriba; no introducen valores nuevos. */
   --color-bg: var(--bg);
@@ -148,6 +192,7 @@
   --color-accent-fg: var(--accent-fg);
   --color-border: var(--border);
   --color-danger: var(--danger);
+  --color-danger-inverse: var(--danger-inverse);
   --color-success: var(--success);
   --color-focus: var(--focus);
   --color-brand-pink: var(--brand-pink);

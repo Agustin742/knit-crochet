@@ -162,6 +162,28 @@ barre todo `src/` desde su línea 49 — ése no hace falta tocarlo.)
   escritos (`src/features/auth/ui/`, de #31/#32), se excluyen con **motivo escrito** y se abre ficha de
   deuda. #19 no se convierte en un lote de limpieza sobre código ajeno cuyo tamaño nadie ha medido.
 
+## 7-quater. Enmienda E3 — el Dashboard entra en la columna acotada (2026-08-20)
+
+**La decisión de fondo NO vive aquí, vive en [RFC-01 §3, enmienda E13](RFC-01-shell.md)**, porque no es del
+Dashboard: es del caparazón y rige para las 6 rutas. Esta sección sólo registra **qué le toca a esta
+página**, para que quien lea el RFC-02 no tenga que deducirlo.
+
+**Qué la motiva.** La verificación en navegador del 2026-08-20 (la primera que se completa; informe
+`progress/informs/25.informe-deudas_146_147_148.md` §REGLA 4). El usuario reportó la página como *"horrible"*
+y la causa raíz resultó ser que **no existe contenedor de ancho máximo en toda la app** — no un defecto de
+esta página. **Deuda 154.**
+
+| # | Qué cambia en el Dashboard | Referencia |
+|---|---|---|
+| **E3 (a)** | El contenido de la página pasa a vivir dentro de la **columna centrada con tope** del `AppShell`. La página **no declara ancho propio**: lo hereda. | E13 (a) |
+| **E3 (b)** | **El panel de métricas deja de reservar tres columnas fijas**: pinta tantas como métricas haya elegidas (1 → ancho completo, 2 → mitades, 3 → tercios). **§1 no se toca** — la métrica sigue siendo conmutable y superponible; lo que cambia es que no se guarda sitio para lo que no está. Importa porque el default es **una** métrica, así que hoy **el estado por defecto es el peor que la página sabe pintar**. | E13 (b) |
+| **E3 (c)** | **El selector de orden y el de año pierden su `Card`.** `Card` queda para contenido (tarjeta de métrica, tarjeta de proyecto). Hoy el bloque "Ordenar por" se lee como un panel a la deriva, con "Ver todos" colgando fuera de su marco, porque dos controles llevan marco y sus vecinos de la misma fila no. | E13 (c) |
+
+**Lo que esta enmienda NO arregla, y conviene no confundir:** el **estado vacío del año es inalcanzable**
+mientras haya un proyecto activo (**deuda 153**) — `isEmpty` exige que la lista de activos esté vacía y esa
+lista es **de por vida**, no del año, porque `GET /api/projects?active=true` (§3) no tiene filtro de año.
+Es un fallo de **lógica**, no de layout, y arreglarlo obliga a elegir qué significa "Proyectos en curso".
+
 ## 8. Slices de implementación (→ `feature_list.json`)
 
 IDs reales en `feature_list.json` (mapeo en [RFC-00 §4](RFC-00-proceso.md)):

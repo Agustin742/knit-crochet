@@ -9,7 +9,9 @@ import { axe } from "vitest-axe";
 import type { DashboardMetrics } from "@/features/dashboard/types";
 import type { SerializedProject } from "@/features/projects/ui";
 import { SECONDS_PER_HOUR } from "@/shared/config";
+import { cardVariants, cn } from "@/shared/ui";
 
+import { metricGridColumns } from "./MetricsPanel";
 import {
   DashboardView,
   EMPTY_STATE_DESCRIPTION,
@@ -673,5 +675,95 @@ describe("accesibilidad", () => {
     const failed = render(<DashboardView />);
     await screen.findByRole("heading", { name: ERROR_TITLE });
     expect(await axe(failed.container)).toHaveNoViolations();
+  });
+});
+
+/**
+ * ENMIENDA E13 (b) y (c) — vista desde el DOM montado.
+ *
+ * El gate de CSS compilado (`dashboard-ui.classes.test.ts`) mira el FUENTE y el
+ * CSS; acá se mira lo que se llega a **montar**, que es la otra mitad. Los dos
+ * hacen falta: el gate no sabe si el atributo llega al elemento correcto, y este
+ * bloque no sabe si la utilidad existe de verdad en el CSS.
+ *
+ * Ninguna clase se escribe literal —Tailwind escanea los tests—: se piden a las
+ * mismas fuentes que usa la producción (`cardVariants` del design system y la
+ * correspondencia de columnas del panel).
+ */
+describe("el ancho y la categoría de las piezas (enmienda E13)", () => {
+  /** ¿Este elemento cuelga de una superficie de tarjeta? */
+  function insideCard(element: Element): boolean {
+    const marks = cn(cardVariants()).split(" ").filter(Boolean);
+    for (
+      let node: Element | null = element.parentElement;
+      node !== null;
+      node = node.parentElement
+    ) {
+      const classes = node.classList;
+      if (marks.every((mark) => classes.contains(mark))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * E13(c): `Card` es para CONTENIDO. El marco alrededor del paso a paso del año
+   * lo hacía leerse como un panel aparte en medio de una fila cuyos vecinos van
+   * sueltos sobre el fondo. No era un defecto de posición: era de categoría.
+   */
+  it("el paso a paso del año no vive dentro de una tarjeta", async () => {
+    await renderReady();
+
+    expect(insideCard(screen.getByLabelText("Año"))).toBe(false);
+  });
+
+  /**
+   * E13(c), la otra mitad: el bloque "Ordenar por" se leía como un panel a la
+   * deriva flotando sobre el título con el que forma fila, con "Ver todos"
+   * colgando fuera de su marco.
+   */
+  it("el selector de orden no vive dentro de una tarjeta", async () => {
+    await renderReady();
+
+    expect(
+      insideCard(within(activeRegion()).getByLabelText("Ordenar por")),
+    ).toBe(false);
+  });
+
+  /** Y la tarjeta sigue donde SÍ corresponde: envolviendo contenido. */
+  it("la tarjeta de métrica sigue siendo una tarjeta", async () => {
+    await renderReady();
+
+    expect(insideCard(screen.getByText("horas tejidas"))).toBe(true);
+  });
+
+  /**
+   * E13(b): el default de la app es UNA métrica, así que con la rejilla fija de
+   * tres el estado por defecto pintaba una tarjeta y dos tercios de fondo vacío
+   * — lo primero que ve cualquiera al entrar. Se comprueba en el estado por
+   * defecto y al encender una segunda métrica.
+   */
+  it("la rejilla de métricas declara tantas columnas como métricas elegidas", async () => {
+    const user = userEvent.setup();
+    await renderReady();
+
+    const panel = screen.getByRole("region", { name: "Tu año en números" });
+    const grid = () => within(panel).getByRole("list");
+
+    for (const className of metricGridColumns(1).split(" ")) {
+      expect(grid()).toHaveClass(className);
+    }
+
+    await user.click(
+      within(screen.getByRole("group", { name: "Métricas visibles" })).getByRole(
+        "button",
+        { name: "Proyectos" },
+      ),
+    );
+
+    for (const className of metricGridColumns(2).split(" ")) {
+      expect(grid()).toHaveClass(className);
+    }
   });
 });

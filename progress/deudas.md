@@ -2020,6 +2020,30 @@ bloqueante **no era un bug de código**, era una frase que afirmaba que ese test
      pasada extra **con los 4 núcleos saturados a propósito** → también verde.
      Salidas reales en `progress/reports/impl_deuda145_timeouts.md`.
 
+     > **REAPERTURA PARCIAL — el leader, 2026-08-20.** El arreglo **subió el techo y no quitó la
+     > propiedad**. Medido: al cerrar la enmienda E13 corrí `init.sh` **solapado con la pasada del
+     > reviewer**, y `src/features/auth/api/auth-service.test.ts` —uno de los archivos a los que este
+     > mismo arreglo le dio tope propio— **cayó en rojo**:
+     >
+     > ```
+     > × registers a user hashing the password and issuing a session token  20479ms
+     >   Error: Test timed out in 20000ms
+     > ```
+     >
+     > Rebasó su `vi.setConfig({ testTimeout: 20_000 })` por **479 ms**. La pasada entera tardó
+     > **833 s** contra los ~90 s habituales, o sea la máquina iba unas **nueve veces** más lenta.
+     > **Por qué no lo cazó la verificación original:** probó con *"los 4 núcleos saturados a
+     > propósito"* y salió verde — pero saturar los núcleos con trabajo cualquiera **no es lo mismo que
+     > correr dos suites de Vitest a la vez**, que compiten además por memoria, disco y workers.
+     > **Lo que queda vivo, y es lo que la ficha original decía:** un **tope absoluto** no puede
+     > defender un **coste deliberado** (bcrypt) contra una **carga variable**. Mientras el criterio sea
+     > "cuántos milisegundos tardó", el verde de `init.sh` sigue dependiendo de la máquina.
+     > **Cómo se saldaría de verdad:** que el coste de hasheo sea **inyectable en test** (un coste bajo
+     > en la suite, el real en producción, con un test propio que compruebe que producción usa el alto),
+     > o serializar los archivos de coste deliberado. **No se decide aquí.**
+     > **Regla de convivencia mientras tanto, que es culpa mía y me la apunto:** *no se corren dos
+     > pasadas de la suite a la vez* — el rojo que produce no es información, es ruido.
+
 146. ~~**🟠 El gate de CSS compilado existe SÓLO para el segmentado.** `ProjectsView.tsx`,
      `ProjectCard.tsx` y `ProjectsToolbar.tsx` no tienen quien verifique que sus utilidades emiten una
      regla real. Hoy están bien —el reviewer lo midió reconstruyendo el "ALL PRESENT" del implementer con
@@ -2183,6 +2207,11 @@ bloqueante **no era un bug de código**, era una frase que afirmaba que ese test
      medir. Con los **cuatro cajones de denuncia** de la ronda 3 cerrados, extenderlo ya suma en vez de
      mentir. Arreglo: pasar de lista explícita a **barrido por directorio**, y medir cuántos archivos
      entran y cuánto cuesta la pasada antes de fijarlo.
+     **ACTUALIZACIÓN del 2026-08-20 (enmienda E13):** la cobertura pasa de **3 a 7 archivos**
+     (los 3 de `/proyectos`, los 3 del Dashboard y el `AppShell`) y, sobre todo, **la técnica dejó de
+     ser copiable a mano**: vive en `src/shared/ui/testing/class-names-from-source.ts`, así que sumar un
+     archivo cuesta una línea. **No se marca saldada** porque quedan archivos sin cubrir. El reviewer
+     midió además que `field.variants.ts` sería el octavo, barato de sumar.
      **Aviso para quien lo haga (nota práctica del reviewer):** `EXTERNAL_SOURCES` es una lista
      **exacta**, así que adoptar el `cn()` que la convención manda —hoy ninguno de los tres archivos lo
      llama— pondrá el gate **rojo** hasta que se añada `cn` a esa lista. Es el comportamiento diseñado
@@ -2238,7 +2267,7 @@ bloqueante **no era un bug de código**, era una frase que afirmaba que ese test
      qué significa "Proyectos en curso". Lo que no se puede es dejarlo como está: hoy el parámetro
      `year` de `getActiveProjects` **miente**, y eso vale para las dos salidas.
 
-154. **🟠 El Dashboard no recibió el trabajo de jerarquía visual que `/proyectos` sí recibió (E2), y a
+154. ~~**🟠 El Dashboard no recibió el trabajo de jerarquía visual que `/proyectos` sí recibió (E2), y a
      ancho de escritorio se ve roto.** Medido en pantalla el 2026-08-20 a ~1536 px de ancho.
      **NO lo produjo el lote 146/147/148** —lo único que ese lote cambia en pantalla es una línea de
      copia—: es estado anterior, de la época de #19, y sale a la luz ahora porque **por fin alguien
@@ -2253,4 +2282,120 @@ bloqueante **no era un bug de código**, era una frase que afirmaba que ese test
        de una sección.
      **Por qué importa:** es la **página de entrada** de la app —lo primero que se ve al entrar—, y es la
      misma clase de problema que las deudas 136-144 describieron para `/proyectos`. Familia de la
-     **141** (*ningún gate mide el eje visible*): esto pasó todos los gates durante meses.
+     **141** (*ningún gate mide el eje visible*): esto pasó todos los gates durante meses.~~ → **SALDADA**
+     el 2026-08-20 por la **enmienda E13 de RFC-01**, y la causa raíz resultó **no ser del Dashboard**:
+     en toda la app **no existía ningún contenedor de ancho máximo**, así que cada fila `justify-between`
+     mandaba sus mitades a los bordes de la ventana. Por eso se arregló **en el caparazón, una sola vez
+     para las 6 rutas**, en vez de parchear esta página. Verificado **en pantalla por el leader**
+     (REGLA 4, 2026-08-20): contenedor de **1040px, x=240 → 1280** en ventana de 1536; la tarjeta de
+     métrica ocupa la columna entera sin huecos y la `Card` desapareció de los controles.
+     Informe: `progress/informs/26.informe-e13_ancho_contenido.md`. **Lo que dejó vivo:** las deudas
+     **155** (desalineación caparazón/contenido, inherente a E13) y **159** (la fila de "Proyectos en
+     curso" sigue con tres líneas de base distintas).
+
+155. **🟠 Por encima del tope de contenido, el caparazón y el contenido dejan de estar alineados.**
+     Nace al implementar la enmienda **E13(a)** (2026-08-20), y es **inherente a la decisión, no un
+     descuido**: E13 exige que el contenido vaya en una columna centrada con tope y que el caparazón
+     **no cambie de geometría**. Las dos cosas a la vez sólo pueden convivir desalineadas. Medido con
+     los tokens: con `--content-max-inline: 1040px` y una ventana de 1536px, el wordmark del archivero
+     y el control de cuenta siguen a **24px** del borde (`--nav-tab-inset-start`) mientras la columna
+     de contenido empieza a **248px**. **Escenario de fallo:** el ojo lee dos rejillas distintas en la
+     misma pantalla — la del cajón y la del contenido — y el archivero deja de parecer el marco del
+     contenido que hay debajo. **Cómo se salda:** decidir si el caparazón se acota también (y entonces
+     hay que reabrir el ancho de nacimiento del archivero, que E11 dejó clavado en 1180px con 30.88px
+     de holgura) o si la desalineación se acepta y se escribe como intencional. **No se decidió en
+     E13 porque E13 dice explícitamente que el caparazón no se toca.**
+
+156. ~~**🟠 El valor del tope de contenido se eligió por derivación, pero NADIE lo vio en pantalla.**
+     `--content-max-inline: 1040px` sale de una aritmética honesta y comprobada por gate
+     (`app-shell.classes.test.ts`), pero el implementer de E13 **no tenía navegador**: la elección de
+     un ancho de contenido es una decisión de aspecto y ésta se tomó sin mirar. **Escenario de
+     fallo:** 1040px puede quedar estrecho para un panel de datos en un monitor grande, y el defecto
+     que E13 vino a arreglar se cambiaría por el contrario. **Coste de saldarla: una línea** de
+     `globals.css` más rehacer la derivación del gate — que es justo lo que impide moverlo a ojo.
+     Depende de la **REGLA 4** (verificación en navegador del leader).~~ → **SALDADA** el 2026-08-20:
+     **el leader lo miró**. A 1536px de ventana la columna de 1040px ocupa el **68%** del ancho y la
+     página se lee ordenada; no queda ni estrecha ni perdida. **No se cambia el valor.** La ficha se
+     cierra con el juicio explícito de que 1040px es el ancho correcto hoy — si mañana alguien lo
+     mueve, que sea con otra mirada en pantalla, no a ojo desde el código.
+
+157. **🟢 El nuevo `--danger-inverse` cumple su medición y no lo eligió nadie mirándolo.**
+     Nace en **E13(c)**: al sacar la `Card` del paso a paso del año, el mensaje de error pasa a leerse
+     sobre el espresso, donde `--danger` mide **3.02:1** (por debajo del 4.5:1 de texto). El tono nuevo
+     mide **5.00:1**, asertado en `field.variants.test.ts`. Lo que **no** está validado es su encaje en
+     la paleta: se eligió por número, no por ojo, y **hoy sólo aparece en un sitio** (año fuera de
+     rango). **Cómo se salda:** mirarlo en pantalla junto al resto de la paleta y ajustarlo en el token
+     si canta. Es verde porque el criterio duro (contraste) está cumplido y medido.
+
+158. **🔴 Otros TRES gates de tokens leen el valor con la misma lectura permisiva que dejó pasar el
+     bloqueante B2, y ninguno comprueba la unidad — y uno de los tres puede MATAR TODAS LAS UTILIDADES
+     `desktop:` DE LAS 6 RUTAS sin poner un solo test en rojo.**
+
+     > **Subida de 🟠 a 🔴 por el leader el 2026-08-20**, sobre una medición del reviewer que la ficha
+     > original no tenía. El caso peor **no es genérico, tiene nombre**: con
+     > `--breakpoint-desktop: 1180` (sin unidad) el compilador emite `@media (width >= 1180)`, que es
+     > **inválida**, y la **suite entera da `1404 passed`** con **todas las utilidades `desktop:`
+     > muertas en las seis rutas**. O sea: el layout de escritorio de la app completa desaparece y
+     > ningún gate se entera. Por eso la ficha nombra ahora explícitamente **`--breakpoint-*`** como el
+     > token peligroso, y por eso `breakpoint-tokens.test.ts` es el primero de los tres que hay que
+     > arreglar, no uno más de la lista.
+     >
+     > **El alcance de los otros dos se acepta tal como lo dejó el implementer** (`account-band` y
+     > `archive-nav`): el reviewer compró el argumento —gates ya pagados, tokens sin ediciones
+     > planificadas— y sólo objetó éste. **De rebote, `--bp-tablet` sí quedó cubierto** por el gate de
+     > E13. Nace al cerrar **B2** en la ronda 3 de la
+     enmienda E13 (2026-08-20). **Medido, no supuesto** (`grep -rn "parseFloat" src --include=*.test.ts`):
+
+     | gate | ayudante | qué tokens lee |
+     |---|---|---|
+     | `src/shared/ui/breakpoint-tokens.test.ts:60` | `length()` | los `--bp-*` y sus alias de Tailwind |
+     | `src/shared/ui/layout/account-band/account-band.tokens.test.ts:73` | `length()` | la geometría de la banda de cuenta |
+     | `src/shared/ui/layout/archive-nav/archive-nav.tokens.test.ts:57` | `length()` | el presupuesto vertical y horizontal entero del archivero |
+
+     Los tres tienen **la misma copia literal**: `Number.parseFloat` y un rechazo que sólo mira si el
+     resultado es un no-número. `Number.parseFloat` **descarta el sufijo en silencio**, así que para
+     ella el número pelado, el número con unidad de píxeles y el mismo número en unidades de
+     tipografía **son el mismo número**. **Escenario de fallo:** a cualquiera de esos tokens se le cae
+     la unidad en una edición y el gate sigue verde, mientras en el navegador la declaración es
+     inválida y la propiedad cae a su valor inicial — que es exactamente cómo B2 dejaba la pantalla
+     **sin tope de ancho con los 1403 tests en verde**, y el leader llegó a medirlo en pantalla.
+     **Cómo se salda:** usar `isAbsolutePxLength()` de `src/shared/ui/testing/css-tokens.ts`, que ya
+     existe, tiene su criterio de alcance escrito y su control positivo en cuatro direcciones. Es un
+     puñado de líneas por gate. **Por qué no se hizo en la ronda 3:** son gates preexistentes de otras
+     enmiendas, sus tokens no están planificados para editarse (el de E13 sí, ver **deuda 156**), y
+     tocar tres gates ya pagados dentro de una ronda que existe para cerrar un bloqueante es cómo se
+     abren bloqueantes nuevos.
+
+     **Mitad hermana, del mismo diagnóstico y NO medida:** `isDeclared()`
+     (`app-shell.classes.test.ts`) comprueba que un token aparezca declarado **en el texto** de
+     `globals.css`, no que lo esté en un **ámbito que aplique**. Un token movido dentro de una regla
+     condicional contaría como declarado y el tope no existiría por debajo de esa condición. Lo marcó
+     el reviewer sin bloquear y **lo dedujo leyendo el patrón, no corriéndolo**; queda con esa
+     etiqueta.
+
+     **Buena noticia medida en la otra dirección:** cero comparaciones por subcadena de nombres de
+     token en el resto de `src/**`. El bloqueante **B1** estaba sólo en los dos sitios de E13 y está
+     cerrado.
+
+
+159. **🟠 La fila de "Proyectos en curso" tiene tres piezas y tres líneas de base distintas.** Medido en
+     pantalla por el leader (REGLA 4, 2026-08-20, ventana de 1536px, ya **con** el contenedor de E13
+     puesto):
+
+     | pieza | arriba | abajo |
+     |---|---|---|
+     | título "Proyectos en curso" | 982 | **1018** |
+     | bloque "Ordenar por" + selector | 948 | **992** |
+     | enlace "Ver todos" | **974** | 1018 |
+
+     Las tres viven en la misma fila (`tablet:flex-row tablet:items-end tablet:justify-between` en
+     `ActiveProjectsPanel.tsx:62`) y **ninguna se alinea con las otras dos**: el selector termina 26px
+     por encima del título y "Ver todos" arranca a media altura entre los dos. **Escenario de fallo:** el
+     ojo no encuentra la línea que une la cabecera de la sección, así que las tres piezas se leen como
+     tres cosas sueltas en vez de como el encabezado de una lista — que es exactamente la queja que
+     originó la deuda 154, sobreviviendo a su arreglo en pequeño.
+     **Por qué NO la cerró E13:** E13(c) sólo pedía **quitar la `Card`** de los controles, y eso se
+     cumplió. La desalineación es anterior y quedó a la vista al desaparecer el marco que la disimulaba.
+     **Cómo se salda:** decidir qué se alinea con qué —lo natural es la línea de base del título con la
+     del control, y "Ver todos" con una de las dos, no en medio—, y **sostenerlo con un gate**, porque
+     hoy la alineación no la mide nadie: es la deuda **141** otra vez, en pequeño.
