@@ -1298,3 +1298,37 @@ implementer → reviewer (**1 bloqueante**) → ronda 2 → reviewer (**1 bloque
 145; nuevas 155, 157, 158 y 159.** La **158 la subió el leader a 🔴** sobre una medición del reviewer:
 un `--breakpoint-*` sin unidad mata **todas** las utilidades `desktop:` de las 6 rutas con la suite en
 verde.
+
+---
+
+## Sesión 2026-08-24 — Lote 158 + 153, y la MORATORIA DE GATES
+
+**Cierre parcial, declarado como tal.** La **153 SALDADA** (enmienda **E4** de RFC-02, decisión del
+usuario escrita antes de tocar código: *"Proyectos en curso" es el presente, no una rebanada del año*).
+La **158 REDUCIDA, no saldada**. `init.sh` **EXIT 0** · `1426 passed | 13 skipped (1439)`, aritmética
+exacta desde 1404 (+12 +3 +5 +2). Informe: `progress/informs/27.informe-deudas_158_153.md`.
+
+**Lo que pasó, en orden:** dos deudas 🔴 implementadas y verdes → **el reviewer RECHAZÓ** con dos
+bloqueantes, los dos medidos → el bloqueante 1 se arregló (era **la deuda 153 reaparecida dentro de su
+propio arreglo**: un test verde sobre un escenario que producción no puede alcanzar) → el bloqueante 2
+destapó la **tercera variante** del mismo verde-falso en dos sesiones (unidad → ámbito → **declaración
+duplicada**) → **el usuario paró el lote**.
+
+**La decisión que define la sesión.** El usuario preguntó *"hace 4 días que no avanzamos, ¿qué tan grave
+es esto para un MVP?"*. Respuesta honesta: **no lo era**. El libro mayor pintaba del mismo 🔴 *"un
+usuario no puede crear un proyecto"* y *"si alguien edita un token y le quita la unidad, el gate no se
+entera"* — medía **riesgo para el código**, no **impacto para el usuario**. Y el leader **escaló el
+alcance dos veces ese mismo día** ("está medido y es corto"), lo que explica por qué no se vio una
+página nueva.
+
+**Qué cambió como consecuencia:**
+1. **Escala de severidad corregida** en `deudas.md`, con la visibilidad como eje que manda y una regla
+   dura: ***una deuda sólo interrumpe una feature si un usuario puede verla.***
+2. El bloqueante 2 se **fichó sin tocarlo** (deuda **160** ⚪), con su deuda de fondo (**161** ⚪ — el
+   gate de repo que mataría la clase entera).
+3. **Moratoria sobre el trabajo de gates.** Siguiente sesión: **#21**.
+
+**Deudas:** 153 saldada · 158 reducida · nuevas **160** ⚪, **161** ⚪, **162** 🟠, **163** 🟠, **164** ⚪.
+
+**Sin pagar:** la **REGLA 4** (nadie miró la pantalla), con el juicio escrito en el informe 27 — lo
+único visible que cambió es una línea de copia en un estado de borde. **Quinta sesión sin medir móvil.**

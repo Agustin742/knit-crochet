@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import { isAbsolutePxLength } from "../../testing/css-tokens";
 import { NAV_ITEMS } from "../nav-items";
 
 /**
@@ -34,10 +35,8 @@ interface Rgb {
   a: number;
 }
 
-function declaration(name: string): string {
-  const match = GLOBALS_CSS.match(
-    new RegExp(String.raw`^\s*${name}:\s*([^;]+);`, "m"),
-  );
+function declarationIn(css: string, name: string): string {
+  const match = css.match(new RegExp(String.raw`^\s*${name}:\s*([^;]+);`, "m"));
   const value = match?.[1];
   if (value === undefined) {
     throw new Error(`El token ${name} no está declarado en globals.css`);
@@ -45,24 +44,108 @@ function declaration(name: string): string {
   return value.trim().replace(/\s+/g, " ");
 }
 
+function declaration(name: string): string {
+  return declarationIn(GLOBALS_CSS, name);
+}
+
 /** Sigue la cadena de referencias hasta el valor literal. */
-function resolved(name: string): string {
-  const value = declaration(name);
+function resolvedIn(css: string, name: string): string {
+  const value = declarationIn(css, name);
   const reference = value.match(/^var\((--[a-z0-9-]+)\)$/)?.[1];
-  return reference ? resolved(reference) : value;
+  return reference ? resolvedIn(css, reference) : value;
+}
+
+function resolved(name: string): string {
+  return resolvedIn(GLOBALS_CSS, name);
+}
+
+/**
+ * Los tokens que este gate ha leído con cada lector, apuntados por el propio
+ * lector según los lee. Se descubren en vez de enumerarse a mano: una lista
+ * escrita aquí se queda atrás en cuanto un `it` consuma un token más, y el
+ * control positivo pasaría a vigilar menos de lo que el gate usa sin que nadie
+ * lo note (patrón de las deudas 40/43/71).
+ */
+const LENGTH_TOKENS_READ = new Set<string>();
+const UNITLESS_TOKENS_READ = new Set<string>();
+
+/**
+ * Una LONGITUD del presupuesto del archivero, con la unidad comprobada
+ * (deuda 158).
+ *
+ * ANTES ERA LA LECTURA PERMISIVA QUE DEJÓ PASAR EL BLOQUEANTE B2: hacía
+ * `Number.parseFloat` y sólo rechazaba si salía un no-número. `Number.parseFloat`
+ * **descarta el sufijo en silencio**, así que para ella `104`, `104px` y `104em`
+ * son el mismo número, y **el presupuesto vertical y horizontal entero de este
+ * archivo cuadraba igual con los tres**.
+ *
+ * Lo que se calcula aquí es si seis hojas más una pestaña caben en el alto del
+ * cajón y si la etiqueta más larga entra en su columna. Si a uno de esos tokens
+ * se le cae la unidad, en el navegador la declaración es inválida y la propiedad
+ * cae a su valor inicial: el alto del cajón, el canto de la hoja o el margen del
+ * carril **no son** los que la cuenta supone, y el gate sigue diciendo que todo
+ * entra. Con `em` la cuenta se hace con un número y la pantalla con otro ~16
+ * veces mayor. Los dos son el defecto que este gate existe para impedir, con la
+ * suite en verde.
+ *
+ * Toma el `css` por parámetro para que el control positivo pueda correr **las
+ * derivaciones reales de este gate** contra copias mutadas del CSS de verdad. Un
+ * control positivo que sólo se corre en la dirección que ya funcionaba no es un
+ * control positivo: ésa fue la causa del B2.
+ */
+function lengthIn(css: string, name: string): number {
+  LENGTH_TOKENS_READ.add(name);
+  const value = resolvedIn(css, name);
+  if (!isAbsolutePxLength(value)) {
+    throw new Error(
+      `El token ${name} vale "${value}", que no es una longitud absoluta en ` +
+        `píxeles. Sin unidad la declaración es inválida en el navegador y la propiedad ` +
+        `cae a su valor inicial; con una unidad relativa la geometría real no es la que ` +
+        `se calcula aquí. Las dos cosas dejan el presupuesto sin vigilar (deuda 158).`,
+    );
+  }
+  return Number.parseFloat(value);
 }
 
 function length(name: string): number {
-  const value = resolved(name);
-  const amount = Number.parseFloat(value);
-  if (Number.isNaN(amount)) {
-    throw new Error(`El token ${name} no es una longitud: ${value}`);
+  return lengthIn(GLOBALS_CSS, name);
+}
+
+/**
+ * Un número que **NO lleva unidad y no debe llevarla**: el interlineado
+ * (`--leading-tight`, una proporción) y la profundidad de apilamiento
+ * (`--z-nav-*`).
+ *
+ * Existe porque el criterio de `isAbsolutePxLength` está escrito y hay que
+ * respetarlo: la unidad se le exige a lo que se consume **como longitud**, y
+ * exigírsela a una proporción o a un `z-index` sería inventar un error donde no
+ * lo hay. Pero la lectura tampoco puede quedarse permisiva, porque el fallo
+ * simétrico es igual de silencioso: un `--leading-tight: 1.1px` o un
+ * `--z-nav-band: 7px` son declaraciones **inválidas** en el navegador —esas dos
+ * propiedades no admiten longitud de esa forma— y `Number.parseFloat` las leería
+ * como 1.1 y 7 sin pestañear, dejando la cuenta del wordmark y la rampa de
+ * profundidad verificando algo que la pantalla no hace.
+ */
+function unitlessIn(css: string, name: string): number {
+  UNITLESS_TOKENS_READ.add(name);
+  const value = resolvedIn(css, name);
+  if (!/^-?\d+(?:\.\d+)?$/.test(value)) {
+    throw new Error(
+      `El token ${name} vale "${value}", y se consume como número SIN unidad ` +
+        `(proporción o profundidad de apilamiento). Con unidad la declaración es ` +
+        `inválida y la propiedad cae a su valor inicial, mientras la cuenta de este ` +
+        `gate sigue saliendo (deuda 158).`,
+    );
   }
-  return amount;
+  return Number.parseFloat(value);
+}
+
+function unitless(name: string): number {
+  return unitlessIn(GLOBALS_CSS, name);
 }
 
 function integer(name: string): number {
-  return Math.round(length(name));
+  return Math.round(unitless(name));
 }
 
 function color(value: string): Rgb {
@@ -183,7 +266,7 @@ describe("geometría del fichero (D4)", () => {
     // abierta ocupa ranura aunque no pinte canto, así que el stack no sube ni
     // baja al navegar y esta garantía no depende de la ruta.
     const wordmarkBottom =
-      length("--space-2") + length("--text-xl") * length("--leading-tight");
+      length("--space-2") + length("--text-xl") * unitless("--leading-tight");
     const stackTop =
       length("--nav-height") - NAV_ITEMS.length * length("--nav-leaf-height");
     expect(wordmarkBottom).toBeLessThanOrEqual(stackTop);
@@ -206,7 +289,7 @@ describe("geometría del fichero (D4)", () => {
       length("--nav-tab-height") -
       length("--nav-tab-lift");
     const wordmarkBottom =
-      length("--space-2") + length("--text-xl") * length("--leading-tight");
+      length("--space-2") + length("--text-xl") * unitless("--leading-tight");
     expect(firstColumnTabTop).toBeGreaterThanOrEqual(wordmarkBottom);
   });
 
@@ -329,5 +412,106 @@ describe("marca de la ruta activa (E10)", () => {
 
   it("la pestaña activa se distingue de las otras cinco", () => {
     expect(contrast(PAGE, LEAF_FACE)).toBeGreaterThanOrEqual(1.5);
+  });
+});
+
+/**
+ * Copia del CSS con el valor de UN token sustituido. La guardia no es
+ * decorativa: si el patrón no casara, la mutación sería un no-op y la dirección
+ * "sigue verde con px" pasaría **por accidente**, que es exactamente cómo un
+ * control positivo miente.
+ */
+function withValue(css: string, name: string, value: string): string {
+  const pattern = new RegExp(String.raw`^(\s*${name}:\s*)[^;]+;`, "m");
+  if (!pattern.test(css)) {
+    throw new Error(`No se pudo mutar ${name}: el patrón no casa con el CSS`);
+  }
+  return css.replace(pattern, `$1${value};`);
+}
+
+/** El número de un token, sin su unidad, para fabricar mutantes. */
+function bareNumber(token: string): string {
+  return resolvedIn(GLOBALS_CSS, token).replace(/[a-z%]+$/i, "");
+}
+
+/**
+ * CONTROL POSITIVO DE LA UNIDAD (deuda 158).
+ *
+ * Lo que hay que demostrar **no** es que `isAbsolutePxLength` funcione —eso ya
+ * está probado donde vive—, sino que **este gate la está usando de verdad**: los
+ * mutantes se construyen sobre el `globals.css` REAL y se leen con `lengthIn` /
+ * `unitlessIn`, que son los lectores por los que pasa **toda** lectura numérica
+ * de este archivo (`length` y `unitless` son envoltorios de una línea sobre
+ * ellos; no hay ninguna otra).
+ *
+ * Y se corre en las CUATRO direcciones, no sólo en la que ya funcionaba: sin
+ * unidad, `em`, `rem` y el `px` bueno. Ésa fue la lección del bloqueante B2 —un
+ * control positivo corrido en una sola dirección la daba por buena— y es la
+ * razón por la que existe esta deuda.
+ *
+ * Los tokens se DESCUBREN: los apuntan los propios lectores según los leen, en
+ * vez de escribirlos a mano aquí. Como este bloque va el último del archivo, para
+ * cuando corre ya se han leído todos los del gate. Si alguien corriera sólo estos
+ * tests con un filtro, el conjunto contendría al menos los que se leen al
+ * declarar los `describe` —el presupuesto horizontal entero— y nunca estaría
+ * vacío, cosa que el primer `it` comprueba para no medir aire.
+ */
+describe("control positivo: el gate se pone ROJO si a una longitud le falta su unidad de píxeles", () => {
+  it("el gate lee longitudes y proporciones (si no, no habría nada que vigilar)", () => {
+    expect([...LENGTH_TOKENS_READ].length).toBeGreaterThan(0);
+    expect([...UNITLESS_TOKENS_READ].length).toBeGreaterThan(0);
+  });
+
+  it("una longitud SIN UNIDAD pone el gate en rojo (declaración inválida: la propiedad cae a su valor inicial)", () => {
+    for (const token of [...LENGTH_TOKENS_READ]) {
+      const value = bareNumber(token);
+      expect(
+        () => lengthIn(withValue(GLOBALS_CSS, token, value), token),
+        `con ${token}: ${value} (sin unidad) el gate TIENE que caer`,
+      ).toThrow();
+    }
+  });
+
+  it("una longitud en UNIDADES RELATIVAS pone el gate en rojo (el presupuesto real no es el que se calcula)", () => {
+    for (const token of [...LENGTH_TOKENS_READ]) {
+      for (const unit of ["em", "rem"]) {
+        const value = `${bareNumber(token)}${unit}`;
+        expect(
+          () => lengthIn(withValue(GLOBALS_CSS, token, value), token),
+          `con ${token}: ${value} el gate TIENE que caer`,
+        ).toThrow();
+      }
+    }
+  });
+
+  it("y sigue VERDE con la misma longitud escrita en píxeles", () => {
+    for (const token of [...LENGTH_TOKENS_READ]) {
+      const value = `${bareNumber(token)}px`;
+      expect(
+        () => lengthIn(withValue(GLOBALS_CSS, token, value), token),
+        `con ${token}: ${value} el gate tiene que SEGUIR pasando`,
+      ).not.toThrow();
+    }
+  });
+
+  /**
+   * El error simétrico, que es igual de silencioso: ponerle unidad a lo que no
+   * la lleva. El interlineado y la profundidad de apilamiento **no** se miden en
+   * píxeles —el criterio está escrito en `isAbsolutePxLength`—, así que a estos
+   * se les exige lo contrario.
+   */
+  it("y al revés: una proporción o un z-index CON unidad también lo ponen en rojo", () => {
+    for (const token of [...UNITLESS_TOKENS_READ]) {
+      for (const unit of ["px", "em"]) {
+        const value = `${bareNumber(token)}${unit}`;
+        expect(
+          () => unitlessIn(withValue(GLOBALS_CSS, token, value), token),
+          `con ${token}: ${value} el gate TIENE que caer`,
+        ).toThrow();
+      }
+      expect(() =>
+        unitlessIn(withValue(GLOBALS_CSS, token, bareNumber(token)), token),
+      ).not.toThrow();
+    }
   });
 });

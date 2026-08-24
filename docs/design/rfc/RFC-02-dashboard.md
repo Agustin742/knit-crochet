@@ -184,6 +184,71 @@ mientras haya un proyecto activo (**deuda 153**) — `isEmpty` exige que la list
 lista es **de por vida**, no del año, porque `GET /api/projects?active=true` (§3) no tiene filtro de año.
 Es un fallo de **lógica**, no de layout, y arreglarlo obliga a elegir qué significa "Proyectos en curso".
 
+## 7-quinquies. Enmienda E4 — qué significa "Proyectos en curso", y el vacío se vuelve alcanzable (2026-08-24)
+
+**Qué la motiva.** La **deuda 153**, abierta por la verificación en navegador del 2026-08-20 y anunciada al
+final de E3 como *"un fallo de lógica que obliga a elegir"*. La elección **la tomó el usuario el
+2026-08-24**, con las tres salidas medidas sobre el código antes de preguntar.
+
+**El hecho comprobado que obliga a decidir.** `getActiveProjects` (`dashboard-client.ts:119`) **recibe
+`year` y no lo manda nunca**: su `queryString` sólo lleva `active` y `type`. El parámetro **miente**, y
+eso hay que arreglarlo sea cual sea la salida. Comprobado también que el backend **sí** sabe filtrar por
+fecha —`store.ts:103-107` aplica `from`/`to` sobre `startDate`—, así que la salida "filtrar por año" era
+barata; **se descartó igual**, por lo que significa, no por lo que cuesta.
+
+### La decisión
+
+| # | Qué se fija | Por qué |
+|---|---|---|
+| **E4 (a)** | **"Proyectos en curso" es el PRESENTE, no una rebanada del año.** El panel muestra lo que está abierto *ahora* y **no se filtra por año**. En consecuencia el parámetro `year` **se elimina** de `getActiveProjects`: no se manda ni se recibe. Un parámetro que no se usa se borra, no se documenta. | Es lo que el nombre del panel promete. Filtrar por `startDate` habría **escondido un proyecto empezado en 2025 y aún vivo hoy** de la vista de 2026 — un proyecto que estás tejiendo desaparecería de "en curso". |
+| **E4 (b)** | **El vacío es del AÑO y sólo del año:** `isEmpty` deja de exigir `data.projects.length === 0` y se juzga con las métricas del año (`hours`, `projects`). | Es **literalmente el mismo razonamiento que el código ya tiene escrito tres líneas más arriba** para los metros (E1.5): un agregado *lifetime* dentro de un juicio *anual* hace el vacío inalcanzable. `projects` caía en la misma trampa que su vecino se cuidó de esquivar. |
+| **E4 (c)** | El estado vacío de §4 (*"Todavía no tejiste nada en {año}"*) pasa a ser **alcanzable en pantalla**, y con él la copia que saldó la **deuda 147**. Ese camino de llegada tiene que quedar **anclado por test**, no sólo arreglado. | La 147 se saldó bien y su copia estaba anclada, pero **nadie podía verla**. Un estado que ningún test alcanza vuelve a romperse sin que nadie se entere. |
+
+**Lo que E4 NO cambia.** El panel sigue recibiendo el filtro de **tipo** (`type`), que sí es un filtro del
+presente y sigue teniendo sentido. Y **§4 no cambia de texto**: el vacío siempre dijo *"sin datos ese
+
+### E4 (d) — el vacío del año NO puede esconder un proyecto vivo
+
+**Derivada por el leader al implementar E4, no elegida aparte.** Sale de comprobar el render: hoy
+`isEmpty` **sustituye a los dos paneles** (`DashboardView.tsx:287`), y con E4(b) el vacío pasa a ser
+alcanzable **teniendo proyectos activos** — año 2027 recién empezado, proyecto abierto en 2026 y
+todavía en las agujas. Con la composición actual, ese proyecto **desaparecería de la pantalla**.
+
+**Por qué no se acepta ese desenlace:** es *literalmente* el motivo por el que se descartó filtrar el
+panel por año en E4(a). Sería llegar al mismo sitio por la otra puerta.
+
+| Qué se fija | |
+|---|---|
+| El estado vacío del año sustituye **al panel de métricas**, que es lo que juzga el año. | El vacío dice *"todavía no tejiste nada en {año}"*: es una afirmación **sobre las métricas del año**. |
+| **"Proyectos en curso" se pinta siempre que haya proyectos activos**, esté el año vacío o no. | Es del **presente** (E4 a). Un juicio sobre el año no gobierna un panel que no es del año. |
+| Si además no hay proyectos activos, no hay panel que pintar y la página queda en el vacío puro. | El caso del usuario nuevo, que es para quien se escribió el estado vacío, no cambia. |
+año"*; lo que cambia es que ahora la condición del código coincide con lo que la frase promete.
+
+### E4 (e) — la copia del vacío se desdobla (decisión del usuario, 2026-08-24)
+
+**Qué la motiva.** Un hallazgo del implementer de E4, medido sobre el render y elevado al usuario, que
+**eligió**. Al volverse alcanzable con proyectos activos (E4 b + d), el estado vacío pintaba su
+descripción de siempre —*"Empezá el primero y acá van a estar tus horas, tus proyectos y lo que llevás
+tejido de cada uno"*— **justo encima del panel "Proyectos en curso" con el proyecto dentro**. Le decía
+*"empezá el primero"* a quien tiene uno a la vista.
+
+**Es la misma familia que la 153 que E4 acaba de saldar**, un piso más arriba: una afirmación
+*lifetime* ("el primero") dentro de un estado **anual**. La condición ya se arregló; la frase seguía
+prometiendo lo que la condición dejó de exigir.
+
+| Qué se fija | |
+|---|---|
+| **El título NO cambia.** Sigue siendo el de §4: *"Todavía no tejiste nada en {año}"*. | Es una afirmación sobre el año y es cierta en los dos casos. |
+| **La descripción pasa a tener dos formas**, elegidas por si hay o no proyectos activos. | El mismo estado se alcanza ahora por dos caminos que **no le hablan a la misma persona**. |
+| **Sin proyectos activos** → la copia de hoy, la que saldó la **deuda 147**. Intacta, con su ancla. | Es el usuario que de verdad empieza de cero, que es para quien se escribió. |
+| **Con proyectos activos** → una copia que habla **sólo del año** y **no presupone cero proyectos de por vida**, en el mismo tono que el resto de la app (voseo, cercano). | El año está en blanco, pero su proyecto sigue ahí abajo: la frase no puede contradecir lo que se ve en la misma pantalla. |
+| Las **dos direcciones** quedan ancladas por test. | Sin el control inverso no se sabe si la copia salió por el motivo correcto — mismo criterio que E4 (c). |
+
+**Qué le pasa a "§4 no cambia de texto"** (dicho arriba, en *Lo que E4 NO cambia*): sigue valiendo para
+el **título**, que es lo que §4 fija, y **deja de valer para la descripción**, que a partir de aquí
+depende de si hay algo en curso. Se anota explícitamente para que nadie lea las dos frases como una
+contradicción.
+
 ## 8. Slices de implementación (→ `feature_list.json`)
 
 IDs reales en `feature_list.json` (mapeo en [RFC-00 §4](RFC-00-proceso.md)):

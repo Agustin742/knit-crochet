@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { cn } from "../../lib/cn";
 import { buttonVariants } from "../../primitives/button/button.variants";
+import { isAbsolutePxLength } from "../../testing/css-tokens";
 import { ARCHIVE_SLOTS } from "../archive-nav/archive-nav.variants";
 import {
   accountBandVariants,
@@ -46,10 +47,8 @@ interface Rgb {
   b: number;
 }
 
-function declaration(name: string): string {
-  const match = GLOBALS_CSS.match(
-    new RegExp(String.raw`^\s*${name}:\s*([^;]+);`, "m"),
-  );
+function declarationIn(css: string, name: string): string {
+  const match = css.match(new RegExp(String.raw`^\s*${name}:\s*([^;]+);`, "m"));
   const value = match?.[1];
   if (value === undefined) {
     throw new Error(`El token ${name} no está declarado en globals.css`);
@@ -57,24 +56,76 @@ function declaration(name: string): string {
   return value.trim().replace(/\s+/g, " ");
 }
 
+function declaration(name: string): string {
+  return declarationIn(GLOBALS_CSS, name);
+}
+
 function isDeclared(name: string): boolean {
   return new RegExp(String.raw`^\s*${name}:`, "m").test(GLOBALS_CSS);
 }
 
 /** Sigue la cadena de referencias hasta el valor literal. */
-function resolved(name: string): string {
-  const value = declaration(name);
+function resolvedIn(css: string, name: string): string {
+  const value = declarationIn(css, name);
   const reference = value.match(/^var\((--[a-z0-9-]+)\)$/)?.[1];
-  return reference ? resolved(reference) : value;
+  return reference ? resolvedIn(css, reference) : value;
 }
 
-function length(name: string): number {
-  const value = resolved(name);
-  const amount = Number.parseFloat(value);
-  if (Number.isNaN(amount)) {
-    throw new Error(`El token ${name} no es una longitud: ${value}`);
+function resolved(name: string): string {
+  return resolvedIn(GLOBALS_CSS, name);
+}
+
+/**
+ * Los tokens que la geometría ha leído como LONGITUD, apuntados por el propio
+ * lector según los lee.
+ *
+ * Se descubren en vez de enumerarse a mano: una lista escrita aquí se queda
+ * atrás en cuanto la derivación consuma un token más, y el control positivo
+ * pasaría a vigilar menos de lo que el gate usa sin que nadie lo note (es el
+ * patrón de las deudas 40/43/71).
+ */
+const LENGTH_TOKENS_READ = new Set<string>();
+
+/**
+ * Una longitud de la geometría de la banda, **con la unidad comprobada**
+ * (deuda 158).
+ *
+ * ANTES ERA LA LECTURA PERMISIVA QUE DEJÓ PASAR EL BLOQUEANTE B2: hacía
+ * `Number.parseFloat` y sólo rechazaba si salía un no-número. `Number.parseFloat`
+ * **descarta el sufijo en silencio**, así que para ella `44`, `44px` y `44em` son
+ * el mismo número y **toda la aritmética de este archivo cuadraba igual con los
+ * tres**.
+ *
+ * Aquí lo que se calcula es una colisión geométrica: cuántos píxeles quedan
+ * libres encima de la pestaña más alta del archivero y cuántos ocupa la banda.
+ * Si a uno de esos tokens se le cae la unidad, en el navegador la declaración es
+ * inválida y la propiedad cae a su valor inicial —o sea, la altura mínima o el
+ * respiro que la cuenta da por supuestos **no existen**— mientras el gate sigue
+ * afirmando que no hay solape. Con `em` la cuenta se hace con un número y la
+ * pantalla usa otro ~16 veces mayor. Los dos casos son el defecto que este gate
+ * existe para impedir, con la suite en verde.
+ *
+ * El criterio de a qué tokens se les puede exigir unidad —y a cuáles no— está
+ * escrito en `isAbsolutePxLength`. Todo lo que lee esta función se consume como
+ * longitud CSS: entra de lleno.
+ *
+ * Toma el `css` por parámetro para que el control positivo pueda correr **la
+ * derivación real de este gate** contra copias mutadas del CSS de verdad. Un
+ * control positivo que sólo se corre en la dirección que ya funcionaba no es un
+ * control positivo: ésa fue la causa del B2.
+ */
+function lengthIn(css: string, name: string): number {
+  LENGTH_TOKENS_READ.add(name);
+  const value = resolvedIn(css, name);
+  if (!isAbsolutePxLength(value)) {
+    throw new Error(
+      `El token ${name} vale "${value}", que no es una longitud absoluta en ` +
+        `píxeles. Sin unidad la declaración es inválida en el navegador y la propiedad ` +
+        `cae a su valor inicial; con una unidad relativa la geometría real no es la que ` +
+        `se calcula aquí. Las dos cosas dejan el solape sin vigilar (deuda 158).`,
+    );
   }
-  return amount;
+  return Number.parseFloat(value);
 }
 
 function color(name: string): Rgb {
@@ -175,66 +226,107 @@ const NEGATIVE_MARGIN = /^-m[a-z]?-/;
  * ------------------------------------------------------------------ */
 
 /**
- * Alto que ocupa la banda. Es una **cota inferior**: el control es un objetivo
- * táctil (el mismo token que la banda declara como alto mínimo) más los dos
- * respiros verticales; su relleno y su borde propios sólo pueden hacerla más
- * alta, y todo lo que crezca empeora el caso de la superposición, nunca lo
- * mejora. Los dos tokens salen de las clases reales de la banda.
+ * TODA la geometría del gate, derivada de un texto de CSS.
+ *
+ * Está junta y parametrizada por `css` por un motivo de deuda 158: así el
+ * control positivo del final puede correr **esta misma derivación** —la que
+ * alimenta los asertos de verdad— contra copias mutadas del `globals.css` real,
+ * en vez de conformarse con probar el ayudante por su cuenta.
+ *
+ * - `bandHeight`: alto que ocupa la banda. Es una **cota inferior**: el control
+ *   es un objetivo táctil (el mismo token que la banda declara como alto mínimo)
+ *   más los dos respiros verticales; su relleno y su borde propios sólo pueden
+ *   hacerla más alta, y todo lo que crezca empeora el caso de la superposición,
+ *   nunca lo mejora. Los dos tokens salen de las clases reales de la banda.
+ * - `worstCaseTabTop*`: techo libre que el archivero deja por encima de la
+ *   pestaña de la ÚLTIMA columna en el PEOR caso: la ranura 6 (desde E10,
+ *   columna y ranura están desacopladas, así que la columna 6 puede caer en la
+ *   de más arriba) y con el puntero encima (la pestaña crece hacia el techo,
+ *   `--nav-tab-lift`).
+ * - `navTop`: desplazamiento que la banda impone al techo del cajón. Se DERIVA
+ *   de sus clases: una banda en el flujo empuja al nav su propio alto; una
+ *   superpuesta (posicionada fuera del flujo, desplazada por transformación o
+ *   metida a la fuerza con un margen negativo) no empuja nada y deja el techo
+ *   del nav en 0, que es justo el escenario que este gate prohíbe.
  */
-const BAND_HEIGHT =
-  length(tokenOf(BAND_CLASSES, MIN_HEIGHT)) +
-  2 * length(tokenOf(BAND_CLASSES, PADDING_BLOCK));
+function geometry(css: string) {
+  const bandHeight =
+    lengthIn(css, tokenOf(BAND_CLASSES, MIN_HEIGHT)) +
+    2 * lengthIn(css, tokenOf(BAND_CLASSES, PADDING_BLOCK));
+  const worstCaseTabTopResting =
+    lengthIn(css, "--nav-height") -
+    (ARCHIVE_SLOTS - 1) * lengthIn(css, "--nav-leaf-height") -
+    lengthIn(css, "--nav-tab-height");
+  const worstCaseTabTopHovered =
+    worstCaseTabTopResting - lengthIn(css, "--nav-tab-lift");
+  const navTop = BAND_CLASSES.some(
+    (candidate) =>
+      OUT_OF_FLOW.includes(candidate) ||
+      candidate.includes(TRANSFORM) ||
+      NEGATIVE_MARGIN.test(candidate),
+  )
+    ? 0
+    : bandHeight;
+  return {
+    bandHeight,
+    worstCaseTabTopResting,
+    worstCaseTabTopHovered,
+    navTop,
+  };
+}
 
 /**
- * Techo libre que el archivero deja por encima de la pestaña de la ÚLTIMA
- * columna en el PEOR caso: la ranura 6 (desde E10, columna y ranura están
- * desacopladas, así que la columna 6 puede caer en la de más arriba) y con el
- * puntero encima (la pestaña crece hacia el techo, `--nav-tab-lift`).
+ * La derivación corre **la primera vez que un test la pide**, no al cargar el
+ * módulo (T6 b de la deuda 158).
+ *
+ * Con ella en ámbito de módulo, un token sin unidad tiraba al **importar** el
+ * archivo y vitest lo contaba como error de recolección (`Tests no tests`):
+ * ruidoso y con exit distinto de 0 —nunca un verde falso—, pero el rojo no decía
+ * qué invariante se había roto. Desde un `beforeAll` tampoco servía: un hook que
+ * lanza deja los tests como **saltados**, y un resumen lleno de "skipped" se lee
+ * como si no pasara nada. Perezosa y memorizada, el fallo sale **en cada `it`
+ * que depende de la geometría**, con su mensaje y su nombre.
  */
-const WORST_CASE_TAB_TOP_RESTING =
-  length("--nav-height") -
-  (ARCHIVE_SLOTS - 1) * length("--nav-leaf-height") -
-  length("--nav-tab-height");
-const WORST_CASE_TAB_TOP_HOVERED =
-  WORST_CASE_TAB_TOP_RESTING - length("--nav-tab-lift");
+let derived: ReturnType<typeof geometry> | undefined;
+
+function bandGeometry(): ReturnType<typeof geometry> {
+  derived ??= geometry(GLOBALS_CSS);
+  return derived;
+}
 
 /**
- * Desplazamiento que la banda impone al techo del cajón. Se DERIVA de sus
- * clases: una banda en el flujo empuja al nav su propio alto; una superpuesta
- * (posicionada fuera del flujo, desplazada por transformación o metida a la
- * fuerza con un margen negativo) no empuja nada y deja el techo del nav en 0,
- * que es justo el escenario que este gate prohíbe.
+ * Foto de los tokens que la derivación lee. Se fuerza la derivación antes de
+ * mirar el conjunto, y se copia: si se leyera el conjunto vivo dentro de un
+ * bucle, el propio control positivo lo iría alimentando mientras itera.
  */
-const NAV_TOP = BAND_CLASSES.some(
-  (candidate) =>
-    OUT_OF_FLOW.includes(candidate) ||
-    candidate.includes(TRANSFORM) ||
-    NEGATIVE_MARGIN.test(candidate),
-)
-  ? 0
-  : BAND_HEIGHT;
+function geometryLengthTokens(): string[] {
+  bandGeometry();
+  return [...LENGTH_TOKENS_READ];
+}
 
 describe("la banda de cuenta no cabe sobre el archivero (E11 c)", () => {
   it("la pestaña de la última columna en la ranura 6 no deja techo para un control", () => {
     // 104 − 5×10 − 44 = 10 en reposo; menos los 8 que crece con el puntero, 2.
-    expect(WORST_CASE_TAB_TOP_HOVERED).toBeGreaterThanOrEqual(0);
-    expect(WORST_CASE_TAB_TOP_HOVERED).toBeLessThan(
-      WORST_CASE_TAB_TOP_RESTING,
-    );
+    const { bandHeight, worstCaseTabTopResting, worstCaseTabTopHovered } =
+      bandGeometry();
+    expect(worstCaseTabTopHovered).toBeGreaterThanOrEqual(0);
+    expect(worstCaseTabTopHovered).toBeLessThan(worstCaseTabTopResting);
     expect(
-      WORST_CASE_TAB_TOP_HOVERED,
-      `sobre el cajón sólo quedan ${WORST_CASE_TAB_TOP_HOVERED}px y la banda necesita ${BAND_HEIGHT}px`,
-    ).toBeLessThan(BAND_HEIGHT);
+      worstCaseTabTopHovered,
+      `sobre el cajón sólo quedan ${worstCaseTabTopHovered}px y la banda necesita ${bandHeight}px`,
+    ).toBeLessThan(bandHeight);
   });
 
   it("por eso va en el FLUJO: su borde inferior queda por encima del cajón", () => {
     // El invariante: entre el borde inferior de la banda y el borde superior de
     // la pestaña más alta que puede haber debajo no puede haber solape. Si
-    // alguien superpone la banda, `NAV_TOP` cae a 0 y esto se pone rojo.
-    const worstCaseTabTop = NAV_TOP + WORST_CASE_TAB_TOP_HOVERED;
+    // alguien superpone la banda, el desplazamiento del cajón cae a 0 y esto
+    // se pone rojo.
+    const { bandHeight, worstCaseTabTopHovered, navTop } = bandGeometry();
+    const worstCaseTabTop = navTop + worstCaseTabTopHovered;
     expect(
-      BAND_HEIGHT,
-      `la banda ocupa hasta y=${BAND_HEIGHT} y la pestaña de la columna 6 empieza en y=${worstCaseTabTop}`,
+      bandHeight,
+      `la banda ocupa hasta y=${bandHeight} y la pestaña de la columna 6 empieza en y=${worstCaseTabTop}`,
     ).toBeLessThanOrEqual(worstCaseTabTop);
   });
 
@@ -292,5 +384,85 @@ describe("legibilidad de la banda de cuenta", () => {
     // vigente porque el control no se apoya ahí — y este test es lo que fija que
     // no puede empezar a apoyarse sin que nadie se entere.
     expect(contrast(FOCUS, LEAF_FACE)).toBeLessThan(3);
+  });
+});
+
+/**
+ * Copia del CSS con el valor de UN token sustituido. La guardia no es
+ * decorativa: si el patrón no casara, la mutación sería un no-op y la dirección
+ * "sigue verde con px" pasaría **por accidente**, que es exactamente cómo un
+ * control positivo miente.
+ */
+function withValue(css: string, name: string, value: string): string {
+  const pattern = new RegExp(String.raw`^(\s*${name}:\s*)[^;]+;`, "m");
+  if (!pattern.test(css)) {
+    throw new Error(`No se pudo mutar ${name}: el patrón no casa con el CSS`);
+  }
+  return css.replace(pattern, `$1${value};`);
+}
+
+/**
+ * CONTROL POSITIVO DE LA UNIDAD (deuda 158).
+ *
+ * Lo que hay que demostrar **no** es que `isAbsolutePxLength` funcione —eso ya
+ * está probado donde vive—, sino que **este gate la está usando de verdad**. Por
+ * eso los tres tests llaman a `geometry()`, que es la MISMA función que produce
+ * los números de los asertos de arriba, contra copias mutadas del `globals.css`
+ * de verdad.
+ *
+ * Y se corre en las CUATRO direcciones, no sólo en la que ya funcionaba: sin
+ * unidad, `em`, `rem` y el `px` bueno. Ésa fue la lección del bloqueante B2 —un
+ * control positivo corrido en una sola dirección la daba por buena— y es la
+ * razón por la que esta deuda existe.
+ *
+ * Se muta **cada token que la derivación lee**, descubiertos por el propio
+ * lector, no una muestra elegida a mano.
+ */
+describe("control positivo: el gate se pone ROJO si a una longitud le falta su unidad de píxeles", () => {
+  /**
+   * El número de un token, **sin su unidad**, para fabricar mutantes. Se saca
+   * quitando el sufijo del texto y no llamando a `lengthIn`: si el mutante se
+   * construyera con el lector estricto, las cuatro direcciones dependerían de
+   * que el CSS real ya estuviera bien y la de "sigue verde con px" no probaría
+   * nada por su cuenta.
+   */
+  function bareNumber(token: string): string {
+    return resolvedIn(GLOBALS_CSS, token).replace(/[a-z%]+$/i, "");
+  }
+
+  it("la derivación lee al menos una longitud (si no, no habría nada que vigilar)", () => {
+    expect(geometryLengthTokens().length).toBeGreaterThan(0);
+  });
+
+  it("una longitud SIN UNIDAD pone el gate en rojo (declaración inválida: la propiedad cae a su valor inicial)", () => {
+    for (const token of geometryLengthTokens()) {
+      const value = bareNumber(token);
+      expect(
+        () => geometry(withValue(GLOBALS_CSS, token, value)),
+        `con ${token}: ${value} (sin unidad) el gate TIENE que caer`,
+      ).toThrow();
+    }
+  });
+
+  it("una longitud en UNIDADES RELATIVAS pone el gate en rojo (la geometría real no es la que se calcula)", () => {
+    for (const token of geometryLengthTokens()) {
+      for (const unit of ["em", "rem"]) {
+        const value = `${bareNumber(token)}${unit}`;
+        expect(
+          () => geometry(withValue(GLOBALS_CSS, token, value)),
+          `con ${token}: ${value} el gate TIENE que caer`,
+        ).toThrow();
+      }
+    }
+  });
+
+  it("y sigue VERDE con la misma longitud escrita en píxeles", () => {
+    for (const token of geometryLengthTokens()) {
+      const value = `${bareNumber(token)}px`;
+      expect(
+        () => geometry(withValue(GLOBALS_CSS, token, value)),
+        `con ${token}: ${value} el gate tiene que SEGUIR pasando`,
+      ).not.toThrow();
+    }
   });
 });

@@ -26,6 +26,34 @@
 - **Referencias:** las deudas se citan por número desde `progress/informs/`, desde los `reports/` de los
   subagentes y desde los encargos a los implementers ("fuera de alcance: deudas 13, 15, 16…").
 
+### ⚖️ Escala de severidad — CORREGIDA el 2026-08-24, a petición del usuario
+
+**El problema que arregla esta regla.** Durante cuatro sesiones este libro pintó del **mismo rojo** dos
+cosas que no se parecen en nada: *"un usuario no puede crear un proyecto"* y *"si alguien edita un token
+y le quita la unidad, el gate no se entera"*. El color medía **riesgo para el código**, no **impacto
+para quien usa la app** — y el leader trató el segundo como urgente sesión tras sesión. Resultado: el
+arnés se convirtió en el producto y el MVP no avanzó.
+
+**La escala ahora tiene DOS ejes y el que manda es el primero:**
+
+| eje | pregunta |
+|---|---|
+| **Visibilidad** (manda) | ¿**puede un usuario ver esto**, hoy, usando la app? |
+| Riesgo | ¿qué se rompe si nadie lo arregla? |
+
+- 🔴 **Un usuario lo ve y le impide hacer algo.** Interrumpe lo que sea.
+- 🟠 **Un usuario lo ve pero puede seguir.** Entra en el lote de la página que lo toca.
+- 🟢 / ⚪ **Ningún usuario lo ve: sólo lo ve un agente editando el código.** Casi todo el trabajo de
+  gates vive aquí. **NO interrumpe una feature.** Se ficha y espera.
+
+> **Regla dura que sale de esto:** *una deuda sólo interrumpe una feature si **un usuario puede verla**.*
+> Un gate que no detecta una edición futura **no es urgente**, por muy real que sea el agujero. Se
+> anota, se deja escrito el escenario, y se sigue construyendo páginas.
+>
+> **Aviso al leader:** la tentación es siempre la misma —"está medido y es corto, lo meto en el lote"—.
+> Así se escaló el alcance el 2026-08-24, dos veces en una sesión. Cada decisión era defendible por
+> separado; sumadas, el usuario terminó el día sin ver una página nueva.
+
 ---
 
 1. ~~**`src/proxy.ts` `/` público vs. Dashboard privado** (#13)~~ → **SALDADA por #19** (2026-08-07,
@@ -2399,3 +2427,75 @@ bloqueante **no era un bug de código**, era una frase que afirmaba que ese test
      **Cómo se salda:** decidir qué se alinea con qué —lo natural es la línea de base del título con la
      del control, y "Ver todos" con una de las dos, no en medio—, y **sostenerlo con un gate**, porque
      hoy la alineación no la mide nadie: es la deuda **141** otra vez, en pequeño.
+
+---
+
+> **Del lote 158 + 153 (2026-08-24).** Cierre **parcial y declarado como tal**: la 153 se salda, la 158
+> **NO**. Y las deudas nuevas se etiquetan ya con la **escala corregida** de arriba — casi todas son ⚪,
+> y ese es justamente el punto.
+
+158. **↩️ REDUCIDA, NO SALDADA** (ver ficha arriba). Los tres gates leen ya con `isAbsolutePxLength()`
+     reutilizado, con control positivo en **cuatro direcciones** por gate corrido sobre mutantes del
+     `globals.css` **real**, y con **tokens descubiertos, no enumerados** (el reviewer lo comprobó
+     añadiendo un par nuevo: el gate lo cubrió solo). La partición `length`/`unitless` de `archive-nav`
+     —necesaria porque ese archivo lee también `--leading-tight` y los `--z-nav-*`, que legítimamente no
+     llevan unidad— **no deja ninguna longitud del lado permisivo**. La **mitad hermana pierde la
+     etiqueta "no medida"**: `isDeclared()` quedó medida (con el token en una condición inalcanzable la
+     suite daba `1416 passed` y la app sin tope) y **arreglada** en T6 preguntando al **CSS compilado**
+     vía `declarationsOf()` — la regex se abandonó, no se endureció.
+     **POR QUÉ NO SE CIERRA:** el reviewer encontró una **TERCERA variante** del mismo verde-falso, y
+     T6 sólo blindó `app-shell`. Ver deuda **160**.
+     Informes: `progress/reports/impl_deuda_158.md`, `progress/reports/review_deudas_158_153.md`.
+
+153. ~~**🔴 El estado vacío del año es INALCANZABLE**~~ → **SALDADA** el 2026-08-24 por la enmienda
+     **E4** de RFC-02, **con la decisión tomada por el usuario y escrita en el RFC antes de tocar
+     código**: *"Proyectos en curso" es el PRESENTE, no una rebanada del año*. El parámetro `year` de
+     `getActiveProjects` —que se recibía y **no se mandaba nunca**— se eliminó; `isEmpty` dejó de exigir
+     `data.projects.length === 0`.
+     **Lo que la decisión destapó, y no estaba en la ficha:** `isEmpty` **sustituía a los DOS paneles**,
+     así que el vacío —ahora alcanzable con proyectos activos— habría **escondido un proyecto vivo**:
+     el mismo desenlace por el que el usuario descartó filtrar por año. Se arregló como **E4 (d)**: el
+     vacío sustituye **al panel de métricas**, y "Proyectos en curso" se pinta siempre que haya activos.
+     **Y una segunda vuelta, E4 (e):** el vacío le decía *"Empezá el primero"* a quien tenía un proyecto
+     en pantalla. **Decisión del usuario:** dos descripciones, según haya o no activos.
+     **El rechazo que hubo por el camino vale la pena leerlo:** el primer ancla del vacío montaba un
+     proyecto con `startDate` **del mismo año** que se miraba, y `countProjects` cuenta *"iniciado O
+     terminado en el año"* — o sea, **producción nunca habría alcanzado ese estado**. Era la deuda 153
+     **reaparecida dentro de su propio arreglo**. Verificación: `1426 passed | 13 skipped (1439)`.
+     Informes: `progress/reports/impl_deuda_153.md`, `progress/reports/review_deudas_158_153.md`.
+
+160. **⚪ TERCERA variante del mismo verde-falso: un token declarado DOS VECES en `:root`.** La cascada
+     se queda con **la última** declaración y los gates leen **la primera**. **Medido por el reviewer:**
+     la **suite entera** da `1424 passed` con `--nav-height: 104` y `--touch-target: 44em` **vigentes en
+     el navegador**; y `36 passed` con `--bp-tablet` sólo dentro de una condición inalcanzable. T6
+     blindó el ámbito **sólo en `app-shell`**; `breakpoint-tokens`, `account-band` y `archive-nav`
+     siguen leyendo por el camino viejo. **Cómo se salda:** aplicarles `declarationsOf()`, que **ya
+     existe**. **⚪ y no 🔴 a propósito:** el escenario exige que un agente edite `globals.css` y declare
+     el token dos veces. **Ningún usuario puede ver esto.** No interrumpe #21.
+
+161. **⚪ La familia entera se está arreglando gate por gate, y vuelve por un flanco nuevo cada vez.**
+     Tres variantes en dos sesiones: **unidad** (B2 de E13) → **ámbito condicional** (T4) → **declaración
+     duplicada** (160). Cinco call sites de `parseFloat` validados a mano. **Escenario de fallo:** mañana
+     alguien escribe `foo.tokens.test.ts` con `Number.parseFloat` —que es lo natural y lo que hicieron
+     los cuatro anteriores— y la sexta aparición entra con la suite en verde. **Lo que mata la CLASE:**
+     un **gate de repo** (estilo el de no-hardcode, que ya barre `src/**`) que prohíba leer el valor de
+     un token CSS sin validar unidad **y ámbito**. **Bajo la escala nueva es ⚪:** es la deuda de más
+     calado del lote *para el código* y **cero para el usuario**. Se hace cuando las páginas estén.
+
+162. **🟠 Cada paso de año dispara una petición idéntica y redundante a `/api/projects`.**
+     `getActiveProjects` ya no lleva `year`, pero sigue en el `Promise.all` de un `useEffect` cuya clave
+     **sí** incluye el año. **Medido:** cinco pasos de año → **10** peticiones, **5** de ellas idénticas.
+     Coste bajo (lista de ~15 proyectos) y hoy tiene una ventaja: la lista se mantiene fresca.
+     **Arreglo si molesta:** efecto propio con clave `type|reloadToken`. **Riesgo:** duplicar la máquina
+     de "estar cargando", que hoy es una sola clave y por eso no se puede desincronizar.
+
+163. **🟠 El estado vacío se re-rotula con el año nuevo mientras todavía está cargando**, sin feedback
+     visible. Medido por el reviewer. **Es la deuda 137 otra vez.** Un usuario **sí** ve esto —de ahí el
+     🟠— pero no le impide nada: ve un instante el título del año nuevo sobre datos del viejo.
+
+164. **⚪ Las fechas `2026-…` escritas a mano en el fixture base de `DashboardView.test.tsx`.**
+     Fichada por el implementer al arreglar el bloqueante 1. **Escenario de fallo con fecha exacta:** el
+     **1 de enero de 2027**, `CURRENT_YEAR` avanza y el fixture no, reproduciendo **la misma
+     incoherencia que causó el rechazo de hoy** — un test verde sobre un escenario que producción no
+     produce. **Cómo se salda:** derivar las fechas de `CURRENT_YEAR`, como ya se hizo con el proyecto
+     del test del vacío.

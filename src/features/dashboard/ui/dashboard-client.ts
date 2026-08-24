@@ -27,14 +27,23 @@ export type DashboardRequestResult<T> =
   | { ok: true; data: T }
   | { ok: false; status: number; message: string };
 
-export type DashboardQuery = {
-  year: number;
-  /**
-   * `undefined` = sin filtro. Los dos botones de tipo son **combinables**
-   * (RFC-02 §1) y el endpoint sólo acepta UN craft type, así que "los dos
-   * marcados" y "ninguno marcado" piden lo mismo: todo.
-   */
+/**
+ * Filtro de **tipo**, lo único que las dos peticiones comparten. `undefined` =
+ * sin filtro: los dos botones de tipo son **combinables** (RFC-02 §1) y el
+ * endpoint sólo acepta UN craft type, así que "los dos marcados" y "ninguno
+ * marcado" piden lo mismo: todo.
+ */
+export type TypeQuery = {
   type?: CraftType;
+};
+
+/**
+ * Lo que pide el panel de métricas: un año, y el filtro de tipo. El año es
+ * **suyo y sólo suyo** — la lista de proyectos en curso NO se filtra por año
+ * (RFC-02 §7-quinquies, E4 a), y por eso ya no hay un tipo común a las dos.
+ */
+export type DashboardQuery = TypeQuery & {
+  year: number;
 };
 
 async function readErrorMessage(response: Response): Promise<string> {
@@ -115,9 +124,15 @@ export function getMetrics(
  *
  * No se pide ni `limit` ni `offset` porque el contrato no los tiene: el tope de
  * ~15 y el orden son de cliente (RFC-02 §3).
+ *
+ * **NO recibe año** (RFC-02 §7-quinquies, E4 a): "proyectos en curso" es lo que
+ * está abierto AHORA, no una rebanada del año. Antes aceptaba un `year` que
+ * nunca mandaba —el parámetro mentía, deuda 153— y esa mentira sostenía un
+ * `isEmpty` que hacía inalcanzable el estado vacío. El filtro de tipo sí se
+ * manda: ése también es del presente.
  */
 export async function getActiveProjects(
-  query: DashboardQuery,
+  query: TypeQuery,
 ): Promise<DashboardRequestResult<SerializedProject[]>> {
   const result = await request<ProjectListPayload>(
     `${PROJECTS_ENDPOINT}${queryString({

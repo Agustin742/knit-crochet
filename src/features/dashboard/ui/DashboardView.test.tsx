@@ -15,6 +15,7 @@ import { metricGridColumns } from "./MetricsPanel";
 import {
   DashboardView,
   EMPTY_STATE_DESCRIPTION,
+  EMPTY_STATE_WITH_ACTIVE_DESCRIPTION,
   ERROR_TITLE,
   LOADING_MESSAGE,
 } from "./DashboardView";
@@ -154,6 +155,31 @@ function lastProjectsUrl(): string {
 }
 
 const CURRENT_YEAR = new Date().getFullYear();
+
+/**
+ * El proyecto del escenario de E4 (d): **empezado el año ANTERIOR** al que se
+ * mira y todavía en las agujas.
+ *
+ * El año se DERIVA de `CURRENT_YEAR` y no se escribe a mano, para que el test
+ * siga diciendo la verdad el 1 de enero que viene.
+ *
+ * **Por qué tiene que ser de otro año, y no un detalle de adorno:**
+ * `countProjects` (`features/dashboard/api/store.ts`) cuenta los proyectos
+ * *iniciados **O** terminados en el año*. Un proyecto empezado **dentro** del
+ * año mirado obligaría a `metrics.projects >= 1`, así que un doble que
+ * devolviera `projects: 0` junto a él describiría un estado que **producción no
+ * puede producir**: el vacío no habría salido nunca. Sería la deuda 153
+ * reaparecida dentro de su propio arreglo — un test verde sobre un escenario
+ * imposible—. Empezado el año pasado y sin sesiones este año, en cambio,
+ * `hours: 0` y `projects: 0` es exactamente lo que el backend devuelve.
+ */
+const BUFANDA_DEL_ANO_PASADO = project({
+  id: "bufanda",
+  name: "Bufanda",
+  progress: 40,
+  startDate: `${CURRENT_YEAR - 1}-11-02T00:00:00.000Z`,
+  updatedAt: `${CURRENT_YEAR - 1}-12-20T00:00:00.000Z`,
+});
 
 /**
  * Monta la página y espera a que la carga termine. Se espera a la región viva
@@ -391,6 +417,28 @@ describe("filtros de año y tipo (RFC-02 §1)", () => {
 
     expect(lastProjectsUrl()).toContain("active=true");
   });
+
+  /**
+   * ENMIENDA E4 (a): "Proyectos en curso" es el PRESENTE, no una rebanada del
+   * año, así que su petición NO lleva `year`. Se aserta sobre la URL realmente
+   * pedida y no sobre la firma: el compilador ya cubre la firma, y era
+   * precisamente una firma que aceptaba `year` sin mandarlo lo que hacía que el
+   * parámetro mintiera (deuda 153). Se comprueba también DESPUÉS de mover el
+   * año, que es cuando un filtro colado se notaría.
+   */
+  it("no filtra los proyectos en curso por año", async () => {
+    const user = userEvent.setup();
+    await renderReady();
+
+    expect(lastProjectsUrl()).not.toContain("year");
+
+    await user.click(screen.getByRole("button", { name: "Año anterior" }));
+
+    await waitFor(() =>
+      expect(lastMetricsUrl()).toContain(`year=${CURRENT_YEAR - 1}`),
+    );
+    expect(lastProjectsUrl()).not.toContain("year");
+  });
 });
 
 describe("lista de activos (enmienda E2.2)", () => {
@@ -495,6 +543,142 @@ describe("estados de carga, vacío y error (RFC-02 §4)", () => {
     // Los botones de crear siguen a mano, que es lo que el estado vacío ofrece.
     expect(
       screen.getByRole("button", { name: "Nuevo dos agujas" }),
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * ENMIENDA E4 (b) + REGLA 7 — el escenario que producción sí sabe producir y
+   * el doble no producía nunca. El test del vacío que ya existía pasaba
+   * `projects: []`, y por eso estuvo verde mientras el estado era INALCANZABLE
+   * en pantalla (deuda 153): quien tiene un proyecto abierto lo tiene abierto en
+   * TODOS los años, porque la lista de activos no es del año.
+   *
+   * El caso real es un año en blanco **con un proyecto del año pasado todavía
+   * vivo**, y por eso el fixture es `BUFANDA_DEL_ANO_PASADO` — ver ahí por qué
+   * un proyecto empezado DENTRO del año mirado haría de este test otra mentira
+   * verde.
+   */
+  it("da el año por vacío aunque quede un proyecto vivo de otro año", async () => {
+    await renderReady({
+      metrics: metricsBody({ hours: 0, projects: 0, yarnMeters: 500 }),
+      projects: [BUFANDA_DEL_ANO_PASADO],
+    });
+
+    expect(
+      screen.getByRole("heading", {
+        name: `Todavía no tejiste nada en ${CURRENT_YEAR}`,
+      }),
+    ).toBeInTheDocument();
+    /* El vacío es una afirmación SOBRE LAS MÉTRICAS del año, así que es el panel
+       de métricas —y sólo ése— lo que sustituye. */
+    expect(
+      screen.queryByRole("heading", { name: "Tu año en números" }),
+    ).toBeNull();
+  });
+
+  /**
+   * ENMIENDA E4 (d). El vacío del año no puede tapar un proyecto que está en las
+   * agujas: sería llegar por la otra puerta al desenlace que E4 (a) descartó al
+   * negarse a filtrar el panel por año. No basta con mirar el título del vacío
+   * —hay que ver el proyecto en su panel—.
+   *
+   * El proyecto es el del año pasado, que es el único que puede convivir con un
+   * año en blanco de verdad (ver `BUFANDA_DEL_ANO_PASADO`).
+   */
+  it("el vacío del año NO esconde el proyecto que sigue en curso", async () => {
+    await renderReady({
+      metrics: metricsBody({ hours: 0, projects: 0, yarnMeters: 500 }),
+      projects: [BUFANDA_DEL_ANO_PASADO],
+    });
+
+    expect(
+      screen.getByRole("heading", {
+        name: `Todavía no tejiste nada en ${CURRENT_YEAR}`,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(activeRegion()).getByRole("heading", { name: "Bufanda" }),
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * ENMIENDA E4 (e), primera dirección. La copia de siempre le dice "empezá el
+   * primero" a quien no tejió nunca; dicha ENCIMA del panel con su proyecto
+   * dentro, contradice lo que se ve en la misma pantalla. Se comprueba lo que
+   * dice **y** lo que ya no dice, en el escenario en que las dos cosas conviven.
+   */
+  it("con un proyecto a la vista, el vacío habla del año y no del primero", async () => {
+    await renderReady({
+      metrics: metricsBody({ hours: 0, projects: 0, yarnMeters: 500 }),
+      projects: [BUFANDA_DEL_ANO_PASADO],
+    });
+
+    expect(
+      screen.getByText(EMPTY_STATE_WITH_ACTIVE_DESCRIPTION),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(EMPTY_STATE_DESCRIPTION)).toBeNull();
+    expect(screen.queryByText(/el primero/i)).toBeNull();
+    // El título NO se desdobla: es el de §4 en los dos caminos.
+    expect(
+      screen.getByRole("heading", {
+        name: `Todavía no tejiste nada en ${CURRENT_YEAR}`,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * ENMIENDA E4 (e), segunda dirección — sin ella no se sabría si la copia salió
+   * por el motivo correcto. Quien empieza de cero sigue viendo la copia de la
+   * **deuda 147**, que se escribió para él y no se toca.
+   */
+  it("sin nada en curso, el vacío sigue siendo el de quien empieza de cero", async () => {
+    await renderReady({
+      metrics: metricsBody({ hours: 0, projects: 0, yarnMeters: 500 }),
+      projects: [],
+    });
+
+    expect(screen.getByText(EMPTY_STATE_DESCRIPTION)).toBeInTheDocument();
+    expect(
+      screen.queryByText(EMPTY_STATE_WITH_ACTIVE_DESCRIPTION),
+    ).toBeNull();
+  });
+
+  /** ENMIENDA E4 (d), otra mitad: sin activos no hay panel, y el vacío queda solo. */
+  it("sin proyectos en curso el vacío del año se queda sin vecinos", async () => {
+    await renderReady({
+      metrics: metricsBody({ hours: 0, projects: 0, yarnMeters: 500 }),
+      projects: [],
+    });
+
+    expect(
+      screen.getByRole("heading", {
+        name: `Todavía no tejiste nada en ${CURRENT_YEAR}`,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Proyectos en curso" }),
+    ).toBeNull();
+  });
+
+  /**
+   * CONTROL EN LA OTRA DIRECCIÓN. Sacar `projects.length` de la condición abre
+   * el riesgo simétrico: que el vacío salte de más. Un año con proyectos
+   * contados NO está vacío, ni siquiera cuando no queda ninguno en curso —lo
+   * terminaste todo—, y ahí el panel de métricas se queda donde estaba.
+   */
+  it("no da por vacío un año con métricas, aunque no haya nada en curso", async () => {
+    await renderReady({
+      metrics: metricsBody({ hours: 0, projects: 2, yarnMeters: 0 }),
+      projects: [],
+    });
+
+    expect(
+      screen.queryByRole("heading", {
+        name: `Todavía no tejiste nada en ${CURRENT_YEAR}`,
+      }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("heading", { name: "Tu año en números" }),
     ).toBeInTheDocument();
   });
 

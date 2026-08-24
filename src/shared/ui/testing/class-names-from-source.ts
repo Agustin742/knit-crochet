@@ -59,13 +59,28 @@ const GLOBALS_CSS = fileURLToPath(
   new URL("../../../app/globals.css", import.meta.url),
 );
 
-/** Compila `globals.css` de verdad. Es la única fuente de CSS de la app. */
-export async function compileGlobalsCss(): Promise<string> {
-  const source = readFileSync(GLOBALS_CSS, "utf8");
+/** El TEXTO de `globals.css`, sin compilar. Sólo para quien necesite mutarlo.
+ *
+ * Lo expone la pieza compartida para que un gate que quiera fabricar un CSS
+ * alternativo (un control positivo, sin ir más lejos) no tenga que volver a
+ * resolver la ruta del archivo por su cuenta y quedarse desincronizado el día
+ * que se mueva.
+ */
+export function globalsCssSource(): string {
+  return readFileSync(GLOBALS_CSS, "utf8");
+}
+
+/** Compila un texto de CSS con el mismo compilador que la app. */
+export async function compileCss(source: string): Promise<string> {
   const result = await postcss([tailwindcss()]).process(source, {
     from: GLOBALS_CSS,
   });
   return result.css;
+}
+
+/** Compila `globals.css` de verdad. Es la única fuente de CSS de la app. */
+export async function compileGlobalsCss(): Promise<string> {
+  return compileCss(globalsCssSource());
 }
 
 /** Nombre de clase → selector, con el escapado que hace Tailwind. */
@@ -155,6 +170,76 @@ export function rulesFor(css: string, className: string): EmittedRule[] {
     });
 
     found.push({ declarations, conditions });
+  });
+
+  return found;
+}
+
+/** Una declaración de propiedad realmente emitida, con su ámbito. */
+export interface EmittedDeclaration {
+  /** Selector de la regla que la contiene, tal cual sale del compilador. */
+  selector: string;
+  /** Valor de la declaración. */
+  value: string;
+  /**
+   * Condiciones de las reglas-arroba que la envuelven, de fuera hacia dentro.
+   * Las capas no cuentan: no condicionan nada, sólo ordenan.
+   */
+  conditions: string[];
+}
+
+/**
+ * Las declaraciones de una propiedad —típicamente un token— en el CSS
+ * **compilado**, con el selector y las condiciones bajo las que existen.
+ *
+ * POR QUÉ EXISTE (deuda 158, mitad hermana). El gate del caparazón preguntaba
+ * "¿aparece este token declarado?" con una expresión regular sobre el **texto**
+ * de `globals.css`. Eso responde a otra pregunta: dice si el nombre está
+ * ESCRITO, no si está declarado en un **ámbito que aplique**. Medido en esta
+ * misma sesión: metiendo el tope de ancho dentro de una consulta de medios de un
+ * ancho mínimo que ninguna pantalla real alcanza, el gate seguía verde —y la
+ * suite entera, 1416 tests— con el token **sin definir en ninguna pantalla**, o
+ * sea `max-width: var(...)` inválido y la columna de contenido sin tope. Es el
+ * mismo desenlace que el bloqueante B2, por otra puerta.
+ *
+ * (El ejemplo no lleva el número escrito a propósito: este archivo lo barre el
+ * guardrail de no-hardcode, que no distingue una longitud en la prosa de una
+ * longitud en el código.)
+ *
+ * La respuesta buena se la sabe el compilado, que conserva las reglas-arroba
+ * alrededor de la declaración; es la misma pregunta que `rulesFor` ya hace para
+ * las utilidades (`conditions`), apuntada al otro lado.
+ */
+export function declarationsOf(
+  css: string,
+  property: string,
+): EmittedDeclaration[] {
+  const found: EmittedDeclaration[] = [];
+
+  postcss.parse(css).walkDecls((declaration) => {
+    if (declaration.prop !== property) {
+      return;
+    }
+
+    const conditions: string[] = [];
+    let parent: postcss.Container | postcss.Document | undefined =
+      declaration.parent;
+    const selector =
+      parent !== undefined && parent.type === "rule"
+        ? (parent as postcss.Rule).selector
+        : "";
+
+    while (parent !== undefined) {
+      if (parent.type === "atrule") {
+        const atRule = parent as postcss.AtRule;
+        if (atRule.name !== "layer") {
+          conditions.unshift(`@${atRule.name} ${atRule.params}`.trim());
+        }
+      }
+      parent = parent.parent as postcss.Container | undefined;
+    }
+
+    found.push({ selector, value: declaration.value, conditions });
   });
 
   return found;

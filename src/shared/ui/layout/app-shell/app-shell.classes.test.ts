@@ -1,13 +1,15 @@
-import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { isAbsolutePxLength } from "../../testing/css-tokens";
 import {
+  compileCss,
   compileGlobalsCss,
+  declarationsOf,
   emitsRule,
   extractClassNames,
+  globalsCssSource,
   rulesFor,
   tokensIn,
   usesToken,
@@ -50,10 +52,7 @@ const COMPILE_TIMEOUT_MS = 120_000;
 
 const APP_SHELL = fileURLToPath(new URL("./AppShell.tsx", import.meta.url));
 
-const GLOBALS_CSS = readFileSync(
-  fileURLToPath(new URL("../../../../app/globals.css", import.meta.url)),
-  "utf8",
-);
+
 
 /** El token que fija el tope. No es una clase: es el nombre de la variable. */
 const CONTENT_MAX = "--content-max-inline";
@@ -70,25 +69,71 @@ const EXTERNAL_SOURCES = ["cn", "className"];
 const MAX_WIDTH = "max-width";
 const MARGIN_INLINE = "margin-inline";
 
-function tokenValue(name: string): string {
-  const match = GLOBALS_CSS.match(
-    new RegExp(String.raw`^\s*${name}:\s*([^;]+);`, "m"),
-  );
-  const value = match?.[1];
-  if (value === undefined) {
-    throw new Error(`El token ${name} no está declarado en globals.css`);
-  }
-  return value.trim();
-}
-
+/**
+ * Selectores que alcanzan al caparazón desde la raíz del documento. Un token de
+ * tope declarado bajo otro selector existiría sólo donde ESE selector aplicara,
+ * que es la misma clase de trampa que la condición.
+ */
+const ROOT_SELECTOR = /(^|,)\s*(:root|:host|html)\s*(,|$)/;
 
 /**
- * ¿`globals.css` declara este token? Se pregunta por el nombre **entero**
- * seguido de sus dos puntos, así que un nombre con una letra de más no cuela por
- * ser el otro un prefijo suyo — que es exactamente el verde falso de la ronda 1.
+ * Las declaraciones de un token que **de verdad valen** para el caparazón: las
+ * que el compilador emite en la raíz y **sin ninguna condición** encima.
+ *
+ * **T6, deuda 158 (mitad hermana). Antes esto se preguntaba al TEXTO de
+ * `globals.css` con una expresión regular de línea**, y eso responde a otra
+ * pregunta: si el nombre está ESCRITO, no si está declarado en un ámbito que
+ * aplique. Medido en esta misma sesión: sacando el tope de `@theme` y metiéndolo
+ * dentro de `@media (min-width: 5000px)`, este archivo salía **`14 passed`** y la
+ * suite entera **`1416 passed`** con el token sin definir en ninguna pantalla
+ * real — o sea `max-width: var(--content-max-inline)` inválido, `max-width: none`
+ * y la columna de contenido **sin tope**. Es el desenlace del bloqueante B2 por
+ * otra puerta, y dejaba sin red lo único que el usuario verificó en pantalla.
+ *
+ * La pregunta buena se la sabe el **compilado**, que conserva las reglas-arroba
+ * alrededor de la declaración: es la misma comprobación que este archivo ya hace
+ * para la utilidad (`entry.conditions`), apuntada al otro lado. La regex no se
+ * endurece: se abandona.
  */
+function effectiveDeclarationsIn(compiled: string, name: string) {
+  return declarationsOf(compiled, name).filter(
+    (entry) =>
+      entry.conditions.length === 0 && ROOT_SELECTOR.test(entry.selector),
+  );
+}
+
+function effectiveDeclarations(name: string) {
+  return effectiveDeclarationsIn(css, name);
+}
+
+/**
+ * ¿El token está declarado **donde aplica**? El nombre se compara entero, que es
+ * lo que ya hacía falta contra el verde falso de la ronda 1 (un nombre con una
+ * letra de más colaba por ser el bueno un prefijo suyo): `declarationsOf`
+ * compara la propiedad por igualdad, no por subcadena, así que esa protección se
+ * conserva y encima deja de depender de una frontera escrita a mano.
+ */
+function isDeclaredIn(compiled: string, name: string): boolean {
+  return effectiveDeclarationsIn(compiled, name).length > 0;
+}
+
 function isDeclared(name: string): boolean {
-  return new RegExp(String.raw`^\s*${name}:`, "m").test(GLOBALS_CSS);
+  return isDeclaredIn(css, name);
+}
+
+function tokenValue(name: string): string {
+  const declarations = effectiveDeclarations(name);
+  const last = declarations.at(-1);
+  if (last === undefined) {
+    throw new Error(
+      `El token ${name} no está declarado en ninguna regla de raíz SIN condiciones. ` +
+        `Escrito en el archivo puede estar; lo que no está es en un ámbito que aplique, ` +
+        `y una variable que no existe deja la propiedad en su valor inicial sin avisar.`,
+    );
+  }
+  /* La última gana: es lo que hace la cascada cuando el mismo token se declara
+     dos veces en el mismo ámbito. */
+  return last.value.trim();
 }
 
 /**
@@ -129,6 +174,37 @@ function tokenLength(name: string): number {
 }
 
 const EXTRACTED = extractClassNames(APP_SHELL);
+
+/**
+ * Los tokens que las clases del caparazón consumen en un **tope de ancho**,
+ * leídos del CSS compilado que se le pase.
+ *
+ * Va parametrizado por el compilado —y no cerrado sobre `css`— para que el
+ * control positivo de la deuda 158 pueda correr **esta misma comprobación**
+ * contra un `globals.css` mutado. Un control positivo que sólo se corre en la
+ * dirección que ya funcionaba no es un control positivo.
+ */
+function capTokens(compiled: string): string[] {
+  const referenced = new Set<string>();
+  for (const className of EXTRACTED.classes) {
+    for (const rule of rulesFor(compiled, className)) {
+      for (const declaration of rule.declarations) {
+        if (declaration.property !== MAX_WIDTH) {
+          continue;
+        }
+        for (const token of tokensIn(declaration.value)) {
+          referenced.add(token);
+        }
+      }
+    }
+  }
+  return [...referenced];
+}
+
+/** De esos, los que NO están declarados en un ámbito que aplique. */
+function undeclaredCapTokens(compiled: string): string[] {
+  return capTokens(compiled).filter((token) => !isDeclaredIn(compiled, token));
+}
 
 let css = "";
 
@@ -309,30 +385,14 @@ describe("la columna de contenido llega al CSS compilado", () => {
    * ruidosamente — es `max-width: none`, silencio absoluto y pantalla sin tope.
    */
   it("ningún tope del caparazón apunta a un token que no exista", () => {
-    const referenced = new Set<string>();
-    for (const className of EXTRACTED.classes) {
-      for (const rule of rulesFor(css, className)) {
-        for (const declaration of rule.declarations) {
-          if (declaration.property !== MAX_WIDTH) {
-            continue;
-          }
-          for (const token of tokensIn(declaration.value)) {
-            referenced.add(token);
-          }
-        }
-      }
-    }
-
     expect(
-      [...referenced],
+      capTokens(css),
       "el caparazón no consume ningún token en un tope de ancho: no hay nada que comprobar, o sea que el aserto anterior estaba midiendo aire",
     ).not.toEqual([]);
 
-    const undeclared = [...referenced].filter((token) => !isDeclared(token));
-
     expect(
-      undeclared,
-      "estos tokens los usa un tope del caparazón y NO están declarados en globals.css: en el navegador la propiedad cae a su valor inicial y no hay tope",
+      undeclaredCapTokens(css),
+      "estos tokens los usa un tope del caparazón y NO están declarados en un ámbito que aplique: en el navegador la propiedad cae a su valor inicial y no hay tope",
     ).toEqual([]);
   });
 
@@ -358,4 +418,100 @@ describe("la columna de contenido llega al CSS compilado", () => {
       "el caparazón no centra su columna de contenido: sin esto el tope deja todo el aire de un solo lado",
     ).not.toEqual([]);
   });
+});
+
+/**
+ * CONTROL POSITIVO DEL ÁMBITO DEL TOKEN (deuda 158, T6).
+ *
+ * Lo que hay que demostrar no es que `declarationsOf` sepa leer condiciones,
+ * sino que **este gate se pone rojo** cuando el tope deja de existir donde hace
+ * falta. Por eso se compila un `globals.css` **mutado de verdad** —con el mismo
+ * compilador de la app— y se le pasa a `undeclaredCapTokens`, que es la MISMA
+ * función que ejecuta el aserto real de arriba.
+ *
+ * La mutación es exactamente la que se midió en T4 y que salía **verde** con el
+ * gate anterior: el token se saca de `@theme` y se declara sólo dentro de una
+ * consulta de medios que ninguna pantalla real cumple. En el navegador, por
+ * debajo de esa condición la variable **no existe**, `max-width: var(...)` es
+ * inválido y la columna se queda sin tope — el defecto que E13 vino a arreglar y
+ * lo único que el usuario verificó en pantalla.
+ *
+ * Las DOS direcciones, que es la lección del bloqueante B2: rojo con el token
+ * condicionado y verde con el token donde está hoy.
+ */
+describe("control positivo: el tope tiene que estar declarado donde APLICA", () => {
+  /** Ancho que ninguna ventana real alcanza: la condición nunca se cumple. */
+  const UNREACHABLE_WIDTH = "5000px";
+
+  let conditional = "";
+
+  beforeAll(async () => {
+    const source = globalsCssSource();
+    const declaration = new RegExp(
+      String.raw`^[^\S\n]*${CONTENT_MAX}:\s*([^;]+);`,
+      "m",
+    );
+    const match = source.match(declaration);
+    if (match === null) {
+      throw new Error(
+        `No se pudo fabricar la mutación: ${CONTENT_MAX} no está declarado en el texto`,
+      );
+    }
+    /* Se saca de donde está y se vuelve a declarar bajo una condición. La
+       guardia de arriba no es decorativa: una mutación que no se aplica deja la
+       dirección verde pasando por accidente, que es como un control positivo
+       miente. */
+    conditional = await compileCss(
+      `${source.replace(declaration, "")}
+@media (min-width: ${UNREACHABLE_WIDTH}) {
+  :root {
+    ${CONTENT_MAX}: ${match[1] as string};
+  }
+}
+`,
+    );
+  }, COMPILE_TIMEOUT_MS);
+
+  it("con el token metido en una consulta de medios, el gate se pone ROJO", () => {
+    /* El compilado sigue trayendo la utilidad y su declaración de tope: lo único
+       que cambia es dónde vive el token. Si esto fallara, la mutación no estaría
+       midiendo lo que dice medir. */
+    expect(capTokens(conditional)).toEqual(capTokens(css));
+
+    expect(
+      undeclaredCapTokens(conditional),
+      "el tope declarado sólo bajo una condición TIENE que caer: por debajo de esa condición la variable no existe y max-width cae a none",
+    ).toEqual([CONTENT_MAX]);
+  });
+
+  it("y con el token declarado sin condición, como está hoy, sigue VERDE", () => {
+    expect(undeclaredCapTokens(css)).toEqual([]);
+    expect(isDeclared(CONTENT_MAX)).toBe(true);
+  });
+
+  /**
+   * La otra mitad del ámbito: un token declarado bajo un selector que no alcanza
+   * al caparazón tampoco existe para él, aunque no haya ninguna condición
+   * encima. Es la misma trampa con otra forma.
+   */
+  it("y también se pone ROJO si el token se declara bajo un selector que no es la raíz", async () => {
+    const source = globalsCssSource();
+    const declaration = new RegExp(
+      String.raw`^[^\S\n]*${CONTENT_MAX}:\s*([^;]+);`,
+      "m",
+    );
+    const match = source.match(declaration);
+    if (match === null) {
+      throw new Error("No se pudo fabricar la mutación de selector");
+    }
+    const scoped = await compileCss(
+      `${source.replace(declaration, "")}
+[data-t158-alcance] {
+  ${CONTENT_MAX}: ${match[1] as string};
+}
+`,
+    );
+
+    expect(undeclaredCapTokens(scoped)).toEqual([CONTENT_MAX]);
+  }, COMPILE_TIMEOUT_MS);
 });

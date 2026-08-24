@@ -58,6 +58,24 @@ export function emptyStateTitle(year: number): string {
 export const EMPTY_STATE_DESCRIPTION =
   "Empezá el primero y acá van a estar tus horas, tus proyectos y lo que llevás tejido de cada uno.";
 
+/**
+ * La MISMA pantalla vacía, para quien **sí** tiene algo en las agujas
+ * (enmienda E4 e).
+ *
+ * Desde E4 (b) el vacío del año se alcanza también con proyectos activos —año
+ * recién estrenado, proyecto abierto el anterior—, y desde E4 (d) ese proyecto
+ * se sigue viendo en el panel de abajo. Con una sola copia, la pantalla le decía
+ * *"empezá el primero"* a alguien que tiene uno **a la vista**: una afirmación
+ * de por vida dentro de un estado que es del AÑO. Es la familia de la deuda 153
+ * un piso más arriba —la condición ya se arregló, la frase seguía prometiendo lo
+ * que la condición dejó de exigir—.
+ *
+ * Esta habla **sólo del año** y no presupone que no hayas tejido nunca. El
+ * TÍTULO no cambia: sigue siendo el de §4 y es cierto en los dos caminos.
+ */
+export const EMPTY_STATE_WITH_ACTIVE_DESCRIPTION =
+  "El año todavía está en blanco. En cuanto le dediques un rato a lo que tenés en curso, acá van a aparecer tus horas y tus proyectos.";
+
 type DashboardData = {
   metrics: DashboardMetrics;
   projects: SerializedProject[];
@@ -124,7 +142,11 @@ export function DashboardView() {
 
     void Promise.all([
       getMetrics({ year, type }),
-      getActiveProjects({ year, type }),
+      /* SIN año (E4 a): los proyectos en curso son del presente. La petición
+         se repite igual al cambiar de año porque va en el mismo `Promise.all`
+         que las métricas, y eso está bien: cuesta una petición y mantiene la
+         lista fresca. */
+      getActiveProjects({ type }),
     ]).then(([metrics, projects]) => {
       if (cancelled) {
         return;
@@ -182,14 +204,28 @@ export function DashboardView() {
     );
   }
 
-  /* "Vacío" es del AÑO, así que los metros no cuentan: son un agregado lifetime
-     y no se mueven con los filtros (enmienda E1.5). Con ellos dentro, quien
-     hubiera cargado una lana alguna vez no vería nunca el estado vacío. */
+  /* "Vacío" es del AÑO, y sólo del año: se juzga con las métricas del año y con
+     nada más.
+     Quedan fuera DOS cosas por el MISMO motivo. Los metros, porque son un
+     agregado lifetime que no se mueve con los filtros (enmienda E1.5): con ellos
+     dentro, quien hubiera cargado una lana alguna vez no vería nunca el estado
+     vacío. Y la lista de proyectos en curso, porque tampoco es del año
+     (enmienda E4 b): es del presente, así que quien tenga un proyecto en las
+     agujas lo tiene abierto en todos los años a la vez, y con `projects` dentro
+     el vacío era literalmente inalcanzable en pantalla (deuda 153). El título
+     promete algo sobre el año; la condición no puede pedir hechos que no sean
+     del año. */
   const isEmpty =
-    data !== null &&
-    data.metrics.hours === 0 &&
-    data.metrics.projects === 0 &&
-    data.projects.length === 0;
+    data !== null && data.metrics.hours === 0 && data.metrics.projects === 0;
+
+  /* E4 (d): el vacío del año NO puede esconder un proyecto vivo. Con E4 (b) el
+     vacío se alcanza TENIENDO proyectos activos —año recién estrenado, proyecto
+     abierto el anterior y todavía en curso—, así que lo que sustituye es el
+     panel de métricas, que es lo que juzga el año. La lista de en curso se
+     queda; si además está vacía no hay panel que pintar y la página queda en el
+     vacío puro, que es el caso de quien todavía no tejió nada. */
+  const hasActiveProjects = (data?.projects.length ?? 0) > 0;
+  const showActiveProjects = !isEmpty || hasActiveProjects;
 
   return (
     <div className="flex flex-col gap-(--space-8) p-(--space-6)">
@@ -284,25 +320,36 @@ export function DashboardView() {
           description={errorMessage}
           onRetry={reload}
         />
-      ) : isEmpty ? (
-        <EmptyState
-          title={emptyStateTitle(year)}
-          description={EMPTY_STATE_DESCRIPTION}
-        />
       ) : (
         <>
-          <MetricsPanel
-            metrics={data?.metrics ?? null}
-            selected={metricKeys}
-            onToggleMetric={toggleMetric}
-            loading={loading}
-          />
-          <ActiveProjectsPanel
-            projects={data?.projects ?? null}
-            order={order}
-            onOrderChange={setOrder}
-            loading={loading}
-          />
+          {isEmpty ? (
+            <EmptyState
+              title={emptyStateTitle(year)}
+              /* E4 (e): la descripción la decide EXACTAMENTE el mismo hecho que
+                 decide si hay panel de proyectos debajo, así que la frase no
+                 puede contradecir lo que se ve en la misma pantalla. */
+              description={
+                hasActiveProjects
+                  ? EMPTY_STATE_WITH_ACTIVE_DESCRIPTION
+                  : EMPTY_STATE_DESCRIPTION
+              }
+            />
+          ) : (
+            <MetricsPanel
+              metrics={data?.metrics ?? null}
+              selected={metricKeys}
+              onToggleMetric={toggleMetric}
+              loading={loading}
+            />
+          )}
+          {showActiveProjects ? (
+            <ActiveProjectsPanel
+              projects={data?.projects ?? null}
+              order={order}
+              onOrderChange={setOrder}
+              loading={loading}
+            />
+          ) : null}
         </>
       )}
 
