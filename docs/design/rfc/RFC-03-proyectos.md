@@ -357,6 +357,35 @@ puede romper la invariante de E1(f)/deuda 132** (sin `onQuickStart` → cero bot
 
 ---
 
+
+## 7-quater. Enmienda E3 — el arranque de #21: qué piezas faltan y hasta dónde llega (2026-08-24)
+
+**Qué la motiva.** Al planear **#21** el leader comprobó, **antes de lanzar nada**, qué piezas de las que
+la ficha da por hechas existen de verdad. **Es el mismo control que en #19 destapó que la ficha asumía
+componentes inexistentes**, y volvió a pagar: de las dos piezas centrales del drawer, **una no existe**.
+
+### El inventario, medido
+
+| pieza | ¿existe? | consecuencia |
+|---|---|---|
+| **Foco atrapado, `Escape`, `aria-modal`, portal al `body`, bloqueo de scroll, devolver el foco al abridor** | ✅ **SÍ**, en `Dialog` | Lo caro del drawer **ya está escrito y probado** |
+| **`Drawer` lateral** | ❌ no | Le falta **sólo geometría** al `Dialog`: pegado al lateral y alto completo, en vez de centrado con `max-w-*` |
+| **`Tabs`** | ❌ no | `SegmentedControl` es `role="group"` + `aria-pressed` y **su propio comentario dice *"no `radiogroup` ni `tablist`"*** |
+
+### Las decisiones
+
+| # | Qué se fija | Por qué |
+|---|---|---|
+| **E3 (a)** · *usuario* | **#21 se parte en DOS tandas.** **T1 — el esqueleto:** `Tabs` + `Drawer` + tab **General** + el **tap en la card** que E1(f) dejó pendiente. Al cerrar T1 el detalle **se abre y se usa**. **T2 — los tabs pesados:** Progreso, Lanas y Sesiones. | Es la feature más grande que queda y el usuario venía de cuatro sesiones sin ver una página nueva. T1 **es visible en pantalla**, y cada tanda pasa su review con foco en vez de rechazarse en bulto. |
+| **E3 (b)** · *leader* | **El `Drawer` es una VARIANTE del `Dialog`, no un componente nuevo.** Se añade la geometría lateral a `dialog.variants.ts` y se reusa el mecanismo entero. | Reescribir una jaula de foco que ya está probada es regalar bugs de accesibilidad. Lo que cambia es dónde se pega el panel, no cómo se comporta. **El SDD y el ancla de contrato de `DIALOG_SIZES` mandan sobre la forma de añadir la variante.** |
+| **E3 (c)** · *leader* | **`Tabs` nace como primitiva compartida** en `src/shared/ui/primitives/`, con `tablist`/`tab`/`tabpanel` y navegación por flechas. **No se construye sobre `SegmentedControl`.** | Los RFC-04 y RFC-05 también piden tabs. Y forzar un control de `aria-pressed` a comportarse como `tablist` da un componente que miente a los lectores de pantalla en los dos papeles. |
+| **E3 (d)** · *usuario* | **Los botones cuyo destino aún no existe NO se pintan.** "Editar" llega con **#22** (el modal) y "crear patrón" con **#26-28**. Se añaden **de forma aditiva** cuando su destino exista. | **Mismo criterio que E1(f)** usó en #20 con el tap de la card, y funcionó. Nada en pantalla promete lo que la app no puede cumplir, y no queda un placeholder que alguien tenga que acordarse de quitar. |
+
+### Lo que E3 NO cambia
+
+**§1 y §2 siguen mandando** sobre el contenido de las cuatro tabs: E3 sólo fija **el orden** en que se
+construyen y **con qué piezas**. El backend **no se toca**: §3 ya está entero, incluida la deuda 5 (las
+lanas enlazadas viajan en `GET /:id`) que saldó la feature #17.
 ## 8. Slices de implementación (→ `feature_list.json`)
 
 IDs reales en `feature_list.json` (mapeo en [RFC-00 §4](RFC-00-proceso.md)):
