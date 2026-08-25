@@ -1,9 +1,16 @@
 import type { CraftType } from "@/shared/config";
 
 import type {
+  LinkedYarnIdsPayload,
+  PatternPayload,
   ProjectListPayload,
+  ProjectPayload,
+  SerializedCraftSession,
+  SerializedPattern,
   SerializedProject,
   SerializedProjectDetail,
+  SessionListPayload,
+  StopSessionPayload,
   YarnListPayload,
   YarnOption,
 } from "./types";
@@ -213,4 +220,213 @@ export function getProjectDetail(
   projectId: string,
 ): Promise<ProjectsRequestResult<SerializedProjectDetail>> {
   return request<SerializedProjectDetail>(projectDetailEndpoint(projectId));
+}
+
+/* ============================================================================
+   Las acciones del cajón de detalle (RFC-03 §3, tanda 2 de la enmienda E3(a)).
+
+   Todas viven en ESTE archivo por lo mismo que `getProjectDetail`: son la misma
+   pantalla y el mismo molde. E1(h) ya fichó que hay tres clones del patrón en el
+   repo; abrir un cuarto para los endpoints hermanos del que ya está aquí sería
+   empeorar la deuda por trámite.
+   ============================================================================ */
+
+export function projectRoundsEndpoint(projectId: string): string {
+  return `${projectDetailEndpoint(projectId)}/rounds`;
+}
+export function projectStepsEndpoint(projectId: string): string {
+  return `${projectDetailEndpoint(projectId)}/steps`;
+}
+export function projectYarnsEndpoint(projectId: string): string {
+  return `${projectDetailEndpoint(projectId)}/yarns`;
+}
+export function projectYarnEndpoint(projectId: string, yarnId: string): string {
+  return `${projectYarnsEndpoint(projectId)}/${yarnId}`;
+}
+export function projectSessionsEndpoint(projectId: string): string {
+  return `${projectDetailEndpoint(projectId)}/sessions`;
+}
+export function sessionStopEndpoint(projectId: string): string {
+  return `${projectSessionsEndpoint(projectId)}/stop`;
+}
+export function patternEndpoint(patternId: string): string {
+  return `${PATTERNS_ENDPOINT}/${patternId}`;
+}
+
+export const PATTERNS_ENDPOINT = "/api/patterns";
+
+const JSON_HEADERS = { "content-type": "application/json" };
+
+function jsonRequest<T>(
+  url: string,
+  method: string,
+  body: unknown,
+): Promise<ProjectsRequestResult<T>> {
+  return request<T>(url, {
+    method,
+    headers: JSON_HEADERS,
+    body: JSON.stringify(body),
+  });
+}
+
+/**
+ * Petición cuya respuesta correcta **no tiene cuerpo**. Existe porque el camino
+ * feliz de `request` llama a `response.json()`, y sobre un **204** eso lanza: el
+ * desenlace de una lana se leería como un fallo aunque el servidor lo hubiera
+ * hecho bien.
+ */
+async function requestWithoutBody(
+  url: string,
+  init: RequestInit,
+): Promise<ProjectsRequestResult<null>> {
+  let response: Response;
+  try {
+    response = await fetch(url, { credentials: "same-origin", ...init });
+  } catch {
+    return { ok: false, status: 0, message: NETWORK_ERROR_MESSAGE };
+  }
+  return response.ok
+    ? { ok: true, status: response.status, data: null }
+    : {
+        ok: false,
+        status: response.status,
+        message: await readErrorMessage(response),
+      };
+}
+
+/** Los endpoints que devuelven el proyecto entero ya recalculado. */
+async function projectMutation(
+  url: string,
+  method: string,
+  body: unknown,
+): Promise<ProjectsRequestResult<SerializedProject>> {
+  const result = await jsonRequest<ProjectPayload>(url, method, body);
+  return result.ok
+    ? { ok: true, status: result.status, data: result.data.project }
+    : result;
+}
+
+/**
+ * `POST /api/projects/:id/rounds` — suma o resta vueltas.
+ *
+ * El delta puede ser negativo y el servicio **impide que `rounds` baje de 0**,
+ * así que un "menos" de más no puede dejar el contador en negativo. Devuelve el
+ * proyecto con `progress` **ya recalculado** por la única fuente del cálculo del
+ * backend: el porcentaje no se vuelve a calcular en el navegador, que es como se
+ * desincronizan las dos mitades.
+ */
+export function addProjectRounds(
+  projectId: string,
+  delta: number,
+): Promise<ProjectsRequestResult<SerializedProject>> {
+  return projectMutation(projectRoundsEndpoint(projectId), "POST", { delta });
+}
+
+/**
+ * `PATCH /api/projects/:id` con la meta. **No hay endpoint propio de
+ * `targetRounds`**: es una columna del proyecto y se actualiza como tal. El
+ * servidor recalcula `progress` porque el parche toca la meta.
+ */
+export function updateProjectTargetRounds(
+  projectId: string,
+  targetRounds: number,
+): Promise<ProjectsRequestResult<SerializedProject>> {
+  return projectMutation(projectDetailEndpoint(projectId), "PATCH", {
+    targetRounds,
+  });
+}
+
+/**
+ * `PATCH /api/projects/:id/steps` — **reemplaza** el conjunto entero de pasos
+ * completados; no es un "marcar uno". El servidor lo normaliza (sin duplicados y
+ * ascendente), así que el orden en que se manden da igual.
+ */
+export function setProjectSteps(
+  projectId: string,
+  completedSteps: readonly number[],
+): Promise<ProjectsRequestResult<SerializedProject>> {
+  return projectMutation(projectStepsEndpoint(projectId), "PATCH", {
+    completedSteps: [...completedSteps],
+  });
+}
+
+/**
+ * `POST /api/projects/:id/yarns` — enlaza una lana. **Idempotente**: 201 si crea
+ * el enlace, 200 si ya existía; nunca 409.
+ *
+ * Devuelve **sólo ids**. Los nombres de marca y tipo salen de un JOIN que sólo
+ * hace `GET /api/projects/:id`, así que quien enlaza tiene que volver a pedir el
+ * detalle para poder etiquetar la lana recién añadida.
+ */
+export function linkProjectYarn(
+  projectId: string,
+  yarnId: string,
+): Promise<ProjectsRequestResult<LinkedYarnIdsPayload>> {
+  return jsonRequest<LinkedYarnIdsPayload>(
+    projectYarnsEndpoint(projectId),
+    "POST",
+    { yarnId },
+  );
+}
+
+/**
+ * `DELETE /api/projects/:id/yarns/:yarnId` — **204 tanto si había enlace como si
+ * no**: desenlazar es idempotente y su respuesta no tiene cuerpo.
+ */
+export function unlinkProjectYarn(
+  projectId: string,
+  yarnId: string,
+): Promise<ProjectsRequestResult<null>> {
+  return requestWithoutBody(projectYarnEndpoint(projectId, yarnId), {
+    method: "DELETE",
+  });
+}
+
+/**
+ * `GET /api/projects/:id/sessions` — el historial, de la más reciente a la más
+ * antigua. **Es también la única forma de saber si el cronómetro corre**: la
+ * sesión abierta es la que tiene `end` en nulo.
+ */
+export async function getProjectSessions(
+  projectId: string,
+): Promise<ProjectsRequestResult<SerializedCraftSession[]>> {
+  const result = await request<SessionListPayload>(
+    projectSessionsEndpoint(projectId),
+  );
+  return result.ok
+    ? { ok: true, status: result.status, data: result.data.sessions }
+    : result;
+}
+
+/**
+ * `PATCH /api/projects/:id/sessions/stop`.
+ *
+ * **Sin cuerpo**, igual que el arranque: el esquema es `z.strictObject({})
+ * .nullish()`. Y ojo con la asimetría, que es la contraria a la que uno supone:
+ * arrancar dos veces es gratis (200 reutilizando), pero **parar dos veces
+ * responde 409** con "No hay ninguna sesión de tejido en marcha".
+ */
+export function stopCraftSession(
+  projectId: string,
+): Promise<ProjectsRequestResult<StopSessionPayload>> {
+  return request<StopSessionPayload>(sessionStopEndpoint(projectId), {
+    method: "PATCH",
+  });
+}
+
+/**
+ * `GET /api/patterns/:id` — el patrón del proyecto, del que salen los pasos de
+ * la checklist.
+ *
+ * Se pide **sólo si el proyecto tiene patrón**. `GET /api/projects/:id` trae
+ * `patternId`, no el patrón: las instrucciones viven en la tabla de patrones y
+ * nadie las aplana en el detalle.
+ */
+export async function getPattern(
+  patternId: string,
+): Promise<ProjectsRequestResult<SerializedPattern>> {
+  const result = await request<PatternPayload>(patternEndpoint(patternId));
+  return result.ok
+    ? { ok: true, status: result.status, data: result.data.pattern }
+    : result;
 }

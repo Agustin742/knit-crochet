@@ -109,3 +109,62 @@ export function formatDate(value: string): string | null {
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : dateFormatter.format(parsed);
 }
+
+/**
+ * Un **instante** legible: "5 de marzo de 2026, 19:30".
+ *
+ * **No lleva `timeZone`, y ahí está toda la diferencia con `formatDate`.** Las
+ * fechas de un proyecto (`startDate`/`endDate`) son fechas de calendario —el día
+ * que se empezó a tejer— y por eso se pintan en UTC. El arranque y el fin de una
+ * sesión de cronómetro son lo contrario: **momentos**, y un momento hay que
+ * leerlo en el reloj de quien mira. Pintar en UTC una sesión de las nueve de la
+ * noche de Buenos Aires la mostraría a medianoche del día siguiente.
+ *
+ * La hora va en formato de 24 horas y no en el de 12 con "p. m." que trae la
+ * variante regional por defecto: en una lista de sesiones lo que se compara de
+ * un vistazo son las horas, y el sufijo las alarga sin aportar.
+ *
+ * Devuelve `null` cuando la cadena no es una fecha, por el mismo motivo que
+ * `formatDate`: **quien la pinta decide el texto de repuesto**.
+ */
+const dateTimeFormatter = new Intl.DateTimeFormat(LOCALE, {
+  dateStyle: "long",
+  timeStyle: "short",
+  hourCycle: "h23",
+});
+
+export function formatDateTime(value: string): string | null {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime())
+    ? null
+    : dateTimeFormatter.format(parsed);
+}
+
+/**
+ * Cronómetro corriendo: "00:12" hasta la hora y "1:05:30" a partir de ella.
+ *
+ * **No reusa `formatDuration` y no es un descuido.** Esa función redondea hacia
+ * abajo a minutos —"0 min" durante los primeros sesenta segundos—, que es lo
+ * correcto para un tiempo acumulado y es exactamente lo que un cronómetro no
+ * puede hacer: quien acaba de darle a empezar necesita ver que **algo se mueve**.
+ * Aquí los segundos son el dato.
+ *
+ * Los dos puentes de unidades salen de `shared/config`, igual que en
+ * `formatDuration`: no se escribe otro sesenta.
+ *
+ * Un valor negativo o no finito se trata como cero. No es defensa teórica: el
+ * tiempo transcurrido se calcula contra el reloj **del navegador**, que puede ir
+ * atrasado respecto al del servidor que selló el arranque, y "-00:03" en la cara
+ * del usuario es peor que un cero.
+ */
+export function formatClock(seconds: number): string {
+  const total = Math.max(0, Math.floor(safe(seconds)));
+  const hours = Math.floor(total / SECONDS_PER_HOUR);
+  const minutes = Math.floor((total % SECONDS_PER_HOUR) / SECONDS_PER_MINUTE);
+  const rest = total % SECONDS_PER_MINUTE;
+  const pad = (value: number) => String(value).padStart(2, "0");
+
+  return hours === 0
+    ? `${pad(minutes)}:${pad(rest)}`
+    : `${String(hours)}:${pad(minutes)}:${pad(rest)}`;
+}

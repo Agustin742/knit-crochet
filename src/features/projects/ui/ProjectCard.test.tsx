@@ -9,6 +9,7 @@ import { formatDuration } from "@/shared/lib/format";
 
 import {
   ProjectCard,
+  ProjectPhoto,
   openDetailLabel,
   quickStartLabel,
 } from "./ProjectCard";
@@ -392,7 +393,16 @@ describe("ProjectCard — tap al detalle (E1(f), resuelto en #21)", () => {
     expect(quickStart.contains(tap)).toBe(false);
     expect(screen.queryAllByRole("link")).toHaveLength(0);
 
-    // Y cada uno hace lo suyo: tocar el cronómetro no abre el detalle.
+    // OJO CON LO QUE MIDE ESTE ASERTO (deuda blanca D9 del review de #21 T2).
+    // Mide el CABLEADO: cada botón invoca a su propio manejador y no al del otro.
+    // NO mide que las dos capas convivan geométricamente: happy-dom no hace
+    // hit-testing ni layout, y `userEvent.click` despacha directamente sobre el
+    // elemento, así que este aserto es estructuralmente incapaz de fallar por
+    // solapamiento. Que el puntero llegue de verdad al quick-start y no a la capa
+    // del tap está verificado A MANO en navegador por el leader —clic real sobre
+    // el quick-start: el cajón NO se abre y la sesión SÍ arranca— en
+    // progress/reports/verificacion_navegador_21_t2.md, sección "RESOLUCIÓN".
+    // No cites este aserto como evidencia de esa convivencia.
     await userEvent.click(quickStart);
     expect(onQuickStart).toHaveBeenCalledTimes(1);
     expect(onOpenDetail).not.toHaveBeenCalled();
@@ -408,5 +418,83 @@ describe("ProjectCard — tap al detalle (E1(f), resuelto en #21)", () => {
     );
 
     expect(await axe(container)).toHaveNoViolations();
+  });
+});
+
+/**
+ * El encuadre de la foto según dónde se monte (RFC-03, enmienda **E2(g)** leída
+ * con su motivo, y el hallazgo 🟠 de la verificación en navegador de la tanda 1).
+ */
+describe("ProjectPhoto — el encuadre depende de dónde se monta", () => {
+  function frameOf(size?: "card" | "detail"): string[] {
+    const { container } = render(
+      <ProjectPhoto name="Bufanda" image={null} type="knitting" size={size} />,
+    );
+    const frame = container.firstElementChild;
+    return (frame?.className ?? "").split(" ").filter((one) => one !== "");
+  }
+
+  /**
+   * **En la tarjeta la proporción NO cambia con foto y sin ella** (E2(g)), y ese
+   * es el caso que la rejilla necesita: si el hueco vacío midiera distinto, una
+   * fila con tarjetas mixtas quedaría dentada.
+   */
+  /**
+   * La utilidad del encuadre **se deriva**, no se escribe: es la única que
+   * cambia entre los dos sitios. Escribirla al literal en un test tiene además
+   * un precio conocido en este repo —Tailwind escanea los `.test.ts` y una clase
+   * citada de ejemplo se convierte en CSS de producción—, así que la regla es no
+   * nombrar clases en un archivo que habla de clases.
+   */
+  function framingUtility(size: "card" | "detail"): string {
+    const other = size === "card" ? "detail" : "card";
+    const [utility] = frameOf(size).filter(
+      (one) => !frameOf(other).includes(one),
+    );
+    expect(utility, "los dos sitios encuadran igual").toBeDefined();
+    return utility ?? "";
+  }
+
+  it("con foto y sin ella, la tarjeta encuadra igual", () => {
+    const { container } = render(
+      <ProjectCard project={{ ...BUFANDA, image: "https://ejemplo/x.jpg" }} />,
+    );
+    const withPhoto = (container.querySelector("img")?.className ?? "").split(
+      " ",
+    );
+
+    expect(withPhoto).toContain(framingUtility("card"));
+    expect(withPhoto).not.toContain(framingUtility("detail"));
+  });
+
+  /**
+   * **En el cajón sí cambia, y no contradice a E2(g).** El motivo que esa
+   * enmienda da para congelar la proporción es *"para que la rejilla no quede
+   * dentada"*: en el cajón hay una foto y no hay rejilla, así que la razón no
+   * aplica — y sí aplica la contraria, medida en Chrome, de que el panorámico se
+   * comía el 47 % del alto de la ventana.
+   *
+   * Se compara **la diferencia**, no una medida escrita a mano: lo que este test
+   * defiende es que los dos sitios no se encuadran igual y que **sólo cambia el
+   * encuadre**, no el marco.
+   */
+  it("el cajón encuadra distinto, y sólo cambia el encuadre", () => {
+    const card = frameOf("card");
+    const detail = frameOf("detail");
+
+    const onlyInCard = card.filter((one) => !detail.includes(one));
+    const onlyInDetail = detail.filter((one) => !card.includes(one));
+
+    expect(onlyInCard).toHaveLength(1);
+    expect(onlyInDetail).toHaveLength(1);
+    // Borde, radio, superficie y recorte son los mismos en los dos sitios.
+    expect(card.filter((one) => !onlyInCard.includes(one)).length).toBeGreaterThan(
+      3,
+    );
+  });
+
+  /** Sin decir dónde, se comporta como en la tarjeta: es el sitio de siempre. */
+  it("por defecto encuadra como la tarjeta", () => {
+    expect(frameOf()).toEqual(frameOf("card"));
   });
 });

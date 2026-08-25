@@ -1,4 +1,6 @@
+import type { KeyValue, PatternRecord } from "@/features/patterns/types";
 import type { LinkedYarn, ProjectRecord } from "@/features/projects/types";
+import type { CraftSessionRecord } from "@/features/time-tracking/types";
 import type { YarnRecord } from "@/features/yarns/types";
 
 /**
@@ -87,3 +89,65 @@ export type SerializedProjectDetail = {
   project: SerializedProject;
   yarns: LinkedYarn[];
 };
+
+/**
+ * Una sesión de cronómetro **tal y como llega al navegador**. Misma trampa que
+ * `SerializedProject`: `CraftSessionRecord` declara `Date` en `start` y `end`
+ * porque así las infiere Drizzle, y lo que viaja es una cadena ISO-8601.
+ *
+ * `end` es **nulo mientras el cronómetro corre**, y eso no es un hueco de datos:
+ * es la ÚNICA señal de que hay una sesión en marcha. En la lista de proyectos no
+ * se puede saber (no hay columna, ni filtro, ni endpoint agregado — E1(e)); en
+ * el detalle sí, porque el historial del proyecto se pide entero.
+ */
+export type SerializedCraftSession = Omit<CraftSessionRecord, "start" | "end"> & {
+  start: string;
+  end: string | null;
+};
+
+/** Payload de `GET /api/projects/:id/sessions`: viaja **envuelto**. */
+export type SessionListPayload = { sessions: SerializedCraftSession[] };
+
+/**
+ * Payload de `PATCH /api/projects/:id/sessions/stop`. Trae **dos** cosas: la
+ * sesión cerrada y el `time` del proyecto ya recalculado, así que parar el
+ * cronómetro deja el tiempo total al día sin volver a pedir el detalle.
+ */
+export type StopSessionPayload = {
+  session: SerializedCraftSession;
+  time: number;
+};
+
+/** Payload de los endpoints que devuelven el proyecto entero tras mutarlo. */
+export type ProjectPayload = { project: SerializedProject };
+
+/**
+ * Payload de `POST /api/projects/:id/yarns`. Devuelve **sólo los ids** del
+ * enlace, sin marca ni tipo: los nombres salen de un JOIN que únicamente hace
+ * `GET /api/projects/:id`. Por eso enlazar obliga a refrescar el detalle y
+ * desenlazar no.
+ */
+export type LinkedYarnIdsPayload = { yarnIds: string[] };
+
+/**
+ * Un patrón **tal y como llega al navegador**. Se pide sólo cuando el proyecto
+ * tiene uno: los pasos de la checklist son sus `instructions`, y ésas **no
+ * viajan** en el detalle del proyecto (que trae `patternId`, no el patrón).
+ */
+export type SerializedPattern = Omit<
+  PatternRecord,
+  "createdAt" | "updatedAt"
+> & {
+  createdAt: string;
+  updatedAt: string;
+};
+
+/** Payload de `GET /api/patterns/:id`. */
+export type PatternPayload = { pattern: SerializedPattern };
+
+/**
+ * Un paso de un patrón: par clave-valor y **el orden del array es
+ * significativo**. Se nombra desde acá para que el tab Progreso no tenga que
+ * saber que en la tabla de patrones se llaman "instrucciones".
+ */
+export type PatternStep = KeyValue;

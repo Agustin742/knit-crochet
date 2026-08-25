@@ -234,6 +234,37 @@ const QUICK_START_NOTE_CLASSES = [
 ].join(" ");
 
 /**
+ * Dónde se está montando la foto, que es lo único que decide su encuadre.
+ *
+ * `card` es el marco panorámico de la rejilla; `detail` es el del cajón, más
+ * bajo, porque ahí la foto **acompaña** a los datos en vez de encabezar una
+ * tarjeta. Son dos valores **nombrados** y no dos medidas: quien la monta dice
+ * dónde está, no cuánto mide, así que el encuadre se puede reajustar de una vez
+ * para todas las pantallas sin ir consumidor por consumidor.
+ */
+export const PROJECT_PHOTO_SIZES = ["card", "detail"] as const;
+export type ProjectPhotoSize = (typeof PROJECT_PHOTO_SIZES)[number];
+
+/** Silueta compartida: mismo borde, mismo radio y misma superficie hundida. */
+const PHOTO_FRAME_CLASSES =
+  "w-full overflow-hidden rounded-sm border-(length:--border-width) border-solid border-border bg-surface-sunken";
+
+const CARD_PHOTO_RATIO = "aspect-video";
+/**
+ * En el cajón la foto es una **franja**, no un bloque. El número no es de ojo:
+ * el panel deja ~612 px de ancho útil, donde el panorámico de la tarjeta se
+ * dibuja a 344 px de alto —casi la mitad de una ventana de portátil— y empuja la
+ * lista de datos hasta el pliegue. A tres a uno el mismo ancho mide ~204 px, así
+ * que los datos nacen dentro de la ventana incluso en pantallas bajas.
+ */
+const DETAIL_PHOTO_RATIO = "aspect-3/1";
+
+/** Ternario y no un objeto indexado: es lo que el gate de clases sabe seguir. */
+function photoFrameClasses(size: ProjectPhotoSize): string {
+  return `${size === "detail" ? DETAIL_PHOTO_RATIO : CARD_PHOTO_RATIO} ${PHOTO_FRAME_CLASSES}`;
+}
+
+/**
  * La foto es **decorativa**: el nombre del proyecto está justo debajo, así que
  * un texto alternativo que lo repitiera sólo haría que un lector de pantalla lo
  * dijera dos veces. Por eso `alt=""` y no una descripción.
@@ -242,12 +273,27 @@ const QUICK_START_NOTE_CLASSES = [
  * si no, las tarjetas de una misma fila tendrían alturas distintas según quién
  * subió imagen.
  *
- * **La proporción NO cambia** (enmienda E2(g)): el marco es el mismo con foto y
- * sin ella, para que la rejilla no quede dentada cuando convivan las dos. Lo que
- * cambia es lo que hay **dentro**: era el bloque más grande de la tarjeta y no
- * decía nada —un rectángulo liso con una letra diminuta (deuda 140)—, y ahora se
- * lee como algo puesto a propósito: la inicial en tamaño de titular y la clase
- * de tejido nombrada debajo.
+ * **La proporción NO cambia con foto y sin ella** (enmienda E2(g)), para que la
+ * rejilla no quede dentada cuando convivan las dos. Lo que cambia es lo que hay
+ * **dentro**: era el bloque más grande de la tarjeta y no decía nada —un
+ * rectángulo liso con una letra diminuta (deuda 140)—, y ahora se lee como algo
+ * puesto a propósito: la inicial en tamaño de titular y la clase de tejido
+ * nombrada debajo.
+ *
+ * **Sí cambia según DÓNDE se monta** (`size`), y eso no contradice a E2(g): el
+ * motivo que esa enmienda da para congelar la proporción es *"para que la
+ * rejilla no quede dentada"*, o sea un motivo **de la rejilla**. En el cajón de
+ * detalle no hay rejilla —hay una foto y una sola—, así que ahí la razón no
+ * aplica y sí aplica la contraria: medido en Chrome, el marco de tarjeta dentro
+ * del cajón ocupaba el **47 % del alto de la ventana** y empujaba los datos de
+ * verdad a 3 px del borde inferior. Lo que E2(g) exige y aquí **se conserva
+ * intacto** es que el hueco vacío se lea como algo puesto a propósito, y eso
+ * vive en el contenido, no en la proporción.
+ *
+ * **El tamaño se pide por NOMBRE, no por clases sueltas.** Una prop de clases
+ * libres metería en la tarjeta un valor que viene de fuera del archivo: el gate
+ * de clases compiladas de `/proyectos` dejaría de poder seguirlo y las
+ * utilidades del marco pasarían a no comprobarse contra el CSS real.
  *
  * **Los dos textos usan el primer plano normal, no el apagado**, y no es una
  * preferencia: sobre la superficie hundida del marco, el apagado da 4.09:1 —vale
@@ -264,13 +310,14 @@ export function ProjectPhoto({
   name,
   image,
   type,
+  size = "card",
 }: {
   name: string;
   image: string | null;
   type: CraftType;
+  size?: ProjectPhotoSize;
 }) {
-  const frame =
-    "aspect-video w-full overflow-hidden rounded-sm border-(length:--border-width) border-solid border-border bg-surface-sunken";
+  const frame = photoFrameClasses(size);
 
   if (image === null) {
     return (

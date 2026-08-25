@@ -2499,3 +2499,75 @@ bloqueante **no era un bug de código**, era una frase que afirmaba que ese test
      incoherencia que causó el rechazo de hoy** — un test verde sobre un escenario que producción no
      produce. **Cómo se salda:** derivar las fechas de `CURRENT_YEAR`, como ya se hizo con el proyecto
      del test del vacío.
+
+---
+
+> **De la feature #21 `projects_detail_ui` (2026-08-24/25), sus dos tandas y las DOS verificaciones en
+> navegador.** La feature se cierra **aprobada sin bloqueantes**. Casi todo lo de abajo es ⚪ y **eso es
+> el punto**: con la escala corregida se ve de un vistazo qué merece parar una feature y qué no.
+
+165. **🟠 La navegación móvil NO está pegada abajo: sólo aparece haciendo scroll hasta el fondo.**
+     **NO la produjo #21** — viene del bottom-nav original y **sale a la luz ahora porque es la primera
+     vez en siete sesiones que se pudo medir el móvil**. Medido a 502 px de ancho:
+     `position: static` con **`z-index: 100` inerte** (el z-index no hace nada sobre un elemento
+     estático — el valor delata que alguien la creía flotante), su rect cae en **y=934 con el viewport
+     en 750**, o sea **fuera de pantalla**, y en ese ancho **el archivero de escritorio está oculto**
+     (`0×0`). **Escenario de fallo:** en un teléfono, la **única** navegación de la app no se ve al
+     entrar a ninguna página; hay que scrollear hasta el final para cambiar de sección.
+     **Es 🟠 y no 🔴 porque se puede navegar**, pero está a un paso.
+
+166. **🟠 El tab Progreso muestra `1 / 0` cuando la meta de vueltas no está fijada.** Visto en pantalla
+     el 2026-08-25. El porcentaje sale bien (`0%`), pero el contador se lee como **una división por
+     cero**. **Escenario:** proyecto recién creado, una vuelta apuntada y sin meta → el usuario lee
+     `1 / 0`. **Cómo se salda:** decidir qué mostrar sin meta (sólo el número de vueltas, o un guion),
+     que es una decisión de copia y va a **RFC-03**.
+
+167. **⚪ TERCERA variante de verde-falso ya fichada (deuda 160), ahora con vecina:**
+     `ProjectCard.test.tsx:399` es un aserto **estructuralmente incapaz de fallar** en `happy-dom`,
+     porque **`happy-dom` no hace hit-testing**. Su comentario **prometía medir la convivencia de la
+     capa del tap con el botón del cronómetro**, y no la mide. **No hay defecto detrás** —la convivencia
+     quedó **verificada a mano en navegador**— así que **es ⚪ y no bloqueó el cierre**. Se corrigió
+     **sólo el comentario**, a coste cero, para que ningún review futuro lo cite como evidencia.
+     **La deuda de fondo permanece:** *ningún gate de este repo puede medir hit-testing*.
+
+168. **⚪ El swatch de color de lana no es reutilizable, y RFC-04 lo va a necesitar.** Fichada por el
+     implementer de T2. **No sube a `src/shared/ui/`** porque `ColorFamily` es **configuración de la
+     app** y subirlo rompería la portabilidad del template (contrato del SDD). **Escenario:** al
+     implementar #23-#25 (lanas) hará falta el mismo swatch y se copiará. **Cómo se salda:** decidir
+     dónde vive un componente que depende de config de app y no del design system — es una decisión de
+     arquitectura, no un mover-archivo.
+
+169. **⚪ Un inventario de lanas que falló no se puede reintentar sin recargar** (heredado de #20).
+
+170. **⚪ Sigue faltando el gate de CSS compilado en `src/shared/ui/`.** `features/dashboard/ui/` y
+     `features/projects/ui/` **sí** lo tienen, así que una utilidad mal escrita en una **página** se
+     caza y la misma en un **primitivo** no. Verificado a mano en las dos tandas (41 clases de `Tabs`,
+     60 del `Dialog`, las de la variante lateral: **cero inertes**) con archivos temporales que se
+     borraron. **Bajo la moratoria no se abre**: la técnica ya está extraída en
+     `shared/ui/testing/class-names-from-source.ts` y es un archivo cuando toque.
+
+171. **⚪ NO VERIFICADO por falta de datos, se declara en vez de darse por bueno:** el **contraste de los
+     13 swatches** de lana —con dos sospechosos nombrados: **`--yarn-neutral`, que es literalmente
+     `--surface-sunken`**, y `--yarn-white`—, la lana **multicolor**, la **checklist con un patrón
+     real** y el **buscador con inventario grande**. El inventario del usuario está **vacío** y el
+     proyecto **no tiene patrón**, así que no hay nada que pintar. Mirarlo exige **crear datos de
+     prueba**, y eso escribe en los datos del usuario: **se pide antes**. Cae natural en **RFC-04**
+     (#23-#25) y **RFC-05** (#26-#28), cuando esos datos existan igualmente. Ver **E4(b)** de RFC-03.
+
+### 📌 Lo que estas dos verificaciones enseñaron sobre el MÉTODO (no es deuda, es medicina)
+
+**Dos falsos positivos del leader en una sola sesión**, los dos a punto de reportarse como defectos:
+
+1. **Un 🔴 que no existía.** Se midió con clics sintéticos y **el puntero caía en `coord ÷ 1.25`** —el
+   `devicePixelRatio` exacto—, **sobre la capa del tap que cubre la tarjeta entera**. El síntoma
+   **imita perfectamente al bug real**, y por eso engañó. **Y el factor NO es estable:** en la misma
+   ventana, una captura salió en px físicos y la siguiente en px CSS.
+2. **Un `500` que no era de la app.** El `next dev` había quedado **degradado** al detenerlo el arnés
+   (*"Jest worker encountered child process exceptions"*). **Con servidor limpio: `200` y JSON válido.**
+
+> **REGLA de método, para la nota de la REGLA 4:** *toda medición hecha con clics sintéticos empieza
+> confirmando **dónde cayó** el puntero, no dónde se pidió que cayera* (escucha de `mousemove` en
+> captura, cuatro líneas). Y *antes de culpar a la app, descarta el entorno de medición*.
+>
+> **Lo dijo mejor el reviewer:** que un análisis estático **no encontrara** el camino de propagación
+> **era en sí mismo la señal** de que el fallo estaba en la medición y no en el código.

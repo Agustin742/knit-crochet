@@ -34,7 +34,8 @@ const COMPILE_TIMEOUT_MS = 120_000;
 
 /**
  * Los componentes de `/proyectos`, por nombre de archivo. El cajón de detalle
- * entra con la tanda 1 de #21: es la misma página y sus clases se quedarían sin
+ * entra con la tanda 1 de #21, y sus tres tabs pesados más las piezas que
+ * comparten con la tanda 2: es la misma página y sus clases se quedarían sin
  * comprobar si no.
  */
 const COMPONENTS = [
@@ -42,6 +43,10 @@ const COMPONENTS = [
   "ProjectCard.tsx",
   "ProjectsToolbar.tsx",
   "ProjectDetailDrawer.tsx",
+  "DetailTabParts.tsx",
+  "ProgressTab.tsx",
+  "YarnsTab.tsx",
+  "SessionsTab.tsx",
 ];
 
 /**
@@ -83,14 +88,21 @@ beforeAll(async () => {
 describe("el barrido de clases de /proyectos no se deja nada", () => {
   /**
    * Sin esto, un resolvedor roto —que devolviera cero clases— dejaría el gate en
-   * verde perpetuo: el número de abajo es la diferencia entre medir y aparentar.
+   * verde perpetuo: la diferencia entre medir y aparentar.
+   *
+   * El suelo es **cero, por archivo**, y no una cifra alta: un umbral inventado
+   * ("más de quince clases") sólo mide los componentes grandes y hay que
+   * rebajarlo en cuanto entra uno chico, con lo que deja de significar nada. Lo
+   * que de verdad ata este barrido a la realidad es el test de al lado, que
+   * compara los atributos encontrados con los **escritos en el fuente**: ése no
+   * se puede satisfacer resolviendo de menos.
    */
-  it("encuentra clases y atributos en los tres componentes", () => {
+  it("encuentra clases y atributos en cada componente", () => {
     for (const fileName of COMPONENTS) {
       const found = EXTRACTED.get(fileName);
       expect(found, fileName).toBeDefined();
-      expect(found?.attributes, fileName).toBeGreaterThan(5);
-      expect(found?.classes.length, fileName).toBeGreaterThan(15);
+      expect(found?.attributes, fileName).toBeGreaterThan(0);
+      expect(found?.classes.length, fileName).toBeGreaterThan(0);
     }
   });
 

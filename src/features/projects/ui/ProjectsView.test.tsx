@@ -12,7 +12,10 @@ import { openDetailLabel, quickStartLabel } from "./ProjectCard";
 import { DETAIL_LOADING_REGION_LABEL } from "./ProjectDetailDrawer";
 import {
   DETAIL_TAB_LABELS,
+  EMPTY_INVENTORY,
   GENERAL_FIELD_LABELS,
+  INVENTORY_UNAVAILABLE,
+  linkYarnLabel,
 } from "./project-detail";
 import {
   ANY_OPTION_LABEL,
@@ -191,14 +194,27 @@ function detailIdFrom(target: string): string | null {
   return target.slice(prefix.length);
 }
 
-/** URLs de lista pedidas, en orden. */
+/**
+ * URLs de **lista** pedidas, en orden.
+ *
+ * La lista es el endpoint pelado, con o sin cadena de consulta: todo lo que
+ * lleve un segmento detrás es **otra cosa** (el detalle de un proyecto, el
+ * arranque de una sesión…). Se filtra por eso y no descartando rutas conocidas
+ * una a una, que era lo de antes y ya se había quedado corto: desde que existe
+ * el cajón, la URL del detalle **también** empieza por la de la lista y se
+ * colaba en esta cuenta. Nada rompía hoy, pero el día que un test dijera "abrir
+ * el cajón no vuelve a pedir la lista" habría salido **verde y falso**.
+ */
 function listUrls(): string[] {
   return fetchSpy.mock.calls
     .map(([url]) => String(url))
-    .filter(
-      (url) =>
-        url.startsWith(PROJECTS_ENDPOINT) && !url.includes("/sessions/start"),
-    );
+    .filter((url) => {
+      if (!url.startsWith(PROJECTS_ENDPOINT)) {
+        return false;
+      }
+      const rest = url.slice(PROJECTS_ENDPOINT.length);
+      return rest === "" || rest.startsWith("?");
+    });
 }
 
 function lastListUrl(): string {
@@ -914,5 +930,68 @@ describe("ProjectsView — cajón de detalle", () => {
 
     // `baseElement` y no `container`: el cajón vive en un portal al `body`.
     expect(await axe(baseElement)).toHaveNoViolations();
+  });
+});
+
+describe("ProjectsView — el inventario de lanas llega al cajón", () => {
+  /** Con la pantalla ya cargada: abre el cajón y va al tab Lanas. */
+  async function openYarnsTab(): Promise<HTMLElement> {
+    await userEvent.click(
+      screen.getByRole("button", { name: openDetailLabel(BUFANDA.name) }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("status", { name: DETAIL_LOADING_REGION_LABEL })
+          .textContent,
+      ).toBe(""),
+    );
+    await userEvent.click(
+      screen.getByRole("tab", { name: DETAIL_TAB_LABELS.yarns }),
+    );
+    return screen.getByRole("dialog");
+  }
+
+  /**
+   * El inventario **no se pide dos veces**: la página ya lo trae para el filtro
+   * de "lana usada" del toolbar, así que el cajón lo recibe por prop. El aserto
+   * que lo mide es el **número de peticiones** a ese endpoint, no que la lana
+   * aparezca — que aparecería igual con dos peticiones.
+   */
+  it("el tab Lanas ofrece el inventario que la página ya había pedido", async () => {
+    await renderReady();
+    const drawer = await openYarnsTab();
+
+    expect(
+      within(drawer).getByRole("button", { name: linkYarnLabel(CRUDO.colorName) }),
+    ).toBeInTheDocument();
+    expect(
+      fetchSpy.mock.calls.filter(([url]) =>
+        String(url).startsWith(YARNS_ENDPOINT),
+      ),
+    ).toHaveLength(1);
+  });
+
+  /**
+   * Y si el inventario **no se pudo traer**, el cajón lo dice en vez de afirmar
+   * que no hay lanas. Es la distinción que la enmienda **E2(e)** impuso a los
+   * vacíos de la lista, aplicada acá.
+   */
+  it("un inventario que falló no se pinta como inventario vacío", async () => {
+    serve();
+    /* Se le rompe SÓLO al inventario, envolviendo el doble del BFF: el resto de
+       la pantalla —lista y detalle— sigue respondiendo como siempre, que es el
+       escenario real (un endpoint caído, no la red entera). */
+    const bff = fetchSpy.getMockImplementation();
+    fetchSpy.mockImplementation((url: string, init?: RequestInit) =>
+      String(url).startsWith(YARNS_ENDPOINT)
+        ? Promise.reject(new Error("sin red"))
+        : (bff?.(url, init) as Promise<Response>),
+    );
+    render(<ProjectsView />);
+    await settle();
+    const drawer = await openYarnsTab();
+
+    expect(within(drawer).getByText(INVENTORY_UNAVAILABLE)).toBeInTheDocument();
+    expect(within(drawer).queryByText(EMPTY_INVENTORY)).toBeNull();
   });
 });

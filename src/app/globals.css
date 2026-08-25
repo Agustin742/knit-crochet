@@ -59,6 +59,46 @@
   --success: var(--brand-green);
   --focus: var(--brand-pink);
 
+  /* ---- Color de las FAMILIAS DE LANA (RFC-03 §2: el tab Lanas pinta un
+     "swatch de color" por cada lana enlazada).
+     POR QUÉ NACEN. `ColorFamily` tiene TRECE valores y la paleta de marca tiene
+     seis: no había forma de pintar una muestra de color fiel sin inventarse el
+     valor dentro del componente, que es justo lo que el guardrail token-first
+     prohíbe. Los valores viven acá, que es su sitio, y el componente sólo
+     nombra la familia.
+     NO SON IDENTIDAD, SON DATO. La paleta de marca dice cómo se ve la app; esto
+     dice de qué color es una lana concreta del usuario. Por eso se apoyan en la
+     escala de marca cuando la familia coincide (rosa, verde, amarillo, marrón,
+     negro) y sólo aportan valor nuevo donde la marca no llega.
+     Todos se dibujan sobre la superficie elevada de la tarjeta y llevan el
+     borde del sistema, así que un color claro (blanco, neutro) sigue teniendo
+     silueta y no desaparece contra el fondo. ---- */
+  --yarn-red: var(--danger);
+  --yarn-orange: #d8792c;
+  --yarn-yellow: var(--brand-yellow);
+  --yarn-green: var(--brand-green);
+  --yarn-blue: #3d6f9e;
+  --yarn-violet: #7a5aa0;
+  --yarn-pink: var(--brand-pink);
+  --yarn-brown: var(--brand-brown);
+  --yarn-gray: #8b8378;
+  --yarn-black: var(--brand-espresso);
+  --yarn-white: #fdfaf3;
+  --yarn-neutral: var(--surface-sunken);
+  /* "Multicolor" no es UN color: es la ausencia de uno. Se dibuja como rueda de
+     los que ya existen —ningún valor nuevo— y por eso es imagen y no color, así
+     que no entra en el namespace de color de Tailwind: se consume con la
+     utilidad de imagen de fondo. */
+  --yarn-multicolor: conic-gradient(
+    from 0deg,
+    var(--yarn-red),
+    var(--yarn-yellow),
+    var(--yarn-green),
+    var(--yarn-blue),
+    var(--yarn-violet),
+    var(--yarn-red)
+  );
+
   /* ---- Navbar archivero: modelo fichero (RFC-01 §3 D4) ----
      Las 6 hojas comparten UNA sola tonalidad (la cara de la hoja sale de la
      paleta, no se inventa color nuevo). La profundidad la dan tres pistas que
@@ -201,6 +241,20 @@
   --color-brand-brown: var(--brand-brown);
   --color-brand-cream: var(--brand-cream);
   --color-brand-espresso: var(--brand-espresso);
+  /* Las doce familias de lana que SÍ son un color plano (la trece, multicolor,
+     es una imagen y se consume por su token directo). */
+  --color-yarn-red: var(--yarn-red);
+  --color-yarn-orange: var(--yarn-orange);
+  --color-yarn-yellow: var(--yarn-yellow);
+  --color-yarn-green: var(--yarn-green);
+  --color-yarn-blue: var(--yarn-blue);
+  --color-yarn-violet: var(--yarn-violet);
+  --color-yarn-pink: var(--yarn-pink);
+  --color-yarn-brown: var(--yarn-brown);
+  --color-yarn-gray: var(--yarn-gray);
+  --color-yarn-black: var(--yarn-black);
+  --color-yarn-white: var(--yarn-white);
+  --color-yarn-neutral: var(--yarn-neutral);
 
   /* ---- Tipografía (familia real vía next/font; fallback genérico al final) ---- */
   --font-display: var(--font-instrument-serif), Georgia, serif;

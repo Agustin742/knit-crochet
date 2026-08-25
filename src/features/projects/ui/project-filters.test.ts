@@ -147,10 +147,17 @@ describe("toYarnChoices (etiqueta del selector de lana)", () => {
         yarn({ id: "b", colorName: "Petróleo", colorFamily: "blue" }),
       ]),
     ).toEqual([
-      { id: "a", label: "Crudo" },
-      { id: "b", label: "Petróleo" },
+      { id: "a", label: "Crudo", colorFamily: "neutral" },
+      { id: "b", label: "Petróleo", colorFamily: "blue" },
     ]);
   });
+
+  /**
+   * La familia viaja **siempre**, aunque la etiqueta no la nombre: es lo que el
+   * tab Lanas del cajón necesita para pintar la muestra de color, y la etiqueta
+   * sólo la menciona cuando hace falta desambiguar. Se comprueba con `toEqual`
+   * —comparación exacta— así que perder el campo pone esto en rojo.
+   */
 
   it("disambiguates repeated colour names with the family", () => {
     expect(
@@ -159,8 +166,16 @@ describe("toYarnChoices (etiqueta del selector de lana)", () => {
         yarn({ id: "b", colorName: "crudo", colorFamily: "white" }),
       ]),
     ).toEqual([
-      { id: "a", label: `Crudo (${COLOR_FAMILY_LABELS.neutral})` },
-      { id: "b", label: `crudo (${COLOR_FAMILY_LABELS.white})` },
+      {
+        id: "a",
+        label: `Crudo (${COLOR_FAMILY_LABELS.neutral})`,
+        colorFamily: "neutral",
+      },
+      {
+        id: "b",
+        label: `crudo (${COLOR_FAMILY_LABELS.white})`,
+        colorFamily: "white",
+      },
     ]);
   });
 

@@ -60,6 +60,11 @@
 
 - Segmentado con `aria-pressed`; rounds +/− con labels; cronómetro con `aria-live` para el tiempo; drawer con foco atrapado y `aria-modal`.
 
+  → ⚠️ **El `aria-live` NO va en el reloj de segundos** (enmienda **E4**, §7-quinquies): anunciar un
+  valor que cambia **cada segundo** convierte al lector de pantalla en un metrónomo y tapa el resto de
+  la pantalla. Lo que se anuncia son los **minutos** y los cambios de estado. **No lo "arregles"
+  creyendo que falta algo.**
+
 ## 6. Fuera de alcance
 
 - CRUD de lanas (RFC-04) y de patrones (RFC-05); acá solo se **enlazan**.
@@ -358,6 +363,7 @@ puede romper la invariante de E1(f)/deuda 132** (sin `onQuickStart` → cero bot
 ---
 
 
+
 ## 7-quater. Enmienda E3 — el arranque de #21: qué piezas faltan y hasta dónde llega (2026-08-24)
 
 **Qué la motiva.** Al planear **#21** el leader comprobó, **antes de lanzar nada**, qué piezas de las que
@@ -386,6 +392,38 @@ componentes inexistentes**, y volvió a pagar: de las dos piezas centrales del d
 **§1 y §2 siguen mandando** sobre el contenido de las cuatro tabs: E3 sólo fija **el orden** en que se
 construyen y **con qué piezas**. El backend **no se toca**: §3 ya está entero, incluida la deuda 5 (las
 lanas enlazadas viajan en `GET /:id`) que saldó la feature #17.
+## 7-quinquies. Enmienda E4 — el `aria-live` del cronómetro, y #21 cerrada (2026-08-25)
+
+**Quién la pide:** el **reviewer** de #21 T2, y el leader coincide. **Nace de la verificación en
+navegador**, no de una discusión de despacho.
+
+### E4 (a) — §5 se corrige: el `aria-live` NO va en el reloj de segundos
+
+**Lo que decía §5:** *"cronómetro con `aria-live` para el tiempo"*.
+**Lo que la implementación hace, medido en pantalla:** el reloj de segundos (`04:21` → `04:24`) **no**
+está en una región viva; lo que se anuncia es un `role="status"` aparte con **minutos** (*"4 min"*) y
+los **cambios de estado** (*"Empezaste a tejer asdasd."*, *"El cronómetro está parado."*).
+
+**La implementación tiene razón y la letra del RFC estaba mal.** Anunciar un valor que cambia **cada
+segundo** convierte al lector de pantalla en un **metrónomo** y tapa todo lo demás. **El cambio
+significativo en un cronómetro es el minuto**, y hay test que lo mide **en las dos direcciones**.
+
+> **Por qué se enmienda en vez de dejarlo pasar:** porque **el próximo implementer leería §5 y lo haría
+> mal**. Una especificación que contradice a la práctica correcta es una trampa con retardo — la misma
+> familia que las fichas que mienten.
+
+### E4 (b) — #21 se cierra con cuatro puntos NO verificados, y se dice cuáles
+
+La verificación en navegador (`progress/reports/verificacion_navegador_21_t2.md`) **no pudo mirar**, por
+**falta de datos** en la base: el **contraste de los 13 swatches** de lana —con dos sospechosos
+nombrados: **`--yarn-neutral`, que es literalmente `--surface-sunken`**, y `--yarn-white`—, la lana
+**multicolor**, la **checklist con un patrón real** y el **buscador con un inventario grande**.
+
+**Se cierran como NO VERIFICADOS, no como aprobados.** Mirarlos exige **crear datos de prueba**, y eso
+escribe en los datos del usuario: **se pide antes**. Lo natural es que caigan dentro de **RFC-04**
+(lanas, features #23-#25) y **RFC-05** (patrones, #26-#28), que es cuando esos datos existirán de todos
+modos.
+
 ## 8. Slices de implementación (→ `feature_list.json`)
 
 IDs reales en `feature_list.json` (mapeo en [RFC-00 §4](RFC-00-proceso.md)):

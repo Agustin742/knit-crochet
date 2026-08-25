@@ -45,6 +45,18 @@ export const SECONDS_PER_HOUR = 3600;
  */
 export const SECONDS_PER_MINUTE = 60;
 
+/**
+ * Milisegundos en un segundo. **El tercer puente de la misma familia**, y nace
+ * con el cronómetro en vivo del detalle de proyecto (RFC-03 §2): el dominio
+ * guarda el tiempo en **segundos**, pero el reloj del navegador y los sellos
+ * ISO-8601 que devuelve el backend se miden en **milisegundos**, así que
+ * calcular cuánto lleva corriendo una sesión cruza esa frontera.
+ *
+ * Vive acá por el mismo motivo que sus dos hermanas: para que nadie escriba
+ * `1000` suelto dentro de un componente.
+ */
+export const MILLISECONDS_PER_SECOND = 1000;
+
 // Comparativas graciosas sobre las horas tejidas (PRD §8.1). Ordenadas
 // ascendente por `hours`. ⚠️ El campo está EN HORAS; la métrica que se compara
 // contra ellas está en SEGUNDOS: la conversión va por `SECONDS_PER_HOUR`.

@@ -332,7 +332,7 @@
         "Lanas: usa GET /api/projects/:id con lanas enlazadas (feature 17) + POST/DELETE /:id/yarns; Sesiones: start/stop con tiempo en vivo (aria-live) + histórico",
         "Verificación SDD §9: RTL (rounds, enlazar lana, cronómetro start/stop) + axe + smoke + init.sh + build"
       ],
-      "status": "in_progress",
+      "status": "done",
       "scope_note": "RFC-03 enmienda E3 (2026-08-24): se implementa en DOS tandas. T1 = Tabs + Drawer + tab General + tap en la card. T2 = Progreso, Lanas y Sesiones. Los botones sin destino (Editar -> #22, crear patron -> #26-28) NO se pintan hasta que su destino exista (E3 d)."
     },
     {

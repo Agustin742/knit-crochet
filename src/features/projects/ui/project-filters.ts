@@ -1,5 +1,6 @@
 import {
   COLOR_FAMILY_LABELS,
+  type ColorFamily,
   CRAFT_TYPES,
   type CraftType,
 } from "@/shared/config";
@@ -104,7 +105,19 @@ export function filterByName(
   );
 }
 
-export type YarnChoice = { id: string; label: string };
+/**
+ * Una lana del inventario, lista para pintarse.
+ *
+ * `colorFamily` viaja junto a la etiqueta desde la tanda 2 de #21: el tab Lanas
+ * del cajón pinta una **muestra de color** por cada lana enlazable (RFC-03 §2),
+ * y el color es justo el dato que la etiqueta ya no lleva cuando el nombre no se
+ * repite. El desplegable del toolbar sigue usando sólo `label` y no cambia.
+ */
+export type YarnChoice = {
+  id: string;
+  label: string;
+  colorFamily: ColorFamily;
+};
 
 /**
  * Etiqueta de cada lana en el desplegable: **sólo el color** (enmienda E1(d)).
@@ -131,6 +144,7 @@ export function toYarnChoices(yarns: readonly YarnOption[]): YarnChoice[] {
       label: ambiguous
         ? `${yarn.colorName} (${COLOR_FAMILY_LABELS[yarn.colorFamily]})`
         : yarn.colorName,
+      colorFamily: yarn.colorFamily,
     };
   });
 }

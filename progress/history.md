@@ -1332,3 +1332,52 @@ página nueva.
 
 **Sin pagar:** la **REGLA 4** (nadie miró la pantalla), con el juicio escrito en el informe 27 — lo
 único visible que cambió es una línea de copia en un estado de borde. **Quinta sesión sin medir móvil.**
+
+---
+
+## Sesión 2026-08-24/25 — #21 `projects_detail_ui` CERRADA, y la REGLA 4 pagada DOS veces
+
+**Feature #21 `done`.** Recuento: **24 done / 0 in_progress / 9 pending** sobre 33. `init.sh` **EXIT 0**
+· `1587 passed | 13 skipped (1600)` · `pnpm build` EXIT 0. Aritmética: 1426 **+59** (T1) **+102** (T2).
+Informe: `progress/informs/28.informe-21_projects_detail_ui.md`.
+
+**Lo que se construyó:** el cajón de detalle con cuatro pestañas. `Tabs` nace como **primitiva nueva**
+(`tablist`/`tab`/`tabpanel` + flechas) y el `Drawer` como **variante del `Dialog`** —reusando foco
+atrapado, `Escape`, portal, scroll lock y devolución de foco— porque **reescribir una jaula de foco
+probada es regalar bugs**. Partida en **dos tandas por decisión del usuario**.
+
+**El control de arranque volvió a pagar:** de las dos piezas centrales, **`Tabs` no existía**. Mismo
+control que en #19.
+
+**La REGLA 4 encontró lo que ningún gate ve.** En T1, el hueco de la foto vacía ocupaba **47 % del alto**
+y empujaba los datos a 3 px del borde: era **la deuda E2(g) reapareciendo**, ya curada en la tarjeta,
+porque el arreglo se hizo en una pieza y no como criterio compartido. T2 lo bajó **sin romper la
+tarjeta**.
+
+**EL MÓVIL, MEDIDO POR FIN (séptima sesión).** El usuario **restauró la ventana de Chrome** y se llegó a
+**502 px** — Chrome impone un mínimo de ~500 y `resize_window` **informa éxito igualmente**. A ese
+ancho: cuatro pestañas en una fila, cero desbordamiento horizontal. Y apareció la deuda **165**
+(🟠 la **navegación móvil no está pegada abajo**; **preexistente**, no de #21).
+
+**DOS FALSOS POSITIVOS DEL LEADER, y esto es lo que hay que recordar:**
+
+1. **Un 🔴 que no existía**: las coordenadas de la herramienta van en **píxeles físicos** y se pasaban en
+   **CSS**, así que el puntero caía en **coord ÷ 1.25** (dpr exacto, ratio medido 1.250/1.249) sobre la
+   capa del tap. **El botón nunca recibió un clic.** El síntoma **imita perfectamente al bug real**.
+2. **Un `500`** que era el `next dev` **degradado** por el arnés, no la app. Descartado antes de
+   reportarlo.
+
+**Regla: toda medición por clic empieza confirmando DÓNDE CAYÓ el puntero.** Y el factor de escala **no
+es estable** entre capturas.
+
+**Tres correcciones cruzadas que mejoraron el resultado:** el reviewer corrigió al leader (dos testigos
+falsos); el reviewer **se corrigió a sí mismo** (el doble clic era artefacto de su mock, y dejó las dos
+mediciones escritas); y el implementer **mejoró la especificación** anunciando **minutos** en vez del
+reloj de segundos → **se enmendó el RFC** (E4 a), no el código.
+
+**Deudas nuevas: 165 🟠, 166 🟠, 167 ⚪, 168 ⚪, 169 ⚪, 170 ⚪, 171 ⚪.** Casi todas ⚪ **y ese es el
+punto**: con la escala corregida se ve de un vistazo qué merece parar una feature.
+
+**Cerrado con cuatro puntos NO VERIFICADOS y declarados** (deuda 171 / E4 b): contraste de los 13
+swatches, multicolor, checklist con patrón y buscador con inventario grande. **Falta de datos**: exige
+crear datos del usuario y **se pide antes**.

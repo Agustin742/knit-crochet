@@ -3,108 +3,52 @@
 > Este archivo se vacía al cerrar cada sesión y se mueve a `history.md`.
 > Mientras trabajas, **mantenlo actualizado en tiempo real**, no al final.
 
-## 🟡 EN CURSO — #21 `projects_detail_ui`, **TANDA 1** (2026-08-24)
+## ▶️ SIGUIENTE: #22 `projects_form_ui` — o lo que elija el usuario
 
-`feature_list.json`: #21 en **`in_progress`** con nota de alcance. 23 `done` · 1 `in_progress` · 9 `pending`.
-Punto de partida: `bash ./init.sh` **EXIT 0** · `1426 passed | 13 skipped (1439)`.
+**Estado:** limpio y verde. `init.sh` **EXIT 0** · `1587 passed | 13 skipped (1600)`.
+`feature_list.json`: **24 `done` · 0 `in_progress` · 9 `pending`** sobre 33.
+**Backend completo. Faltan 9 páginas para el MVP.**
 
-### ⚖️ Rige la MORATORIA DE GATES
+### ⚖️ MORATORIA DE GATES (sigue en vigor)
 
 > ***Una deuda sólo interrumpe una feature si un usuario puede verla.***
 
-Las deudas **160**, **161** y **164** son ⚪ y **no se abren**. El implementer lleva la orden explícita
-de no tocarlas ni de refilón.
+⚪ y **no se abren**: **160**, **161**, **164**, **167**, **168**, **169**, **170**, **171**.
 
-### El control que volvió a pagar: qué piezas NO existían
+### 🧭 REGLAS DE MÉTODO para la verificación en navegador (REGLA 4)
 
-Antes de lanzar nada, el leader comprobó si las piezas que la ficha de #21 da por hechas existen — **el
-mismo control que en #19 destapó que la ficha asumía componentes inexistentes**. Resultado:
+Nacidas de **dos falsos positivos en una sola sesión** (2026-08-25):
 
-| pieza | ¿existe? |
-|---|---|
-| Foco atrapado, `Escape`, `aria-modal`, portal, scroll lock, devolver foco | ✅ **SÍ**, en `Dialog` |
-| `Drawer` lateral | ❌ **no** — le falta **sólo geometría** |
-| `Tabs` | ❌ **no** — `SegmentedControl` es `role="group"`, y su comentario dice *"no tablist"* |
+1. **Las coordenadas de `computer` NO son fiables sin comprobación.** Van en px **físicos** mientras
+   `getBoundingClientRect` da px **CSS**, y **el factor no es estable entre capturas**. **Antes de
+   reportar cualquier cosa medida con clics: confirma DÓNDE CAYÓ el puntero** con una escucha de
+   `mousemove` en captura (cuatro líneas). Un clic desviado **imita perfectamente a un bug real**.
+2. **Antes de culpar a la app, descarta el entorno.** Un `500` resultó ser el `next dev` **degradado**
+   por el arnés. Con servidor limpio: `200`.
+3. **Si sólo quieres VER un panel, cambia de pestaña por código** — es más honesto que fingir una
+   medición de *hit-testing* que no estás haciendo.
+4. **No midas la pantalla mientras otro agente muta el árbol.**
+5. **Si arrancas un cronómetro para probar, PÁRALO.** En el historial del usuario hay una sesión de
+   **281 h** de la verificación de #20, que se dejó corriendo.
 
-**La buena noticia:** lo caro del drawer (la jaula de foco) **ya está escrito y probado**.
+### El móvil: cómo se desbloqueó y qué falta
 
-### Las cuatro decisiones — enmienda E3 de RFC-03, escritas ANTES de tocar código
+**Lo desbloquea el usuario**, no un agente: la ventana de Chrome tiene que estar **restaurada (ni
+maximizada ni minimizada) y en primer plano**. Con eso se llegó a **502 px** — Chrome impone un mínimo
+de ~500 px y `resize_window` **informa éxito aunque no cambie nada**. **El móvil real (≤390 px) sigue
+fuera de alcance por esta vía**; haría falta emulación por CDP.
 
-- **E3 (a)** · *usuario* — **#21 en DOS tandas.** T1 = `Tabs` + `Drawer` + tab **General** + **tap en la
-  card**. Al cerrar T1 el detalle **se abre y se usa**. T2 = Progreso, Lanas y Sesiones.
-- **E3 (b)** · *leader* — el `Drawer` es **variante del `Dialog`**, no componente nuevo. Reescribir una
-  jaula de foco ya probada es regalar bugs de accesibilidad.
-- **E3 (c)** · *leader* — `Tabs` nace como **primitiva compartida** con `tablist`/`tab`/`tabpanel` y
-  flechas. RFC-04 y RFC-05 también la piden.
-- **E3 (d)** · *usuario* — **los botones sin destino NO se pintan.** "Editar" llega con #22, "crear
-  patrón" con #26-28, **de forma aditiva**. Mismo criterio que **E1(f)** usó en #20 y funcionó.
+### Deudas VISIBLES pendientes (🟠 — un usuario las ve)
 
-### Estado
+- **165** — la **navegación móvil no está pegada abajo**: en angosto sólo aparece scrolleando hasta el
+  fondo, y es la única navegación que hay. **Preexistente.**
+- **166** — el tab Progreso muestra **`1 / 0`** cuando no hay meta de vueltas.
+- **155**, **159**, **162**, **163** — de sesiones anteriores.
 
-| paso | estado |
-|---|---|
-| Inventario de piezas | ✅ hecho |
-| Enmienda E3 en RFC-03 | ✅ escrita |
-| #21 → `in_progress` | ✅ hecho |
-| **T1 — implementer** | 🟡 **en vuelo** |
-| T1 — reviewer | ⏳ |
-| **REGLA 4 (mirar la pantalla)** | ⏳ — **se debe desde la sesión anterior** |
-| T2 — Progreso / Lanas / Sesiones | ⏳ |
+### Al arrancar la siguiente feature
 
----
-
-## Bitácora en vivo — #21 T1
-
-### ✅ T1 IMPLEMENTADA — `init.sh` EXIT 0 · `1485 passed | 13 skipped (1498)` = 1426 **+59**, sin residuo
-
-Piezas nuevas: `src/shared/ui/primitives/tabs/` (primitiva), la **colocación lateral** del `Dialog`
-(variante, no componente nuevo), `ProjectDetailDrawer.tsx` + `project-detail.ts`, y el **tap** en
-`ProjectCard.tsx`.
-
-### ✅ REGLA 4 PAGADA — `progress/reports/verificacion_navegador_21_t1.md`
-
-**Pagada por el leader, con el árbol quieto** (la regla que salió del incidente del 2026-08-20). Chrome
-real, viewport 1536×730, un proyecto de verdad.
-
-| medición | resultado |
-|---|---|
-| rect del panel | **x=864, y=0, 672×730** → pegado al lateral (`864+672 = 1536` exacto) y alto completo |
-| `aria-modal` / `tablist` / `aria-selected` | ✅ los tres |
-| **`Escape`** | cierra, **devuelve el foco al botón de la card** y **libera el bloqueo de scroll** |
-| `<button>` dentro de `<a>` (aviso de E1 f) | **resuelto**: el tap es un `<button aria-label="Ver detalle de …">`, no un ancla envolvente |
-
-> **Vale doble:** `happy-dom` no maqueta y `axe` no mide el foco real. Es el eje que **ningún gate del
-> repo puede ver**, y está sano.
-
-### 🟠 HALLAZGO de la REGLA 4 — el hueco de la foto vacía, y es una deuda YA CURADA que reaparece
-
-**Medido:** el hueco de la foto ocupa `612×344` = **47 % del alto del viewport**, con
-`hasRealImage: false` —un rectángulo vacío con una letra—, y el `<dl>` de los datos reales termina en
-**y=727, a 3 px del borde**. En una pantalla más baja nacen fuera de vista.
-
-**De quién es la deuda:** es **E2(g) del RFC-03**, titulada *"El hueco de la foto vacía deja de ser un
-vacío del 61 % de la tarjeta"*. Se curó **en la card** y el cajón **nació con el mismo defecto**, porque
-el arreglo se hizo en una pieza y no como criterio compartido. **Arreglo: mirar qué hizo E2(g) y aplicar
-el mismo criterio**, no inventar un tamaño a ojo.
-
-### ⚠️ MÓVIL — la causa queda CONFIRMADA, y la salida NO la puede ejecutar un agente
-
-```
-resize_window(420x860) -> "Successfully resized window ... to 420x860 pixels"
-medido después:  innerWidth 1536 (SIN CAMBIAR) · matchMedia('(max-width: 640px)') === false
-```
-
-**La herramienta informa un éxito que no ocurrió.** Causa: la ventana de Chrome está **maximizada**.
-**Pedido al usuario:** desmaximizar (botón restaurar o `Win`+`↓`). Con eso se mide en dos minutos y se
-cierra una deuda de cinco sesiones.
-
-### ⏸️ Review de T1 — CORTADA POR CUOTA (segunda vez en la sesión), reanudada
-
-`progress/reports/review_21_t1.md`. **Árbol comprobado por el leader: el reviewer no tocó código.**
-
-**Bloques cerrados:** A (gates duros) y B (`Tabs`) — `init.sh` EXIT 0 y aritmética verificados **por él**,
-**cero clases inertes comprobado por él y no deducido**, patrón ARIA completo, contrato de API pública
-(REGLA 2a) pagado. **Hasta aquí, cero bloqueantes**: todos los hallazgos son ⚪, incluido uno que dice
-que **el informe del implementer afirma algo que no es cierto** sobre `cn()` (A.4).
-
-**Falta:** el bloque de tests (REGLA 7, fixtures y las fechas de la deuda 164) y el veredicto.
+1. `bash ./init.sh`.
+2. **Comprueba qué piezas da por hechas la ficha y NO existen** — este control ha pagado en #19 y en #21.
+3. Si el RFC tiene decisiones abiertas: **resolverlas con el usuario y escribirlas en el RFC ANTES de
+   tocar código**. Es lo que ha funcionado en E13, E4 (RFC-02) y E3 (RFC-03).
+4. **REGLA 4 antes de cerrar**, con el árbol quieto.

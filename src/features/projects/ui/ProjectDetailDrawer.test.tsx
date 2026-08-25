@@ -5,6 +5,7 @@ import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
 
+import type { LinkedYarn } from "@/features/projects/types";
 import { DIALOG_CLOSE_LABEL } from "@/shared/ui";
 
 import {
@@ -15,17 +16,25 @@ import {
 } from "./ProjectDetailDrawer";
 import { CRAFT_TYPE_LABELS } from "./project-filters";
 import {
+  ADD_ROUND_LABEL,
+  DETAIL_TABS,
   DETAIL_TABS_LABEL,
   DETAIL_TAB_LABELS,
+  EMPTY_INVENTORY,
   GENERAL_FIELD_LABELS,
   NO_END_DATE,
+  NO_LINKED_YARNS,
   NO_NEEDLES,
   NO_NOTES,
   PROJECT_STATUS_LABELS,
+  START_SESSION_LABEL,
+  STOP_SESSION_LABEL,
+  linkedYarnLabel,
 } from "./project-detail";
 import {
   NETWORK_ERROR_MESSAGE,
   projectDetailEndpoint,
+  projectSessionsEndpoint,
 } from "./projects-client";
 import type {
   ProjectCardData,
@@ -102,8 +111,13 @@ function serve(next: Scenario = {}) {
     if (next.offline === true) {
       return Promise.reject(new Error("sin red"));
     }
+    /* El historial de sesiones tiene su propia forma y su propia ruta: servir el
+       detalle para todo daría un `sessions` indefinido, o sea un estado que el
+       backend no puede producir (REGLA 7). */
+    if (String(url) === projectSessionsEndpoint("bufanda")) {
+      return Promise.resolve(jsonResponse(200, { sessions: [] }));
+    }
     const status = next.status ?? 200;
-    void url;
     return Promise.resolve(
       status === 200
         ? jsonResponse(200, next.detail ?? { project: project(), yarns: [] })
@@ -398,5 +412,222 @@ describe("ProjectDetailDrawer — accesibilidad", () => {
 
     // `baseElement` y no `container`: el cajón vive en un portal al `body`.
     expect(await axe(baseElement)).toHaveNoViolations();
+  });
+});
+
+/* ============================================================================
+   Las cuatro pestañas juntas (tanda 2 de la enmienda E3(a)). Acá no se
+   re-testea cada tab —cada uno tiene su archivo— sino lo que sólo se puede ver
+   con el cajón montado: que el carril las publica, que el contenido cambia, y
+   que el cajón sigue siendo el dueño del proyecto cargado.
+   ============================================================================ */
+describe("ProjectDetailDrawer — las cuatro secciones", () => {
+  async function goTo(
+    user: ReturnType<typeof userEvent.setup>,
+    tab: keyof typeof DETAIL_TAB_LABELS,
+  ) {
+    await user.click(screen.getByRole("tab", { name: DETAIL_TAB_LABELS[tab] }));
+  }
+
+  it("publica las cuatro del RFC, en su orden", async () => {
+    const user = userEvent.setup();
+    render(<DrawerHarness />);
+    await open(user);
+
+    const rail = screen.getByRole("tablist", { name: DETAIL_TABS_LABEL });
+    expect(
+      within(rail)
+        .getAllByRole("tab")
+        .map((tab) => tab.textContent),
+    ).toEqual(DETAIL_TABS.map((name) => DETAIL_TAB_LABELS[name]));
+  });
+
+  it("cambiar de pestaña cambia lo que se ve, y sólo hay un panel", async () => {
+    const user = userEvent.setup();
+    render(<DrawerHarness />);
+    await open(user);
+
+    expect(screen.getByText(GENERAL_FIELD_LABELS.notes)).toBeInTheDocument();
+
+    await goTo(user, "progress");
+
+    expect(screen.queryByText(GENERAL_FIELD_LABELS.notes)).toBeNull();
+    expect(
+      screen.getByRole("button", { name: ADD_ROUND_LABEL }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("tabpanel")).toHaveLength(1);
+  });
+
+  /**
+   * **Las lanas enlazadas NO se piden otra vez**: viajan en `GET /api/projects/:id`
+   * desde que la feature #17 saldó la deuda 5. El aserto que lo mide es el
+   * número de peticiones, no la presencia del texto.
+   */
+  it("el tab Lanas pinta lo que ya trajo el detalle, sin pedir nada más", async () => {
+    const user = userEvent.setup();
+    const yarn: LinkedYarn = {
+      id: "y1",
+      colorName: "Crudo",
+      colorFamily: "neutral",
+      brandName: "Manos",
+      typeName: "Merino",
+    };
+    serve({ detail: { project: project(), yarns: [yarn] } });
+    render(<DrawerHarness />);
+    await open(user);
+
+    await goTo(user, "yarns");
+
+    expect(screen.getByText(linkedYarnLabel(yarn))).toBeInTheDocument();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  /** Sin inventario que ofrecer, el tab lo dice en vez de callarse. */
+  it("sin inventario de lanas el tab lo dice", async () => {
+    const user = userEvent.setup();
+    render(<DrawerHarness />);
+    await open(user);
+
+    await goTo(user, "yarns");
+
+    expect(screen.getByText(NO_LINKED_YARNS)).toBeInTheDocument();
+    expect(screen.getByText(EMPTY_INVENTORY)).toBeInTheDocument();
+  });
+
+  /**
+   * El cajón es el dueño del proyecto cargado: los endpoints de Progreso
+   * responden el proyecto entero ya recalculado y **el resto del cajón lo ve**.
+   * Se comprueba volviendo a General, que es otra pestaña y otro componente.
+   */
+  it("lo que cambia en Progreso se queda cambiado al volver a General", async () => {
+    const user = userEvent.setup();
+    render(<DrawerHarness />);
+    await open(user);
+    await goTo(user, "progress");
+
+    serve({
+      detail: {
+        project: project({ status: "finished", rounds: 13, progress: 33 }),
+        yarns: [],
+      },
+    });
+    await user.click(screen.getByRole("button", { name: ADD_ROUND_LABEL }));
+    await screen.findByText("13 / 40");
+
+    await goTo(user, "general");
+
+    expect(fieldValue(GENERAL_FIELD_LABELS.status)).toBe(
+      PROJECT_STATUS_LABELS.finished,
+    );
+  });
+
+  it("el tab Sesiones monta el cronómetro", async () => {
+    const user = userEvent.setup();
+    render(<DrawerHarness />);
+    await open(user);
+
+    await goTo(user, "sessions");
+
+    expect(
+      await screen.findByRole("button", { name: START_SESSION_LABEL }),
+    ).toBeInTheDocument();
+  });
+
+  it("no tiene violaciones de axe en ninguna de las cuatro", async () => {
+    const user = userEvent.setup();
+    const { baseElement } = render(<DrawerHarness />);
+    await open(user);
+
+    for (const name of DETAIL_TABS) {
+      await goTo(user, name);
+      // `baseElement` y no `container`: el cajón vive en un portal al `body`.
+      expect(await axe(baseElement), name).toHaveNoViolations();
+    }
+  });
+});
+
+describe("ProjectDetailDrawer — el cronómetro no sobrevive al cajón", () => {
+  /** Ver el porqué de intervenir SÓLO estos tres en `SessionsTab.test.tsx`. */
+  const FAKED_TIMERS = ["Date", "setInterval", "clearInterval"] as const;
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: [...FAKED_TIMERS] });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /**
+   * **El caso que hay que cuidar de verdad.** Con una sesión corriendo, cerrar
+   * el cajón desmonta el tab, y si el intervalo sobreviviera seguiría pidiendo
+   * renders de un componente que ya no existe — el clásico "no se puede
+   * actualizar un componente desmontado", con el tiempo corriendo de fondo.
+   * Se mide **contando temporizadores**, no leyendo el código.
+   */
+  it("cerrar el cajón con el cronómetro corriendo suelta el intervalo", async () => {
+    const user = userEvent.setup();
+    const running = {
+      id: "s1",
+      userId: "u",
+      projectId: "bufanda",
+      start: new Date().toISOString(),
+      end: null,
+      duration: 0,
+    };
+    fetchSpy.mockImplementation((url: string) =>
+      Promise.resolve(
+        String(url) === projectSessionsEndpoint("bufanda")
+          ? jsonResponse(200, { sessions: [running] })
+          : jsonResponse(200, { project: project(), yarns: [] }),
+      ),
+    );
+
+    render(<DrawerHarness />);
+    await open(user);
+    await user.click(
+      screen.getByRole("tab", { name: DETAIL_TAB_LABELS.sessions }),
+    );
+    await screen.findByRole("button", { name: STOP_SESSION_LABEL });
+
+    expect(vi.getTimerCount()).toBe(1);
+
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  /** Y cambiar de pestaña también lo suelta: el carril monta sólo la elegida. */
+  it("cambiar de pestaña también suelta el intervalo", async () => {
+    const user = userEvent.setup();
+    const running = {
+      id: "s1",
+      userId: "u",
+      projectId: "bufanda",
+      start: new Date().toISOString(),
+      end: null,
+      duration: 0,
+    };
+    fetchSpy.mockImplementation((url: string) =>
+      Promise.resolve(
+        String(url) === projectSessionsEndpoint("bufanda")
+          ? jsonResponse(200, { sessions: [running] })
+          : jsonResponse(200, { project: project(), yarns: [] }),
+      ),
+    );
+
+    render(<DrawerHarness />);
+    await open(user);
+    await user.click(
+      screen.getByRole("tab", { name: DETAIL_TAB_LABELS.sessions }),
+    );
+    await screen.findByRole("button", { name: STOP_SESSION_LABEL });
+
+    await user.click(
+      screen.getByRole("tab", { name: DETAIL_TAB_LABELS.general }),
+    );
+
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

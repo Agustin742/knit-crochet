@@ -146,6 +146,11 @@ export function ProjectsView() {
   const [yarnId, setYarnId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [yarnChoices, setYarnChoices] = useState<readonly YarnChoice[]>([]);
+  /* Que el inventario NO se pudo traer, que no es lo mismo que estar vacío. Al
+     toolbar le da igual —su desplegable se queda con "Todas"—, pero el tab Lanas
+     del cajón ofrece enlazar desde esta misma lista, y ahí decir "no tenés
+     lanas" a quien tiene cincuenta es la mentira que E2(e) vino a corregir. */
+  const [yarnChoicesFailed, setYarnChoicesFailed] = useState(false);
 
   /* Cambia para volver a pedir los mismos datos. Un booleano no serviría: dos
      reintentos seguidos tienen que disparar dos peticiones. */
@@ -210,7 +215,11 @@ export function ProjectsView() {
     let cancelled = false;
 
     void getYarnOptions().then((result) => {
-      if (!cancelled && result.ok) {
+      if (cancelled) {
+        return;
+      }
+      setYarnChoicesFailed(!result.ok);
+      if (result.ok) {
         setYarnChoices(toYarnChoices(result.data));
       }
     });
@@ -438,6 +447,8 @@ export function ProjectsView() {
       <ProjectDetailDrawer
         project={projects?.find((entry) => entry.id === detailId) ?? null}
         onClose={() => setDetailId(null)}
+        yarnInventory={yarnChoices}
+        yarnInventoryUnavailable={yarnChoicesFailed}
       />
     </div>
   );

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  formatClock,
   formatDate,
+  formatDateTime,
   formatDecimal,
   formatDuration,
   formatInteger,
@@ -123,5 +125,76 @@ describe("formatDate", () => {
   it("returns null when the value is not a date", () => {
     expect(formatDate("no soy una fecha")).toBeNull();
     expect(formatDate("")).toBeNull();
+  });
+});
+
+describe("formatClock (el cronómetro corriendo)", () => {
+  /**
+   * **Los segundos son el dato.** `formatDuration` redondea hacia abajo a
+   * minutos —"0 min" durante el primer minuto entero—, que es correcto para un
+   * tiempo acumulado y sería un cronómetro parado a la vista de quien acaba de
+   * darle a empezar.
+   */
+  it("enseña los segundos desde el primero", () => {
+    expect(formatClock(7)).toBe("00:07");
+    expect(formatDuration(7)).toBe("0 min");
+  });
+
+  it("rellena minutos y segundos a dos cifras", () => {
+    expect(formatClock(SECONDS_PER_MINUTE * 9 + 5)).toBe("09:05");
+  });
+
+  /** Hasta la hora no se pinta el hueco de las horas: ocuparía sitio sin decir nada. */
+  it("añade las horas sólo cuando las hay", () => {
+    expect(formatClock(SECONDS_PER_MINUTE * 59 + 59)).toBe("59:59");
+    expect(formatClock(SECONDS_PER_HOUR)).toBe("1:00:00");
+    expect(formatClock(SECONDS_PER_HOUR + SECONDS_PER_MINUTE * 5 + 30)).toBe(
+      "1:05:30",
+    );
+  });
+
+  /**
+   * El transcurrido se calcula contra el reloj **del navegador**, que puede ir
+   * por detrás del servidor que selló el arranque: un "-00:03" en la cara del
+   * usuario es peor que un cero.
+   */
+  it("un valor negativo o roto se lee como cero, no como un signo menos", () => {
+    expect(formatClock(-30)).toBe("00:00");
+    expect(formatClock(Number.NaN)).toBe("00:00");
+  });
+});
+
+describe("formatDateTime (cuándo fue una sesión)", () => {
+  /**
+   * **El año se DERIVA del reloj y el instante se construye en hora local**
+   * (deuda 164): un año escrito a mano empieza a mentir el 1 de enero, y un ISO
+   * en UTC daría una hora distinta en cada zona en la que corra la suite.
+   */
+  const moment = new Date(new Date().getFullYear() - 1, 2, 5, 19, 30);
+  const year = String(moment.getFullYear());
+
+  /**
+   * **Sin `timeZone` fijo, al revés que `formatDate`.** Las fechas de un
+   * proyecto son de calendario y se pintan en UTC; el arranque de una sesión es
+   * un **momento**, y un momento se lee en el reloj de quien mira.
+   */
+  it("dice el día y la hora del reloj de quien mira", () => {
+    expect(formatDateTime(moment.toISOString())).toBe(
+      `5 de marzo de ${year}, 19:30`,
+    );
+  });
+
+  /** Reloj de 24 horas: en una lista de sesiones lo que se compara son las horas. */
+  it("usa las 24 horas y rellena la hora a dos cifras", () => {
+    const morning = new Date(moment.getFullYear(), 2, 5, 9, 5);
+
+    expect(formatDateTime(morning.toISOString())).toBe(
+      `5 de marzo de ${year}, 09:05`,
+    );
+  });
+
+  /** El texto de repuesto lo elige quien la pinta, igual que en `formatDate`. */
+  it("devuelve null si la cadena no es una fecha", () => {
+    expect(formatDateTime("cuando termine la bufanda")).toBeNull();
   });
 });
