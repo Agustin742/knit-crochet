@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  formatDate,
   formatDecimal,
   formatDuration,
   formatInteger,
@@ -89,5 +90,38 @@ describe("formatDuration", () => {
     expect(formatDuration(0)).toBe("0 min");
     expect(formatDuration(-90)).toBe("0 min");
     expect(formatDuration(Number.NaN)).toBe("0 min");
+  });
+});
+
+describe("formatDate", () => {
+  /**
+   * **El año se DERIVA, nunca se escribe a mano** (deuda 164): un fixture con el
+   * año en duro empieza a mentir el 1 de enero y el test sigue verde mientras
+   * tanto. Lo que se afirma acá es el formato, no qué año es hoy.
+   */
+  const YEAR = new Date().getUTCFullYear();
+
+  it("writes the date in Spanish, long form", () => {
+    expect(formatDate(`${String(YEAR)}-03-05T00:00:00.000Z`)).toBe(
+      `5 de marzo de ${String(YEAR)}`,
+    );
+  });
+
+  /**
+   * La trampa que hace obligatorio el UTC: medianoche del día 1 pintada en
+   * cualquier zona al oeste de Greenwich es el día ANTERIOR. Sin fijar la zona,
+   * este mismo caso da "31 de diciembre" en Buenos Aires y "1 de enero" en
+   * Madrid, para el mismo dato.
+   */
+  it("keeps the calendar day regardless of the reader's time zone", () => {
+    expect(formatDate(`${String(YEAR)}-01-01T00:00:00.000Z`)).toBe(
+      `1 de enero de ${String(YEAR)}`,
+    );
+  });
+
+  /** Una fecha rota es `null`: quien la pinta decide el texto de repuesto. */
+  it("returns null when the value is not a date", () => {
+    expect(formatDate("no soy una fecha")).toBeNull();
+    expect(formatDate("")).toBeNull();
   });
 });

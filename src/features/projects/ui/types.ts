@@ -1,4 +1,4 @@
-import type { ProjectRecord } from "@/features/projects/types";
+import type { LinkedYarn, ProjectRecord } from "@/features/projects/types";
 import type { YarnRecord } from "@/features/yarns/types";
 
 /**
@@ -69,3 +69,21 @@ export type YarnOption = Pick<
 
 /** Payload de `GET /api/yarns`: la lista también viaja **envuelta**. */
 export type YarnListPayload = { yarns: YarnOption[] };
+
+/**
+ * Payload de `GET /api/projects/:id` **tal y como llega al navegador**: el
+ * proyecto entero más sus lanas enlazadas, en claves hermanas (PRD §9.1).
+ *
+ * `LinkedYarn` se importa **sin serializar** y no es un descuido: sus cinco
+ * campos son cadenas —`brandName` y `typeName` salen de un JOIN, no de la fila
+ * cruda de `yarns`—, así que ninguno es una fecha que pueda mentir al cruzar la
+ * red. El que sí miente es el proyecto, y por eso va como `SerializedProject`.
+ *
+ * Las lanas **no se pintan en la tanda 1** (el tab Lanas es la tanda 2): entran
+ * en el tipo porque es lo que el endpoint responde, y describir de menos el
+ * cuerpo de una respuesta es justo cómo se cuela un `undefined` más tarde.
+ */
+export type SerializedProjectDetail = {
+  project: SerializedProject;
+  yarns: LinkedYarn[];
+};

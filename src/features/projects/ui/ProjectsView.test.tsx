@@ -8,7 +8,12 @@ import { axe } from "vitest-axe";
 
 import { NEEDLE_SIZES, SECONDS_PER_HOUR } from "@/shared/config";
 
-import { quickStartLabel } from "./ProjectCard";
+import { openDetailLabel, quickStartLabel } from "./ProjectCard";
+import { DETAIL_LOADING_REGION_LABEL } from "./ProjectDetailDrawer";
+import {
+  DETAIL_TAB_LABELS,
+  GENERAL_FIELD_LABELS,
+} from "./project-detail";
 import {
   ANY_OPTION_LABEL,
   MORE_FILTERS_LABEL,
@@ -141,6 +146,22 @@ function serve(next: Scenario = {}) {
     if (target.startsWith(YARNS_ENDPOINT)) {
       return Promise.resolve(jsonResponse(200, { yarns: next.yarns ?? [CRUDO] }));
     }
+    /* El detalle de UN proyecto (#21): se reconoce por llevar un id detrás del
+       endpoint, y va ANTES que la lista porque su URL también empieza por ella.
+       Responde el proyecto que la lista ya sirvió, que es lo que el backend
+       haría: dos payloads distintos para el mismo id serían un estado que
+       producción no puede alcanzar (REGLA 7). */
+    const detailId = detailIdFrom(target);
+    if (detailId !== null) {
+      const found = (next.projects ?? [BUFANDA, GORRO]).find(
+        (entry) => entry.id === detailId,
+      );
+      return Promise.resolve(
+        found === undefined
+          ? jsonResponse(404, { error: "El proyecto no existe." })
+          : jsonResponse(200, { project: found, yarns: [] }),
+      );
+    }
     if (target.startsWith(PROJECTS_ENDPOINT)) {
       const status = next.listStatus ?? 200;
       return Promise.resolve(
@@ -156,6 +177,19 @@ function serve(next: Scenario = {}) {
 
 /** Placebo para que el `init` del mock no quede sin usar en el tipo. */
 const init = undefined;
+
+/**
+ * El id del detalle, o `null` si la URL no es la de un detalle. La lista lleva
+ * la query detrás del endpoint y el detalle lleva **un segmento más**: es lo
+ * único que las distingue, porque las dos empiezan igual.
+ */
+function detailIdFrom(target: string): string | null {
+  const prefix = `${PROJECTS_ENDPOINT}/`;
+  if (!target.startsWith(prefix) || target.includes("/sessions/")) {
+    return null;
+  }
+  return target.slice(prefix.length);
+}
 
 /** URLs de lista pedidas, en orden. */
 function listUrls(): string[] {
@@ -211,11 +245,12 @@ afterEach(() => {
   fetchSpy.mockReset();
   scenario = {};
   vi.unstubAllGlobals();
-  /* "Más filtros" es un `<details>` nativo y NO un `Dialog` (E1(g)), así que
-     nada de esta pantalla debería bloquear el scroll del documento. El aserto
-     está para confirmarlo, no por trámite: si alguien cambiara el desplegable
-     por un modal, un bloqueo olvidado contaminaría a los siguientes archivos con
-     todo en verde (deuda 101). Se limpia ANTES de comprobar. */
+  /* Lo que se mide es que **no queda** bloqueo de scroll al desmontar. "Más
+     filtros" sigue siendo un `<details>` nativo y no bloquea nada (E1(g)); el
+     cajón de detalle (#21) **sí** bloquea mientras está abierto, y por eso el
+     aserto vale más que antes: si un test lo dejara abierto sin que el `Dialog`
+     soltara el bloqueo, contaminaría a los siguientes archivos con todo en verde
+     (deuda 101). Se limpia ANTES de comprobar. */
   const leftover = document.documentElement.style.overflow;
   document.documentElement.style.overflow = "";
   expect(leftover, "algo se fue sin soltar el bloqueo de scroll").toBe("");
@@ -760,10 +795,124 @@ describe("quick-start del cronómetro (E1(e))", () => {
     }
   });
 
-  /** La tarjeta NO es tocable en #20: el drawer es #21 y no existe (E1(f)). */
+  /**
+   * La tarjeta **es tocable desde #21**, pero sigue sin ser un enlace: el tap
+   * abre el cajón, no navega, y un `a` envolviendo al quick-start sería marcado
+   * inválido (E1(f)).
+   */
   it("no enlaza las tarjetas a ninguna parte", async () => {
     await renderReady();
 
     expect(screen.queryAllByRole("link")).toHaveLength(0);
+  });
+});
+
+/**
+ * EL TAP AL DETALLE, DE PUNTA A PUNTA (#21, tanda 1).
+ *
+ * Lo que se mide acá no lo puede medir el cajón por su cuenta: que **la tarjeta
+ * de la lista** lo abre, que el foco vuelve **a esa tarjeta** al cerrar, y que
+ * abrir otro proyecto trae **otro** detalle.
+ */
+describe("ProjectsView — cajón de detalle", () => {
+  function detailTap(name: string): HTMLElement {
+    return screen.getByRole("button", { name: openDetailLabel(name) });
+  }
+
+  async function detailDrawer(): Promise<HTMLElement> {
+    await waitFor(() =>
+      expect(
+        screen.getByRole("status", { name: DETAIL_LOADING_REGION_LABEL })
+          .textContent,
+      ).toBe(""),
+    );
+    return screen.getByRole("dialog");
+  }
+
+  it("no monta ningún cajón hasta que se toca una tarjeta", async () => {
+    await renderReady();
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("el tap en la tarjeta abre el cajón de ESE proyecto", async () => {
+    await renderReady();
+
+    await userEvent.click(detailTap(BUFANDA.name));
+    const drawer = await detailDrawer();
+
+    expect(drawer).toHaveAccessibleName(BUFANDA.name);
+    expect(
+      within(drawer).getByRole("tab", { name: DETAIL_TAB_LABELS.general }),
+    ).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("Escape cierra el cajón y devuelve el foco a la tarjeta que lo abrió", async () => {
+    await renderReady();
+
+    await userEvent.click(detailTap(GORRO.name));
+    await detailDrawer();
+
+    await userEvent.keyboard("{Escape}");
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    // Sin esto, quien navega por teclado vuelve al principio del documento y
+    // tiene que recorrer la grilla entera para seguir donde estaba.
+    expect(detailTap(GORRO.name)).toHaveFocus();
+  });
+
+  /**
+   * El estado de "qué estoy mirando" es un **id**, y la carga se deriva de
+   * comparar lo pedido con lo que llegó: sin eso, el segundo proyecto enseñaría
+   * el detalle del primero durante un fotograma.
+   */
+  it("abrir otro proyecto trae su propio detalle", async () => {
+    await renderReady();
+
+    await userEvent.click(detailTap(BUFANDA.name));
+    expect(await detailDrawer()).toHaveAccessibleName(BUFANDA.name);
+    await userEvent.keyboard("{Escape}");
+
+    await userEvent.click(detailTap(GORRO.name));
+    const second = await detailDrawer();
+
+    expect(second).toHaveAccessibleName(GORRO.name);
+    // El dato del segundo proyecto, no el del primero: los dos son de clases
+    // distintas, así que el campo "Tipo" los distingue sin ambigüedad.
+    const term = within(second).getByText(GENERAL_FIELD_LABELS.type);
+    expect(term.parentElement?.querySelector("dd")).toHaveTextContent(
+      CRAFT_TYPE_LABELS[GORRO.type],
+    );
+  });
+
+  it("el quick-start de la tarjeta sigue arrancando el cronómetro sin abrir el cajón", async () => {
+    await renderReady();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: quickStartLabel(BUFANDA.name) }),
+    );
+    await waitFor(() => expect(quickStartRegion().textContent).not.toBe(""));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("no tiene violaciones de axe con el cajón abierto", async () => {
+    serve();
+    /* Montado dentro de un `main`, que es lo que en producción pone el
+       `AppShell`. Sin él, `axe` marcaría el `h1` por estar fuera de todo
+       landmark — un defecto del montaje del test, no de la pantalla— y el
+       aserto dejaría de hablar del cajón, que es lo que este test mide. */
+    const { baseElement } = render(<ProjectsView />, {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <main>{children}</main>
+      ),
+    });
+    await settle();
+
+    await userEvent.click(detailTap(BUFANDA.name));
+    await detailDrawer();
+
+    // `baseElement` y no `container`: el cajón vive en un portal al `body`.
+    expect(await axe(baseElement)).toHaveNoViolations();
   });
 });

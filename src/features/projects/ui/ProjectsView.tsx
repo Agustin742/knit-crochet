@@ -7,6 +7,7 @@ import { type CraftType } from "@/shared/config";
 import { Button, Card, EmptyState, ErrorState, Skeleton } from "@/shared/ui";
 
 import { ProjectCard } from "./ProjectCard";
+import { ProjectDetailDrawer } from "./ProjectDetailDrawer";
 import { ProjectsToolbar } from "./ProjectsToolbar";
 import {
   CRAFT_TYPE_ORDER,
@@ -161,6 +162,10 @@ export function ProjectsView() {
   const [quickStartNotes, setQuickStartNotes] = useState<
     Record<string, string>
   >({});
+  /* Qué proyecto tiene el cajón abierto. Se guarda el **id** y no el objeto: la
+     lista se puede recargar debajo (un filtro, un reintento), y un objeto
+     copiado se quedaría con los datos de antes. */
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   const active = isActiveFilter(status);
   const type = toTypeFilter(types);
@@ -415,12 +420,25 @@ export function ProjectsView() {
                   onQuickStart={() => void handleQuickStart(project)}
                   quickStartPending={pendingQuickStart === project.id}
                   quickStartNote={quickStartNotes[project.id]}
+                  onOpenDetail={() => setDetailId(project.id)}
                 />
               </li>
             ))}
           </ul>
         )}
       </section>
+
+      {/* El cajón de detalle (RFC-03 §1). Se monta **siempre** y decide por sí
+          mismo si hay algo que enseñar: cerrado no pinta nada, y así el estado
+          de "qué proyecto estoy mirando" vive en un solo sitio.
+
+          El proyecto se BUSCA en la lista por su id en vez de guardarse una
+          copia: si la lista se recarga por debajo, lo que se ve en el cajón es
+          lo que hay, no una foto vieja del momento del tap. */}
+      <ProjectDetailDrawer
+        project={projects?.find((entry) => entry.id === detailId) ?? null}
+        onClose={() => setDetailId(null)}
+      />
     </div>
   );
 }

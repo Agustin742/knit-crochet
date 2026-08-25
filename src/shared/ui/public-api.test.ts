@@ -21,6 +21,9 @@ const PRIMITIVES = [
   "Button",
   "Card",
   "DIALOG_CLOSE_LABEL",
+  // Enmienda E3(b) del RFC-03: el cajón lateral es una COLOCACIÓN del diálogo,
+  // no un componente nuevo. Sus nombres públicos se anclan igual que los tamaños.
+  "DIALOG_PLACEMENTS",
   "DIALOG_SIZES",
   "Dialog",
   "Field",
@@ -35,6 +38,10 @@ const PRIMITIVES = [
   // justo el antipatrón que la regla "el template es un SUELO" prohíbe.
   "SegmentedControl",
   "Skeleton",
+  // Enmienda E3(c) del RFC-03: las pestañas del drawer de detalle. Mismo trato
+  // que `SegmentedControl` — es un control genérico (RFC-04 y RFC-05 también
+  // piden pestañas), así que vive en el design system y su ancla se paga.
+  "Tabs",
   "Toggle",
   "ToggleGroup",
   "buttonVariants",

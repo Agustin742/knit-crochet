@@ -7,7 +7,13 @@ import { axe } from "vitest-axe";
 
 import { cn } from "../../lib/cn";
 import { DIALOG_CLOSE_LABEL, Dialog } from "./Dialog";
-import { DIALOG_SIZES, dialogPanelVariants } from "./dialog.variants";
+import {
+  DIALOG_PLACEMENTS,
+  DIALOG_SIZES,
+  type DialogPlacement,
+  dialogPanelVariants,
+  dialogScrimVariants,
+} from "./dialog.variants";
 
 function rootOverflow(): string {
   return document.documentElement.style.overflow;
@@ -35,10 +41,12 @@ function DialogHarness({
   onClose,
   description,
   dismissOnScrimClick,
+  placement,
 }: {
   onClose?: () => void;
   description?: string;
   dismissOnScrimClick?: boolean;
+  placement?: DialogPlacement;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -57,6 +65,7 @@ function DialogHarness({
         title="Nuevo proyecto"
         description={description}
         dismissOnScrimClick={dismissOnScrimClick}
+        placement={placement}
       >
         <input aria-label="Nombre" />
         <button type="button">Guardar</button>
@@ -132,6 +141,55 @@ describe("Dialog — montaje", () => {
     // Salida real de `cn()` sobre el DOM, no el string crudo de `cva`.
     for (const entry of cn(dialogPanelVariants({})).split(" ")) {
       expect(dialog.className.split(" ")).toContain(entry);
+    }
+  });
+
+  /**
+   * El cajón lateral es **este** componente con otra colocación (enmienda
+   * E3(b)), así que lo que se mide es exactamente eso: que la geometría cambia
+   * en el velo Y en el panel, y que **el mecanismo no**. Los cuatro invariantes
+   * no se vuelven a probar aquí uno a uno porque no hay ninguna rama que los
+   * cambie: son el mismo código. Sí se comprueba el que un cajón mal hecho
+   * rompería primero —la jaula de foco—, para que "es el mismo componente" sea
+   * un hecho medido y no una promesa del comentario de arriba.
+   */
+  it("ancla los nombres de las colocaciones públicas", () => {
+    expect([...DIALOG_PLACEMENTS].sort()).toEqual(["center", "side"]);
+  });
+
+  it("el cajón lateral cambia la geometría del velo y del panel", async () => {
+    const user = userEvent.setup();
+    render(<DialogHarness placement="side" />);
+    const dialog = await openDialog(user);
+
+    for (const entry of cn(dialogPanelVariants({ placement: "side" })).split(
+      " ",
+    )) {
+      expect(dialog.className.split(" ")).toContain(entry);
+    }
+
+    const scrim = dialog.parentElement;
+    expect(scrim).not.toBeNull();
+    for (const entry of cn(dialogScrimVariants({ placement: "side" })).split(
+      " ",
+    )) {
+      expect(scrim?.className.split(" ")).toContain(entry);
+    }
+  });
+
+  it("el cajón lateral sigue siendo un modal con el foco atrapado", async () => {
+    const user = userEvent.setup();
+    render(<DialogHarness placement="side" />);
+    const dialog = await openDialog(user);
+
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(dialog).toHaveFocus();
+
+    const outside = screen.getByRole("button", { name: "Fuera del modal" });
+    for (let step = 0; step < 4; step++) {
+      await user.tab();
+      expect(dialog.contains(document.activeElement)).toBe(true);
+      expect(document.activeElement).not.toBe(outside);
     }
   });
 

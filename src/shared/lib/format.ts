@@ -28,6 +28,12 @@ const integerFormatter = new Intl.NumberFormat(LOCALE, {
   maximumFractionDigits: 0,
 });
 
+/** "5 de marzo de 2026". Ver `formatDate` para por qué la zona es UTC. */
+const dateFormatter = new Intl.DateTimeFormat(LOCALE, {
+  dateStyle: "long",
+  timeZone: "UTC",
+});
+
 /**
  * Se DERIVA de los dos puentes de config en vez de escribir otro `60`: así hay
  * un solo sitio del que salen las unidades de tiempo y no puede quedar uno
@@ -82,4 +88,24 @@ export function formatDuration(seconds: number): string {
     return `${formatInteger(hours)} h`;
   }
   return `${formatInteger(hours)} h ${formatInteger(minutes)} min`;
+}
+
+/**
+ * Fecha larga a partir de la **cadena ISO** con la que las fechas cruzan la red
+ * (`SerializedProject`: el Route Handler responde con `NextResponse.json` y
+ * `JSON.stringify` invoca `Date.prototype.toJSON`).
+ *
+ * **Se formatea en UTC, y eso es lo importante.** `startDate`/`endDate` son
+ * fechas de calendario —el día que se empezó a tejer—, no instantes: guardadas
+ * como medianoche UTC y pintadas en la zona horaria de quien mira, cualquiera al
+ * oeste de Greenwich vería **el día anterior**. Para Buenos Aires (UTC-3) eso es
+ * el 100% de las fechas, no un caso raro.
+ *
+ * Devuelve `null` cuando la cadena no es una fecha, en vez de escupir "Invalid
+ * Date" en la cara del usuario: **quien la pinta decide el texto de repuesto**,
+ * porque el hueco de una fecha que falta no se lee igual en cada pantalla.
+ */
+export function formatDate(value: string): string | null {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : dateFormatter.format(parsed);
 }

@@ -7,7 +7,11 @@ import { axe } from "vitest-axe";
 import { SECONDS_PER_HOUR, SECONDS_PER_MINUTE } from "@/shared/config";
 import { formatDuration } from "@/shared/lib/format";
 
-import { ProjectCard, quickStartLabel } from "./ProjectCard";
+import {
+  ProjectCard,
+  openDetailLabel,
+  quickStartLabel,
+} from "./ProjectCard";
 import { CRAFT_TYPE_LABELS } from "./project-filters";
 import type { ProjectCardData } from "./types";
 
@@ -203,9 +207,10 @@ describe("ProjectCard", () => {
    * puede colarse "de serie" en pantallas que no lo pidieron, y tampoco puede
    * quedarse en un slot muerto que ningún consumidor usa.
    *
-   * Los enlaces siguen en cero en las dos direcciones: en #20 **la tarjeta no es
-   * tocable** (E1(f)). El drawer es #21 y no existe, y un `button` dentro de un
-   * `a` sería marcado inválido que el `axe` de más abajo marcaría.
+   * Los enlaces siguen en cero en las dos direcciones, también ahora que el tap
+   * al detalle existe (#21): la tarjeta **no** es un enlace ni envuelve a sus
+   * controles en uno, porque un `button` dentro de un `a` sería marcado inválido
+   * que el `axe` de más abajo marcaría (E1(f)).
    */
   it("mounts no control at all without the quick-start prop", () => {
     render(cardWith());
@@ -313,6 +318,93 @@ describe("ProjectCard", () => {
   it("has no axe violations with the quick-start mounted", async () => {
     const { container } = render(
       <ProjectCard project={BUFANDA} onQuickStart={() => {}} />,
+    );
+
+    expect(await axe(container)).toHaveNoViolations();
+  });
+});
+
+/**
+ * EL TAP AL DETALLE (RFC-03 §2, la mitad que **E1(f)** dejó pendiente hasta que
+ * existiera el cajón, y que llega con #21).
+ *
+ * Lo que hay que demostrar son **tres** cosas, y la tercera es la que hizo que
+ * esto se aplazara: que el tap existe y llama, que es alcanzable por teclado, y
+ * que **convive con el quick-start sin anidar un control dentro de otro** —lo
+ * que sería marcado inválido y `axe` marcaría—.
+ */
+describe("ProjectCard — tap al detalle (E1(f), resuelto en #21)", () => {
+  it("sin la acción no monta ningún control (la invariante del Dashboard sigue en pie)", () => {
+    render(cardWith());
+
+    expect(screen.queryAllByRole("button")).toHaveLength(0);
+  });
+
+  it("con la acción monta un control con el nombre del proyecto y llama al tocarlo", async () => {
+    const onOpenDetail = vi.fn();
+    render(<ProjectCard project={BUFANDA} onOpenDetail={onOpenDetail} />);
+
+    const tap = screen.getByRole("button", {
+      name: openDetailLabel(BUFANDA.name),
+    });
+    await userEvent.click(tap);
+
+    expect(onOpenDetail).toHaveBeenCalledTimes(1);
+  });
+
+  it("se alcanza con el tabulador", async () => {
+    const onOpenDetail = vi.fn();
+    render(<ProjectCard project={BUFANDA} onOpenDetail={onOpenDetail} />);
+
+    await userEvent.tab();
+    expect(
+      screen.getByRole("button", { name: openDetailLabel(BUFANDA.name) }),
+    ).toHaveFocus();
+
+    await userEvent.keyboard("{Enter}");
+    expect(onOpenDetail).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * **El motivo por el que este tap no llegó en #20.** Los dos controles son
+   * HERMANOS: ninguno está dentro del otro, así que el marcado es válido y los
+   * dos se pueden usar con el teclado.
+   */
+  it("convive con el quick-start sin que uno quede dentro del otro", async () => {
+    const onOpenDetail = vi.fn();
+    const onQuickStart = vi.fn();
+    render(
+      <ProjectCard
+        project={BUFANDA}
+        onOpenDetail={onOpenDetail}
+        onQuickStart={onQuickStart}
+      />,
+    );
+
+    const tap = screen.getByRole("button", {
+      name: openDetailLabel(BUFANDA.name),
+    });
+    const quickStart = screen.getByRole("button", {
+      name: quickStartLabel(BUFANDA.name),
+    });
+
+    expect(tap.contains(quickStart)).toBe(false);
+    expect(quickStart.contains(tap)).toBe(false);
+    expect(screen.queryAllByRole("link")).toHaveLength(0);
+
+    // Y cada uno hace lo suyo: tocar el cronómetro no abre el detalle.
+    await userEvent.click(quickStart);
+    expect(onQuickStart).toHaveBeenCalledTimes(1);
+    expect(onOpenDetail).not.toHaveBeenCalled();
+  });
+
+  it("has no axe violations with both controls mounted", async () => {
+    const { container } = render(
+      <ProjectCard
+        project={BUFANDA}
+        onOpenDetail={() => {}}
+        onQuickStart={() => {}}
+      />,
     );
 
     expect(await axe(container)).toHaveNoViolations();

@@ -122,6 +122,14 @@ export interface DialogProps extends DialogVariants {
  *    navega por teclado queda tirado al principio del documento y tiene que
  *    recorrerlo entero para volver a donde estaba.
  * 4. **El fondo no hace scroll** mientras está abierto (ver `root-scroll-lock`).
+ *
+ * **El cajón lateral (drawer) es este mismo componente con `placement="side"`**
+ * (enmienda E3(b) del RFC-03), y por eso hereda los cuatro invariantes de arriba
+ * en vez de volver a implementarlos —que es como se regalan bugs de
+ * accesibilidad—. Lo único que cambia es **dónde se pega el panel**: pegado al
+ * final del eje en línea y de alto completo, en vez de centrado con aire
+ * alrededor. Sigue siendo `role="dialog"` con `aria-modal`, porque un cajón que
+ * tapa la página con un velo **es** un modal, se llame como se llame.
  */
 export function Dialog({
   open,
@@ -133,6 +141,7 @@ export function Dialog({
   dismissOnScrimClick = true,
   initialFocusRef,
   size,
+  placement,
   className,
 }: DialogProps) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -241,7 +250,7 @@ export function Dialog({
   return createPortal(
     <div
       data-slot="dialog-scrim"
-      className={dialogScrimVariants()}
+      className={dialogScrimVariants({ placement })}
       onKeyDown={handleKeyDown}
       onClick={handleScrimClick}
     >
@@ -253,7 +262,7 @@ export function Dialog({
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
-        className={cn(dialogPanelVariants({ size }), className)}
+        className={cn(dialogPanelVariants({ size, placement }), className)}
       >
         <div className={dialogHeaderVariants()}>
           <h2 id={titleId} className={dialogTitleVariants()}>

@@ -16,12 +16,39 @@ import { cva, type VariantProps } from "class-variance-authority";
    El panel usa la superficie ELEVADA a propósito: es la única del sistema donde
    el anillo de foco llega al contraste mínimo (deuda 31), y un diálogo es todo
    navegación por teclado. */
-export const dialogScrimVariants = cva([
-  "fixed inset-0 flex items-center justify-center",
-  "p-(--space-4)",
-  "bg-fg/50",
-  "z-(--z-overlay)",
-]);
+/* DÓNDE se pega el panel, que es **lo único** que separa un modal de un cajón
+   lateral (enmienda E3(b) del RFC-03).
+
+   El cajón no es un componente aparte: reescribir una jaula de foco ya probada
+   es regalar bugs de accesibilidad. Lo caro —foco atrapado, `Escape`,
+   `aria-modal`, portal al `body`, bloqueo de scroll y devolución del foco al
+   abridor— vive en `Dialog.tsx` y no se toca; acá cambia la geometría.
+
+   El velo participa de la variante porque es él quien coloca al panel: centrado
+   con aire alrededor para el modal, pegado al final del eje en línea y estirado
+   de alto para el cajón. */
+const dialogPlacements = {
+  center: "items-center justify-center p-(--space-4)",
+  side: "items-stretch justify-end",
+} as const;
+
+export type DialogPlacement = keyof typeof dialogPlacements;
+
+export const DIALOG_PLACEMENTS = Object.keys(
+  dialogPlacements,
+) as DialogPlacement[];
+
+export const dialogScrimVariants = cva(
+  ["fixed inset-0 flex", "bg-fg/50", "z-(--z-overlay)"],
+  {
+    variants: {
+      placement: dialogPlacements,
+    },
+    defaultVariants: {
+      placement: "center",
+    },
+  },
+);
 
 /* Los anchos se declaran en un objeto propio para poder derivar de él los
    NOMBRES públicos de la variante (`DIALOG_SIZES`), que el ancla de contrato
@@ -34,6 +61,22 @@ const dialogSizes = {
 export type DialogSize = keyof typeof dialogSizes;
 
 export const DIALOG_SIZES = Object.keys(dialogSizes) as DialogSize[];
+
+/* El cajón ocupa **todo el alto** y pierde el redondeo: sus tres cantos caen
+   fuera de la ventana, así que redondearlos sólo dejaría una muesca en la
+   esquina. También pierde la sombra dura, que se proyecta hacia abajo y a la
+   derecha —o sea, fuera de la pantalla—: lo que lo separa de la página es el
+   borde grueso de su canto de entrada, no una sombra que nadie puede ver. El
+   `size` sigue mandando sobre el ancho, así que las dos variantes se combinan
+   sin pisarse.
+
+   Va anotado como `Record<DialogPlacement, string>` a propósito: son dos objetos
+   —uno coloca el velo y otro deforma el panel— y **añadir una colocación sin su
+   geometría no compila**. */
+const dialogPanelPlacements: Record<DialogPlacement, string> = {
+  center: "",
+  side: "h-full rounded-none shadow-none",
+};
 
 export const dialogPanelVariants = cva(
   [
@@ -49,9 +92,11 @@ export const dialogPanelVariants = cva(
   {
     variants: {
       size: dialogSizes,
+      placement: dialogPanelPlacements,
     },
     defaultVariants: {
       size: "md",
+      placement: "center",
     },
   },
 );

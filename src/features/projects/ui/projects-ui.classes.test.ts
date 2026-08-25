@@ -32,11 +32,16 @@ import {
  */
 const COMPILE_TIMEOUT_MS = 120_000;
 
-/** Los tres componentes de la lista de proyectos, por nombre de archivo. */
+/**
+ * Los componentes de `/proyectos`, por nombre de archivo. El cajón de detalle
+ * entra con la tanda 1 de #21: es la misma página y sus clases se quedarían sin
+ * comprobar si no.
+ */
 const COMPONENTS = [
   "ProjectsView.tsx",
   "ProjectCard.tsx",
   "ProjectsToolbar.tsx",
+  "ProjectDetailDrawer.tsx",
 ];
 
 /**

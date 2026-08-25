@@ -5,4 +5,5 @@ export * from "./field";
 export * from "./progress-bar";
 export * from "./segmented-control";
 export * from "./skeleton";
+export * from "./tabs";
 export * from "./toggle";

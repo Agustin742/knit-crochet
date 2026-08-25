@@ -3,6 +3,7 @@ import type { CraftType } from "@/shared/config";
 import type {
   ProjectListPayload,
   SerializedProject,
+  SerializedProjectDetail,
   YarnListPayload,
   YarnOption,
 } from "./types";
@@ -188,3 +189,28 @@ export function startCraftSession(
 
 /** Creada = **201**; reutilizada = 200. Es la única señal de "ya estaba corriendo". */
 export const SESSION_CREATED_STATUS = 201;
+
+/**
+ * `GET /api/projects/:id` — el detalle que abre el cajón (RFC-03 §3).
+ *
+ * Devuelve el proyecto **y sus lanas enlazadas** en claves hermanas: eso lo saldó
+ * la feature #17 (deuda 5), así que el cajón no necesita una segunda petición
+ * para el tab Lanas.
+ *
+ * **Vive acá y no en un cliente nuevo.** Es la misma pantalla y el mismo molde
+ * (E1(h) ya fichó que hay tres clones del patrón en el repo); abrir un cuarto
+ * para un endpoint hermano del que ya está en este archivo sería empeorar la
+ * deuda por trámite.
+ *
+ * Un id con formato inválido responde **404, no 400** —lo dice el Route
+ * Handler—, así que el camino de error es uno solo: el mensaje que venga.
+ */
+export function projectDetailEndpoint(projectId: string): string {
+  return `${PROJECTS_ENDPOINT}/${projectId}`;
+}
+
+export function getProjectDetail(
+  projectId: string,
+): Promise<ProjectsRequestResult<SerializedProjectDetail>> {
+  return request<SerializedProjectDetail>(projectDetailEndpoint(projectId));
+}

@@ -20,6 +20,15 @@ export function quickStartLabel(projectName: string): string {
   return `Empezar a tejer ${projectName}`;
 }
 
+/**
+ * Nombre accesible del tap al detalle. Lleva el nombre del proyecto por lo mismo
+ * que el del quick-start: en una grilla hay N tarjetas iguales y "Ver detalle" a
+ * secas no dice de cuál habla.
+ */
+export function openDetailLabel(projectName: string): string {
+  return `Ver detalle de ${projectName}`;
+}
+
 export interface ProjectCardProps {
   project: ProjectCardData;
   /**
@@ -64,6 +73,23 @@ export interface ProjectCardProps {
    * es el nombre del proyecto y nada más.
    */
   quickStartNote?: string;
+  /**
+   * Abre el cajón de detalle (RFC-03 §2: *"Tap → drawer"*). **Es opt-in, igual
+   * que el quick-start**, así que el Dashboard —que monta esta misma tarjeta sin
+   * pasarla— sigue sin montar ningún control (deuda 132).
+   *
+   * **Por qué NO es la tarjeta entera un enlace ni un botón, que es lo que uno
+   * escribiría primero:** dentro ya vive el quick-start, y un `button` dentro de
+   * un `a` —o dentro de otro `button`— es marcado inválido que `axe` marca. Es
+   * exactamente el motivo por el que **E1(f)** dejó el tap pendiente hasta que
+   * existiera el cajón.
+   *
+   * La salida es una **capa transparente hermana** del contenido: cubre la
+   * tarjeta, lleva el nombre accesible, y el quick-start se pinta por encima de
+   * ella. Son dos controles hermanos, no anidados, así que el marcado es válido
+   * y los dos son alcanzables por teclado.
+   */
+  onOpenDetail?: () => void;
 }
 
 /**
@@ -91,12 +117,27 @@ export function ProjectCard({
   onQuickStart,
   quickStartPending = false,
   quickStartNote,
+  onOpenDetail,
 }: ProjectCardProps) {
   const Heading = `h${headingLevel}` as const;
 
   return (
     <Card className={className}>
-      <div className="flex flex-col gap-(--space-3)">
+      <div className="relative flex flex-col gap-(--space-3)">
+        {/* La capa va PRIMERA en el DOM y sin z-index propio: el quick-start
+            viene después y se posiciona, así que se pinta encima de ella sin
+            necesidad de escalones. Su nombre accesible es texto de verdad
+            (oculto), no un `aria-label` sobre un botón vacío. */}
+        {onOpenDetail === undefined ? null : (
+          <button
+            type="button"
+            className={DETAIL_TAP_CLASSES}
+            onClick={onOpenDetail}
+          >
+            <span className="sr-only">{openDetailLabel(project.name)}</span>
+          </button>
+        )}
+
         <ProjectPhoto
           name={project.name}
           image={project.image}
@@ -114,13 +155,14 @@ export function ProjectCard({
             )}
           </div>
 
-          {/* El botón NO envuelve la tarjeta ni vive dentro de un enlace: en #20
-              la tarjeta no es tocable (E1(f)), y un `button` dentro de un `a`
-              es marcado inválido que `axe` marca. El tap al detalle lo añade
-              #21, cuando el drawer exista. */}
+          {/* El botón NO envuelve la tarjeta ni vive dentro de un enlace, y
+              tampoco dentro de la capa del tap: un control dentro de otro es
+              marcado inválido que `axe` marca. Son hermanos, y el orden del DOM
+              (más el `relative` de acá) es lo que deja este por encima. */}
           {onQuickStart === undefined ? null : (
             <Button
               size="icon"
+              className="relative"
               aria-label={quickStartLabel(project.name)}
               loading={quickStartPending}
               onClick={onQuickStart}
@@ -149,6 +191,29 @@ export function ProjectCard({
     </Card>
   );
 }
+
+/**
+ * La capa que hace tocable la tarjeta (RFC-03 §2, enmienda **E1(f)**, resuelta
+ * en #21).
+ *
+ * **No pinta nada**: es una superficie transparente del tamaño del contenido. Al
+ * pasar el ratón se tiñe apenas —con el primer plano a baja opacidad, o sea un
+ * token, no un color nuevo— para que se lea como algo que se puede tocar, y al
+ * llegar por teclado dibuja el anillo de foco **por fuera de su caja**, que cae
+ * sobre el relleno de la tarjeta y por eso se ve entero.
+ *
+ * **Cubre el contenido, no el relleno de la tarjeta**: la franja de relleno de la
+ * `Card` no dispara el tap. Alcanzarla obligaría a que la tarjeta se posicionara
+ * a sí misma, y eso es de la `Card` del design system, no de esta pieza.
+ */
+const DETAIL_TAP_CLASSES = [
+  "absolute inset-0 rounded-sm",
+  "cursor-pointer bg-transparent",
+  "transition-colors duration-(--dur-fast) ease-standard",
+  "hover:bg-fg/5",
+  "focus-visible:outline focus-visible:outline-(length:--border-width-heavy)",
+  "focus-visible:outline-(color:--focus) focus-visible:outline-offset-(--border-width)",
+].join(" ");
 
 /**
  * Marca de "esto acaba de pasar" en la tarjeta (enmienda E2(d)).
@@ -195,7 +260,7 @@ const QUICK_START_NOTE_CLASSES = [
  * tampoco, así que lo que oye un lector de pantalla no depende de quién subió
  * imagen.
  */
-function ProjectPhoto({
+export function ProjectPhoto({
   name,
   image,
   type,
