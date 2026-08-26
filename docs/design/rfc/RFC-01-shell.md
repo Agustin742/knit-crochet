@@ -293,6 +293,53 @@ del año es inalcanzable) es un fallo de **lógica**, no de layout, y va por su 
 
   Protegidos por `src/proxy.ts` (ya existe).
 
+### Séptima tanda — E14 (la navegación móvil no se ve al entrar: la única que hay en angosto)
+
+**Qué la motiva.** La **deuda 165**, medida en navegador el 2026-08-25 a 502 px de ancho — la primera vez
+en siete sesiones que se pudo medir el móvil. **No la produjo #21:** viene del `BottomNav` original y sale
+a la luz ahora porque nadie había podido mirarla.
+
+**La causa, leída en fuente (`BottomNav.tsx:26-35`):** el `nav` declara `z-(--z-nav)` **y ninguna
+`position`**. Un `z-index` sobre un elemento estático **no hace absolutamente nada** — el valor está ahí
+porque alguien la creía flotante, y esa creencia es justamente el defecto. Como es el último hijo del flex
+column del `AppShell` y `main` lleva `flex-1`, la barra queda al **final del documento**, no al final de la
+**pantalla**: su rect cae en `y=934` con el viewport en 750. Fuera de cuadro. Y a ese ancho el archivero de
+escritorio está oculto (`archive:hidden` a la inversa), así que **no hay ninguna otra navegación**.
+
+| # | Qué cambia | Por qué |
+|---|---|---|
+| **E14 (a)** | El `BottomNav` se **pega al borde inferior del viewport** mientras haya scroll, con `sticky` y no con `fixed`. | `sticky bottom-0` sobre el último hijo del flex column resuelve el caso **sin sacar el elemento del flujo**: no hay que compensar con `padding-bottom` en el `main`, no puede tapar el final del contenido, y no aparece la clase de fallo *"la barra oculta el último botón de la página"* que arrastra todo layout con barra fija. Además hace que el `z-(--z-nav)` que ya está escrito **empiece a significar algo**. |
+| **E14 (b)** | La barra respeta el **área segura inferior** del dispositivo (`env(safe-area-inset-bottom)`), sin números crudos. **Corregida al implementar — leer el párrafo de abajo: queda a MEDIAS a propósito.** | En un teléfono con barra de gestos, una navegación pegada al borde queda **debajo del gesto del sistema** y los toques se los come el SO. Es el mismo caso que E14 (a) —una navegación que está pero no se puede usar— y arreglar uno sin el otro deja el trabajo a medias. |
+| **E14 (c)** | **Sin gate, E14 no se considera implementada**, y el gate llega al **CSS compilado**, no a los nombres de clase. Mínimo: que la barra declare `position` y que su `z-index` sea el del token. | Es la lección de E13 (d) y de la **deuda 146**, y aquí es literal: la deuda 165 **existe porque una clase escrita no compilaba a nada** y toda la suite estaba verde igual. Precedente en el repo: `src/features/projects/ui/projects-ui.classes.test.ts` y la técnica ya extraída en `shared/ui/testing/class-names-from-source.ts`. **Ojo con la advertencia de E12 (b):** las variantes son **min-width**, así que una regla escrita *"para que aplique sólo hacia abajo"* no compila. |
+
+**Lo que E14 NO cambia:** el **interior** de la barra (los 6 accesos, sus tamaños táctiles, la marca de la
+activa por color de acento) y el ancho hasta el que se muestra, que sigue siendo `--bp-archive` (E4). El
+archivero de escritorio **no se toca**.
+
+#### Corrección de E14 (b) al implementar: el colchón está cableado y hoy vale CERO
+
+**Lo encontró el implementer y lo escaló en vez de resolverlo solo, que es lo correcto.**
+`env(safe-area-inset-bottom)` **sólo devuelve algo distinto de cero cuando el documento se declara a
+pantalla completa** (`viewport-fit: cover`). Este documento **no lo declara**, así que el token
+`--safe-area-bottom` existe, el `pb-(--safe-area-bottom)` está aplicado, y **el resultado es 0 px**.
+
+**Decisión del usuario (2026-08-25): se ficha como deuda, no se añade `viewport-fit` ahora.** El motivo
+es que `viewport-fit: cover` **no es una línea**: cambia el documento entero a pantalla completa, y a
+partir de ahí el contenido se mete bajo las áreas seguras **también en los laterales** en horizontal, con
+lo que habría que compensar el eje en línea igualmente. Es un **cambio de geometría del caparazón** —
+justo lo que E13 se cuidó de no hacer— y **no hay forma de mirarlo**: el móvil real (≤390 px) sigue fuera
+de alcance con las herramientas de esta sesión. Entregarlo a ciegas es lo contrario de la REGLA 4.
+
+> **Por qué esto NO reabre la clase de fallo de la 165.** El `z-index` inerte de la 165 era inerte **y
+> nadie lo sabía**: no estaba escrito en ningún sitio, y la suite entera salía verde encima. Esto está
+> escrito acá, en el libro mayor (**ficha 172**) y en el informe. **Un cableado declarado que espera una
+> decisión es deuda. Uno que nadie declaró es una trampa.** Y el fallback es `0px`: hoy no hace daño, y
+> el día que se decida `viewport-fit` empieza a valer solo.
+
+**Deuda que cierra:** **165**. **Deudas que abre:** **172** (el `viewport-fit` sin decidir) y **173** (los
+rótulos de la barra se solapan al ancho en el que por fin se la ve — **no la produce E14**, la
+**destapa**).
+
 ## 4. Datos / backend
 
 - Consume `GET /api/auth/me` (usuario para el nav) y `POST /api/auth/logout`. **Sin otros datos.**

@@ -12,6 +12,7 @@ import {
   linkedYarnLabel,
   moreMatchesHint,
   needlesLabel,
+  roundsCounterLabel,
   runningSession,
   sessionElapsedSeconds,
   stepLabel,
@@ -216,6 +217,34 @@ describe("moreMatchesHint", () => {
 
   it("y en plural", () => {
     expect(moreMatchesHint(4)).toContain("4 lanas más");
+  });
+});
+
+/**
+ * ENMIENDA E5 (deuda 166). `targetRounds === 0` **no significa "la meta vale
+ * cero"**: significa **"no hay meta"**. Imprimir la ausencia del dato como si
+ * fuera el dato daba `1 / 0`, que se lee como una división por cero.
+ *
+ * Es además el estado **inicial de todo proyecto nuevo**, o sea lo primero que
+ * ve cualquiera: por eso va a test en las dos direcciones y no sólo en la que
+ * había.
+ */
+describe("roundsCounterLabel (la cabecera del tab Progreso)", () => {
+  it("con meta muestra la fracción, como siempre", () => {
+    expect(roundsCounterLabel(3, 40)).toBe("3 / 40");
+  });
+
+  it("sin meta no hay denominador: se leen las vueltas, nombradas", () => {
+    expect(roundsCounterLabel(3, 0)).toBe("3 vueltas");
+  });
+
+  it("y concuerda en singular", () => {
+    expect(roundsCounterLabel(1, 0)).toBe("1 vuelta");
+  });
+
+  /** Proyecto recién creado: ni una vuelta y ninguna meta. */
+  it("a cero vueltas y sin meta tampoco aparece ningún cero de más", () => {
+    expect(roundsCounterLabel(0, 0)).toBe("0 vueltas");
   });
 });
 

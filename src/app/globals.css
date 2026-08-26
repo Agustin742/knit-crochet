@@ -426,6 +426,23 @@
 
   /* ---- Táctil ---- */
   --touch-target: 44px;
+
+  /* ---- Área segura del dispositivo (RFC-01 §3, enmienda E14 b) ----
+     Lo que el SISTEMA se reserva en el borde inferior de la pantalla: la barra
+     de gestos de un teléfono sin botones, típicamente. Una navegación pegada a
+     ese borde que no lo descuente queda DEBAJO del gesto y los toques se los
+     come el sistema operativo.
+     Se declara acá y no en el componente porque acá viven los valores: el
+     `BottomNav` consume el token y no escribe ningún número. El valor no es una
+     medida elegida, es una PREGUNTA al dispositivo (`env(...)`), con cero como
+     respuesta por defecto donde no hay nada que reservar.
+     OJO, y está escrito para que nadie lo lea de más: el sistema sólo devuelve
+     un inset distinto de cero cuando el documento se declara a pantalla
+     completa (`viewport-fit: cover`), y este documento HOY no lo hace. O sea que
+     esto es la mitad de la respuesta —la que corresponde a la barra— y la otra
+     mitad es una decisión del caparazón entero que E14 no toma. Ver
+     `progress/reports/impl_deudas_165_166.md`. ---- */
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* ============================================================

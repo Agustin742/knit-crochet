@@ -1,5 +1,6 @@
 import type { LinkedYarn } from "@/features/projects/types";
 import { MILLISECONDS_PER_SECOND, type ProjectStatus } from "@/shared/config";
+import { formatInteger } from "@/shared/lib/format";
 
 import { needleOptionLabel } from "./ProjectsToolbar";
 import { normalizeText, type YarnChoice } from "./project-filters";
@@ -126,6 +127,43 @@ export const NO_TARGET_HINT =
   "Poné cuántas vueltas lleva el proyecto entero y el porcentaje se calcula solo.";
 /** Lo mismo que valida el backend: entero, no negativo. */
 export const TARGET_ROUNDS_ERROR = "La meta es un número entero de vueltas.";
+
+/** La unidad de la cuenta, en sus dos formas. La UI va en español. */
+const ROUNDS_UNIT = { one: "vuelta", many: "vueltas" } as const;
+
+/**
+ * **La cabecera del tab Progreso** (RFC-03 §7-sexies, enmienda E5; deuda 166).
+ *
+ * `targetRounds === 0` **no significa "la meta vale cero"**: significa **"no hay
+ * meta"**. Componer la fracción sin condicional imprimía la ausencia del dato
+ * como si fuera el dato, y salía `1 / 0` — que se lee como una división por
+ * cero, y encima en el estado **inicial de todo proyecto nuevo**.
+ *
+ * Sin meta se muestra **la cuenta sola, nombrada** (`3 vueltas`): no se inventa
+ * un denominador ni se sugiere con un guion que ahí falta algo. La invitación a
+ * fijar meta ya existe y está donde se actúa (`NO_TARGET_HINT`, en el campo de
+ * la meta); repetirla arriba sería decir dos veces lo mismo en la mitad de la
+ * pantalla donde no se puede hacer nada al respecto.
+ *
+ * **Con meta no cambia nada**: sigue siendo la fracción de siempre.
+ *
+ * La concordancia se resuelve acá y a mano —dos formas de una palabra— en vez de
+ * montar una infraestructura de idioma que este repo no tiene ni necesita: es el
+ * mismo criterio que ya usa `moreMatchesHint`.
+ */
+export function roundsCounterLabel(
+  rounds: number,
+  targetRounds: number,
+): string {
+  const done = formatInteger(rounds);
+  if (targetRounds > 0) {
+    return `${done} / ${formatInteger(targetRounds)}`;
+  }
+  /* La concordancia se decide sobre el número **ya formateado**, que es el que
+     se lee: derivarla del crudo dejaría "1,4 vuelta" al lado de un "1" pintado. */
+  const unit = done === "1" ? ROUNDS_UNIT.one : ROUNDS_UNIT.many;
+  return `${done} ${unit}`;
+}
 
 export const STEPS_SECTION_TITLE = "Pasos del patrón";
 export const STEPS_LOADING_MESSAGE = "Cargando los pasos del patrón.";

@@ -2571,3 +2571,77 @@ bloqueante **no era un bug de código**, era una frase que afirmaba que ese test
 >
 > **Lo dijo mejor el reviewer:** que un análisis estático **no encontrara** el camino de propagación
 > **era en sí mismo la señal** de que el fallo estaba en la medición y no en el código.
+
+---
+
+> **Del lote de deudas visibles 165 + 166 (2026-08-25).** El lote se cierra **aprobado sin bloqueantes**.
+> Lo de abajo son **cuatro fichas nuevas**, y **ninguna la produjo el lote**: dos las destapó la propia
+> verificación (172, 173), y dos son de cobertura de gates (174, 175). La 173 merece leerse entera,
+> porque es la **segunda vez en dos sesiones** que arreglar algo hace visible lo que estaba escondido.
+
+172. **🟠 El área segura de la barra móvil está CABLEADA y hoy vale CERO: falta decidir `viewport-fit`.**
+     La detectó el **implementer**, que la escaló en vez de resolverla solo. `--safe-area-bottom` existe
+     en `globals.css` y `BottomNav.tsx` aplica `pb-(--safe-area-bottom)`, pero
+     `env(safe-area-inset-bottom)` **sólo devuelve algo distinto de cero con `viewport-fit: cover`** en el
+     viewport del documento, y **este documento no lo declara**. **Medido en navegador:**
+     `padding-bottom` computado = **`0px`**. **Escenario de fallo:** en un teléfono con barra de gestos, la
+     navegación queda **bajo el gesto del sistema** y el SO se come los toques — una navegación que está
+     pero no se puede usar. **Decisión del usuario (2026-08-25): se ficha, no se añade ahora.**
+     `viewport-fit: cover` **no es una línea**: cambia el documento entero a pantalla completa y obliga a
+     compensar **también los laterales** en horizontal; es un cambio de geometría del caparazón —lo que
+     E13 se cuidó de no hacer— y **el móvil real (≤390 px) sigue fuera de alcance**, así que se entregaría
+     a ciegas. **Cómo se salda:** decidir `viewport-fit` con una forma de mirarlo (emulación por CDP o un
+     teléfono de verdad), y compensar los cuatro lados a la vez. Ver la corrección de **E14 (b)** en
+     RFC-01. **Por qué esto NO es la 165 otra vez:** el `z-index` de la 165 era inerte **y nadie lo
+     sabía**; esto está declarado en el RFC, acá y en el informe. *Un cableado declarado que espera una
+     decisión es deuda; uno que nadie declaró es una trampa.*
+
+173. **🟠 Los rótulos de la barra móvil se SOLAPAN y se salen de su caja al ancho en el que por fin se la
+     ve.** **NO la produjo el lote** — E14 excluye el interior de la barra **por contrato** y no lo tocó.
+     Es **preexistente, y la destapa el arreglo de la 165**: hasta hoy la barra estaba fuera de pantalla,
+     así que nadie podía ver cómo se rompía por dentro. **Medido a 500 px** (nav de 484.8 px, seis cajas
+     iguales de 80.8 px, `font-size: 11px`, `overflow: visible`, `white-space: normal`):
+     | rótulo | ancho del TEXTO | ancho de su CAJA | desborde |
+     |---|---|---|---|
+     | `Calculadoras` | **105.2 px** | 80.8 px | **+24.4 px** |
+     | `Dashboard` | 81.3 px | 80.8 px | +0.5 px (al filo) |
+     Solape real medido entre `Patrones` y `Calculadoras`: **6.3 px**. La causa es que son **palabras
+     únicas que no pueden partirse** con `white-space: normal`, en cajas repartidas a partes iguales, y
+     nada las recorta. **Escenario de fallo:** en un teléfono se leen dos rótulos encimados y no se
+     distingue dónde acaba uno; a ≤390 px es peor, y ahí no hay ninguna otra navegación. **Cómo se
+     salda:** es una **decisión de diseño, no un ajuste** —abreviar los rótulos, bajar el cuerpo,
+     recortar con elipsis, permitir dos líneas o cambiar el reparto— y va a **RFC-01**. **Se ficha y no se
+     abre bajo la moratoria**, porque la barra **se puede usar**: las cajas táctiles siguen midiendo
+     80.8 × 45.6 px y **no se solapan entre sí**; lo que se pisa es el texto.
+
+174. **⚪ El gate nuevo de la barra comprueba que HAY desplazamiento inferior, pero no que sea CERO.**
+     Fichada por el **reviewer**, que probó el gate con **once mutaciones propias** y encontró que diez lo
+     ponen en rojo —incluida la reproducción literal de la deuda 165 y el cambio `sticky` → `fixed`— y
+     **una no**: mover `bottom-0` a un desplazamiento distinto de cero **sigue pasando los 18 tests**.
+     **No hay defecto detrás** (el valor real está en `0px`, medido en navegador), pero el gate acepta un
+     anclaje que no es el del contrato.
+
+175. **⚪ El interior de la barra no lo cubre ningún gate de CSS compilado.** Fichada por el reviewer. Las
+     clases de `bottom-nav.variants.ts` no las escanea nadie, porque el resolvedor de literales de objeto
+     tiene un agujero conocido. **Dos de las tres razones del implementer para no cerrarlo son válidas**
+     (ese objeto no lleva clases, y las que produce viven en un archivo que E14 excluye explícitamente);
+     **la tercera no lo sería sola** —*"tocaría una pieza que comparten otros tres gates"*—, y por eso se
+     ficha en vez de darse por cubierto. **No es visual, es de cobertura.** Emparenta con la **170**.
+
+### 📌 Lo que la verificación de este lote enseñó sobre el MÉTODO
+
+1. **Arreglar algo que estaba escondido destapa lo que se escondía con ello, y eso NO es una regresión.**
+   Segunda vez en dos sesiones: la 165 salió a la luz cuando se pudo medir el móvil, y la **173** sale a
+   la luz cuando la barra por fin se ve. Conviene decirlo al fichar, porque de lo contrario el próximo
+   review lo lee como *"el lote rompió la barra"* y busca un culpable que no existe.
+2. **`resize_window` volvió a mentir, y ya van dos sesiones.** Reportó `Successfully resized ... to 500x750`
+   y `innerWidth` siguió en **1536**. **Comprobá siempre `innerWidth` después de pedir un resize.**
+3. **Hay una vía para medir angosto que NO depende de la ventana del usuario: un `iframe`.** Un iframe de
+   500 px **tiene su propio viewport para media queries**, así que el navegador aplica las reglas reales
+   —`archive:hidden` dejó de ocultar la barra, `position: sticky` se comportó como en un móvil— **sin
+   falsear ni un estilo**. Con esto se verificaron los tres puntos que el reviewer dejó abiertos.
+   **Su límite, dicho:** el iframe **no reproduce** barras de sistema ni áreas seguras, así que **no
+   sirve** para cerrar la 172.
+4. **Dos "404" que no eran bugs.** `/lanas`, `/patrones`, `/calculadoras` y `/stash` **no existen todavía**
+   —son las features pendientes #23-#30—, y el Dashboard vive en **`/`, no en `/dashboard`**. La barra
+   enlaza a cuatro rutas que hoy dan 404: **esperado en este punto del MVP**, no una regresión.

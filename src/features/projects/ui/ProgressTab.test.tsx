@@ -18,6 +18,7 @@ import {
   SUBTRACT_ROUND_LABEL,
   TARGET_ROUNDS_ERROR,
   TARGET_ROUNDS_LABEL,
+  roundsCounterLabel,
   stepLabel,
 } from "./project-detail";
 import {
@@ -270,6 +271,68 @@ describe("ProgressTab — la meta editable", () => {
     expect(await screen.findByText(TARGET_ROUNDS_ERROR)).toBeInTheDocument();
     expect(field).toHaveAttribute("aria-invalid", "true");
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * ENMIENDA E5 (deuda 166) — LA CABECERA SIN META.
+ *
+ * Un proyecto recién creado nace con la meta en cero, así que **el estado
+ * inicial de todos** era el que peor se pintaba: `1 / 0`, que se lee como una
+ * división por cero. No lo cubría ningún test —por eso existió la deuda—, y por
+ * eso van los dos casos, no sólo el nuevo: cerrar el hueco sin dejar el camino
+ * que ya funcionaba sin red sería cambiarle el sitio al agujero.
+ */
+describe("ProgressTab — la cabecera sin meta (E5)", () => {
+  it("sin meta no imprime denominador: muestra las vueltas, nombradas", () => {
+    renderTab(project({ rounds: 3, targetRounds: 0, progress: 0 }));
+
+    expect(screen.getByText(roundsCounterLabel(3, 0))).toBeInTheDocument();
+    expect(screen.queryByText("3 / 0")).not.toBeInTheDocument();
+  });
+
+  it("con una sola vuelta concuerda en singular", () => {
+    renderTab(project({ rounds: 1, targetRounds: 0, progress: 0 }));
+
+    expect(screen.getByText(roundsCounterLabel(1, 0))).toBeInTheDocument();
+  });
+
+  /**
+   * **La otra dirección.** Con meta la cabecera no cambia: sigue siendo la
+   * fracción de siempre. Y se comprueba que el texto sin denominador **no**
+   * aparece, porque un condicional al revés pasaría el test de arriba y rompería
+   * éste sin que nadie lo notara.
+   */
+  it("con meta sigue mostrando la fracción, igual que antes", () => {
+    renderTab(project({ rounds: 12, targetRounds: 40, progress: 30 }));
+
+    expect(screen.getByText(roundsCounterLabel(12, 40))).toBeInTheDocument();
+    expect(screen.queryByText(roundsCounterLabel(12, 0))).not.toBeInTheDocument();
+  });
+
+  /**
+   * **El puente entre los dos estados, que es donde vive el defecto de verdad:**
+   * el usuario fija la meta y la cabecera tiene que dejar de contar vueltas para
+   * pasar a la fracción. Pintar bien los dos extremos por separado no dice nada
+   * de la transición.
+   */
+  it("al fijar la meta, la cuenta de vueltas se convierte en fracción", async () => {
+    const user = userEvent.setup();
+    renderTab(project({ rounds: 12, targetRounds: 0, progress: 0 }));
+
+    expect(screen.getByText(roundsCounterLabel(12, 0))).toBeInTheDocument();
+
+    const field = screen.getByLabelText(TARGET_ROUNDS_LABEL);
+    await user.clear(field);
+    await user.type(field, "24");
+    await user.click(screen.getByRole("button", { name: SAVE_TARGET_LABEL }));
+
+    expect(
+      await screen.findByText(roundsCounterLabel(12, 24)),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(roundsCounterLabel(12, 0)),
+    ).not.toBeInTheDocument();
   });
 });
 

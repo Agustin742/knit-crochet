@@ -20,6 +20,7 @@ import {
   TARGET_ROUNDS_ERROR,
   TARGET_ROUNDS_LABEL,
   NO_TARGET_HINT,
+  roundsCounterLabel,
   stepLabel,
   toggleStep,
 } from "./project-detail";
@@ -180,8 +181,11 @@ export function ProgressTab({ project, onProjectChange }: ProgressTabProps) {
           <span className="font-display text-4xl leading-tight text-fg">
             {`${formatInteger(project.progress)}%`}
           </span>
+          {/* Sin meta NO hay fracción que mostrar (enmienda E5): la cuenta va
+              sola y nombrada. La copia entera vive en `project-detail.ts`, como
+              el resto del módulo. */}
           <span className="font-mono text-sm leading-base text-fg">
-            {`${formatInteger(project.rounds)} / ${formatInteger(project.targetRounds)}`}
+            {roundsCounterLabel(project.rounds, project.targetRounds)}
           </span>
         </p>
         <ProgressBar value={project.progress} label={PROGRESS_BAR_LABEL} />

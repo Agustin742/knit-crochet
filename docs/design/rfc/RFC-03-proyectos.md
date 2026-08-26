@@ -424,6 +424,47 @@ escribe en los datos del usuario: **se pide antes**. Lo natural es que caigan de
 (lanas, features #23-#25) y **RFC-05** (patrones, #26-#28), que es cuando esos datos existirán de todos
 modos.
 
+## 7-sexies. Enmienda E5 — el contador de vueltas sin meta deja de leerse como una división por cero (2026-08-25)
+
+**Quién la pide:** el **usuario**, sobre la **deuda 166**, vista en pantalla el 2026-08-25.
+
+**El síntoma.** Un proyecto recién creado, con una vuelta apuntada y sin meta fijada, muestra en la
+cabecera del tab Progreso **`1 / 0`**. El porcentaje sale bien (`0%`), pero la fracción se lee como una
+**división por cero** — y no lo es: `targetRounds === 0` no significa *"la meta vale cero"*, significa
+**"no hay meta"**. La cabecera está imprimiendo la ausencia de un dato como si fuera el dato.
+
+**La causa, en fuente (`ProgressTab.tsx:184`):** la fracción se compone **sin condicional**
+(`${rounds} / ${targetRounds}`), aunque el propio componente **ya sabe** distinguir el caso: nueve líneas
+más abajo usa `NO_TARGET_HINT` cuando `targetRounds === 0`. El conocimiento existe y la cabecera no lo usa.
+
+### E5 (a) — Sin meta no se muestra fracción: se muestran **las vueltas**
+
+Cuando `targetRounds === 0`, la cabecera del tab **no imprime denominador**. Muestra la cuenta de vueltas
+sola, nombrada (**`3 vueltas`**), y el resto del bloque no cambia.
+
+**Por qué esta y no un guion.** Es *decisión del usuario*, y la razón es que **sin meta no hay fracción que
+mostrar**, así que no se inventa un denominador ni se sugiere con un símbolo que ahí falta algo. La
+invitación a fijar meta **ya existe y está en su sitio**: el `NO_TARGET_HINT` del campo de meta, que es
+donde se actúa. Repetirla arriba es decir dos veces lo mismo en la mitad de la pantalla donde el usuario
+no puede hacer nada al respecto.
+
+**Con meta (`targetRounds > 0`) no cambia nada:** sigue siendo `3 / 40`.
+
+### E5 (b) — El `0%` sin meta se deja como está, y se dice por qué
+
+Sin meta el porcentaje también es discutible: `0%` **de nada** tampoco significa gran cosa. **No entra en
+E5** porque es una decisión distinta —qué es el progreso de un proyecto sin destino— y mezclarla convierte
+un arreglo de copia de una línea en un rediseño del bloque. Se deja escrito aquí para que la próxima
+sesión no lo redescubra como hallazgo.
+
+### E5 (c) — El caso sin meta se cubre con test
+
+La cabecera con `targetRounds === 0` y `targetRounds > 0` van **las dos** al test del componente. La 166
+existió porque **ningún test miraba el caso sin meta**, que es además el estado **inicial de todo proyecto
+nuevo**: el peor que la pantalla sabía pintar era el primero que veía cualquiera.
+
+**Deuda que cierra:** **166**.
+
 ## 8. Slices de implementación (→ `feature_list.json`)
 
 IDs reales en `feature_list.json` (mapeo en [RFC-00 §4](RFC-00-proceso.md)):
