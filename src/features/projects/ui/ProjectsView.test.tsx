@@ -1,18 +1,37 @@
 // @vitest-environment happy-dom
 import type { ReactNode } from "react";
 
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
 
 import { NEEDLE_SIZES, SECONDS_PER_HOUR } from "@/shared/config";
+import { formatClock, formatDuration } from "@/shared/lib/format";
+import { CONFIRM_DIALOG_CANCEL_LABEL, DIALOG_CLOSE_LABEL } from "@/shared/ui";
 
-import { openDetailLabel, quickStartLabel } from "./ProjectCard";
+import {
+  openDetailLabel,
+  quickStartLabel,
+  quickStopLabel,
+} from "./ProjectCard";
 import { DETAIL_LOADING_REGION_LABEL } from "./ProjectDetailDrawer";
 import {
+  DELETE_PROJECT_CONFIRM_LABEL,
+  DELETE_PROJECT_LABEL,
   DETAIL_TAB_LABELS,
+  START_SESSION_LABEL,
+  STOP_SESSION_LABEL,
+  EDIT_PROJECT_LABEL,
   EMPTY_INVENTORY,
+  deleteProjectTitle,
   GENERAL_FIELD_LABELS,
   INVENTORY_UNAVAILABLE,
   linkYarnLabel,
@@ -40,19 +59,35 @@ import {
   NO_MATCHES_TITLE,
   PAGE_TITLE,
   ProjectsView,
-  QUICK_START_NOTES,
   QUICK_START_REGION_LABEL,
   quickStartResumedMessage,
   quickStartStartedMessage,
+  quickStopMessage,
 } from "./ProjectsView";
 import { CRAFT_TYPE_LABELS, STATUS_FILTERS } from "./project-filters";
 import {
+  CREATE_SUBMIT_LABEL,
+  EDIT_SUBMIT_LABEL,
+  FORM_FIELD_LABELS,
+  createFormTitle,
+  editFormTitle,
+} from "./project-form";
+import {
   NETWORK_ERROR_MESSAGE,
+  PATTERNS_ENDPOINT,
   PROJECTS_ENDPOINT,
   YARNS_ENDPOINT,
+  projectDetailEndpoint,
   sessionStartEndpoint,
+  sessionStopEndpoint,
 } from "./projects-client";
-import type { SerializedProject, YarnOption } from "./types";
+import type {
+  SerializedCraftSession,
+  SerializedPattern,
+  SerializedProject,
+  SerializedProjectListItem,
+  YarnOption,
+} from "./types";
 
 /**
  * El ovillo se dobla en el borde (happy-dom no tiene WebGL). El resto del design
@@ -81,8 +116,11 @@ function jsonResponse(status: number, body: unknown): Response {
   });
 }
 
-function project(patch: Partial<SerializedProject>): SerializedProject {
+function project(
+  patch: Partial<SerializedProjectListItem>,
+): SerializedProjectListItem {
   return {
+    activeSession: null,
     id: "p",
     userId: "u",
     name: "Proyecto",
@@ -124,30 +162,147 @@ const CRUDO: YarnOption = {
   colorFamily: "neutral",
 };
 
+/**
+ * El instante contra el que se miden los cronómetros de los tests que los miran.
+ * Los que no tocan el reloj no lo necesitan: el arranque sólo se pinta si hay
+ * sesión abierta.
+ */
+const NOW = new Date("2026-08-26T12:00:00.000Z");
+
+/** Una sesión abierta que arrancó hace `seconds` segundos. */
+function openSession(seconds: number) {
+  return {
+    id: "sesion-abierta",
+    start: new Date(NOW.getTime() - seconds * 1000).toISOString(),
+  };
+}
+
+/**
+ * El proyecto **sin** su cronómetro: es lo que responden el detalle, el alta y
+ * el parche. `activeSession` lo cuelga **sólo la lista** (E7 b3), y servirlo en
+ * los otros payloads sería un estado que producción no puede alcanzar.
+ */
+function bareProject(entry: SerializedProjectListItem): SerializedProject {
+  const { activeSession: _unused, ...rest } = entry;
+  return rest;
+}
+
 type Scenario = {
-  projects?: SerializedProject[];
+  projects?: SerializedProjectListItem[];
   yarns?: YarnOption[];
   /** Status del `POST …/sessions/start`: 201 crea, 200 reutiliza. */
   sessionStatus?: number;
+  /** Qué sesión devuelve el arranque. Recién creada por defecto. */
+  startedSession?: { id: string; start: string };
+  /** Status del `PATCH …/sessions/stop`: 200 para, **409 si ya estaba parado**. */
+  stopStatus?: number;
+  stopError?: string;
+  /** El `time` recalculado que devuelve parar. */
+  stoppedTime?: number;
   listStatus?: number;
   listError?: string;
+  /** La biblioteca que ve el modal de #22. Vacía por defecto. */
+  patterns?: SerializedPattern[];
+  /** Status del `DELETE /api/projects/:id`. **204 sin cuerpo** por defecto. */
+  deleteStatus?: number;
+  deleteError?: string;
 };
 
 let scenario: Scenario = {};
 
+/**
+ * El id del proyecto dentro de una URL de sesiones
+ * (`/api/projects/:id/sessions[...]`).
+ */
+function sessionProjectId(target: string): string {
+  return target.slice(`${PROJECTS_ENDPOINT}/`.length).split("/")[0] ?? "";
+}
+
 /** Responde según el endpoint pedido, como haría el BFF real. */
 function serve(next: Scenario = {}) {
   scenario = next;
+  /* El historial de sesiones **con memoria**: arrancar deja una sesión abierta
+     que el historial devuelve después, y parar la cierra. Sin esto, el tab
+     Sesiones del cajón pediría su historial tras arrancar y vería una lista
+     vacía —un estado que el backend no puede producir— y volvería a ofrecer
+     "empezar" con el cronómetro en marcha (REGLA 7). */
+  const history = new Map<string, SerializedCraftSession[]>();
+
+  function sessionsOf(projectId: string): SerializedCraftSession[] {
+    const existing = history.get(projectId);
+    if (existing !== undefined) {
+      return existing;
+    }
+    const created: SerializedCraftSession[] = [];
+    history.set(projectId, created);
+    return created;
+  }
+
   fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
     const target = String(url);
+    /* El método importa desde #22: la misma URL del detalle sirve el `GET` del
+       cajón, el `PATCH` del modal y el `DELETE` del borrado, y responden cosas
+       distintas — el borrado, un **204 sin cuerpo**. */
+    const method = init?.method ?? "GET";
 
     if (target.includes("/sessions/start")) {
+      const projectId = sessionProjectId(target);
+      const opened = next.startedSession ?? openSession(0);
+      const sessions = sessionsOf(projectId);
+      if (!sessions.some((one) => one.end === null)) {
+        sessions.unshift({
+          ...opened,
+          userId: "u",
+          projectId,
+          end: null,
+          duration: 0,
+        });
+      }
       return Promise.resolve(
-        jsonResponse(next.sessionStatus ?? 201, { session: { id: "s" } }),
+        jsonResponse(next.sessionStatus ?? 201, { session: opened }),
+      );
+    }
+    /* Parar: **200** con la sesión cerrada y el `time` del proyecto ya
+       recalculado, o **409** si no había nada corriendo — la asimetría del
+       backend, que es la contraria a la que uno supone. */
+    if (target.includes("/sessions/stop")) {
+      const status = next.stopStatus ?? 200;
+      if (status !== 200) {
+        return Promise.resolve(
+          jsonResponse(status, {
+            error: next.stopError ?? "No hay ninguna sesión de tejido en marcha.",
+          }),
+        );
+      }
+      const sessions = sessionsOf(sessionProjectId(target));
+      const openIndex = sessions.findIndex((one) => one.end === null);
+      const open = sessions[openIndex];
+      if (open !== undefined) {
+        sessions[openIndex] = {
+          ...open,
+          end: NOW.toISOString(),
+          duration: SECONDS_PER_HOUR,
+        };
+      }
+      return Promise.resolve(
+        jsonResponse(200, {
+          session: { ...openSession(0), end: NOW.toISOString() },
+          time: next.stoppedTime ?? SECONDS_PER_HOUR,
+        }),
+      );
+    }
+    if (target.endsWith("/sessions")) {
+      return Promise.resolve(
+        jsonResponse(200, { sessions: sessionsOf(sessionProjectId(target)) }),
       );
     }
     if (target.startsWith(YARNS_ENDPOINT)) {
       return Promise.resolve(jsonResponse(200, { yarns: next.yarns ?? [CRUDO] }));
+    }
+    if (target.startsWith(PATTERNS_ENDPOINT)) {
+      return Promise.resolve(
+        jsonResponse(200, { patterns: next.patterns ?? [] }),
+      );
     }
     /* El detalle de UN proyecto (#21): se reconoce por llevar un id detrás del
        endpoint, y va ANTES que la lista porque su URL también empieza por ella.
@@ -159,13 +314,41 @@ function serve(next: Scenario = {}) {
       const found = (next.projects ?? [BUFANDA, GORRO]).find(
         (entry) => entry.id === detailId,
       );
+      if (method === "DELETE") {
+        const status = next.deleteStatus ?? 204;
+        return Promise.resolve(
+          status === 204
+            ? new Response(null, { status: 204 })
+            : jsonResponse(status, { error: next.deleteError ?? "roto" }),
+        );
+      }
+      if (method === "PATCH") {
+        const patch = JSON.parse(String(init?.body ?? "{}")) as Partial<
+          SerializedProject
+        >;
+        return Promise.resolve(
+          jsonResponse(200, {
+            project: { ...bareProject(found ?? BUFANDA), ...patch },
+          }),
+        );
+      }
       return Promise.resolve(
         found === undefined
           ? jsonResponse(404, { error: "El proyecto no existe." })
-          : jsonResponse(200, { project: found, yarns: [] }),
+          : jsonResponse(200, { project: bareProject(found), yarns: [] }),
       );
     }
     if (target.startsWith(PROJECTS_ENDPOINT)) {
+      if (method === "POST") {
+        const body = JSON.parse(String(init?.body ?? "{}")) as Partial<
+          SerializedProject
+        >;
+        return Promise.resolve(
+          jsonResponse(201, {
+            project: { ...bareProject(BUFANDA), id: "nuevo", ...body },
+          }),
+        );
+      }
       const status = next.listStatus ?? 200;
       return Promise.resolve(
         status === 200
@@ -175,11 +358,7 @@ function serve(next: Scenario = {}) {
     }
     throw new Error(`URL inesperada en el test: ${target}`);
   });
-  void init;
 }
-
-/** Placebo para que el `init` del mock no quede sin usar en el tipo. */
-const init = undefined;
 
 /**
  * El id del detalle, o `null` si la URL no es la de un detalle. La lista lleva
@@ -204,10 +383,18 @@ function detailIdFrom(target: string): string | null {
  * el cajón, la URL del detalle **también** empieza por la de la lista y se
  * colaba en esta cuenta. Nada rompía hoy, pero el día que un test dijera "abrir
  * el cajón no vuelve a pedir la lista" habría salido **verde y falso**.
+ *
+ * **Y el método también se filtra, desde #22.** El alta es un `POST` a la URL
+ * pelada de la lista, o sea exactamente la misma cadena, así que sin esto el
+ * propio alta se contaba como "volvió a pedir la lista". No es hipotético: se
+ * cazó por mutación —quitando la recarga posterior al alta, el test que la
+ * exige **seguía verde**—, que es la segunda vez que este helper se queda corto
+ * por mirar sólo la URL.
  */
 function listUrls(): string[] {
   return fetchSpy.mock.calls
-    .map(([url]) => String(url))
+    .filter((call) => ((call[1] as RequestInit | undefined)?.method ?? "GET") === "GET")
+    .map((call) => String(call[0]))
     .filter((url) => {
       if (!url.startsWith(PROJECTS_ENDPOINT)) {
         return false;
@@ -517,12 +704,17 @@ describe("los tres estados (RFC-03 §4)", () => {
     expect(screen.getAllByRole("progressbar")).toHaveLength(2);
   });
 
+  /**
+   * Con #22 **dejaron de ser enlaces al Dashboard**: cada uno abre el modal con
+   * su clase de tejido preseleccionada, que es lo que `ProjectsView` dejó
+   * anticipado por escrito cuando el formulario todavía no existía.
+   */
   it("ofrece los dos botones de crear cuando el cesto está vacío", async () => {
     await renderReady({ projects: [] });
 
     expect(screen.getByText(EMPTY_TITLE)).toBeInTheDocument();
     for (const label of Object.values(CREATE_PROJECT_LABELS)) {
-      expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
     }
   });
 
@@ -735,12 +927,19 @@ describe("quick-start del cronómetro (E1(e))", () => {
   });
 
   /**
-   * Un aviso lejos del botón es feedback débil en una grilla de N tarjetas
-   * iguales, así que **la tarjeta que arrancó queda marcada**. Y las dos
-   * respuestas del servidor dejan marcas distintas, porque el servidor sí las
-   * distingue: 201 = la arrancaste vos, 200 = ya venía corriendo.
+   * **La tarjeta que arrancó cambia de estado, no de leyenda** (enmienda **E7
+   * (b1)** y **(b4)**).
+   *
+   * Lo que había acá antes era la marca efímera —*"Lo arrancaste recién"*—, y se
+   * retira con su motivo: existía **porque el estado no era persistente**, así
+   * que hablaba de lo que acababa de pasar en vez de lo que está pasando. Ahora
+   * el estado llega del servidor y se comunica donde tiene que estar: en el
+   * propio control.
+   *
+   * El aviso por región viva **se queda** y se prueba más arriba: informa de que
+   * la pulsación surtió efecto, que es otra cosa.
    */
-  it("marca la tarjeta que arrancó, y sólo esa", async () => {
+  it("tras arrancar, el botón de esa tarjeta ofrece parar, y sólo el de esa", async () => {
     await renderReady();
 
     await userEvent.click(
@@ -748,13 +947,21 @@ describe("quick-start del cronómetro (E1(e))", () => {
     );
 
     await waitFor(() =>
-      expect(screen.getByText(QUICK_START_NOTES.started)).toBeInTheDocument(),
+      expect(
+        screen.getByRole("button", { name: quickStopLabel(BUFANDA.name) }),
+      ).toBeInTheDocument(),
     );
-    expect(screen.queryByText(QUICK_START_NOTES.resumed)).toBeNull();
-    expect(screen.getAllByText(QUICK_START_NOTES.started)).toHaveLength(1);
+    expect(
+      screen.queryByRole("button", { name: quickStartLabel(BUFANDA.name) }),
+    ).toBeNull();
+    // El vecino no se contagia: cada proyecto tiene su propio cronómetro.
+    expect(
+      screen.getByRole("button", { name: quickStartLabel(GORRO.name) }),
+    ).toBeInTheDocument();
   });
 
-  it("dice con otras palabras que el cronómetro ya venía en marcha", async () => {
+  /** 200 = ya venía corriendo. El botón acaba igual: ofreciendo parar. */
+  it("también deja el botón en parar cuando el cronómetro ya venía en marcha", async () => {
     await renderReady({ sessionStatus: 200 });
 
     await userEvent.click(
@@ -762,13 +969,14 @@ describe("quick-start del cronómetro (E1(e))", () => {
     );
 
     await waitFor(() =>
-      expect(screen.getByText(QUICK_START_NOTES.resumed)).toBeInTheDocument(),
+      expect(
+        screen.getByRole("button", { name: quickStopLabel(GORRO.name) }),
+      ).toBeInTheDocument(),
     );
-    expect(screen.queryByText(QUICK_START_NOTES.started)).toBeNull();
   });
 
-  /** Un fallo no puede dejar una marca que diga que algo arrancó. */
-  it("no marca nada cuando el arranque falla", async () => {
+  /** Un fallo no puede dejar el botón diciendo que hay algo corriendo. */
+  it("no cambia el botón cuando el arranque falla", async () => {
     await renderReady();
     fetchSpy.mockImplementation((url: string) =>
       String(url).includes("/sessions/start")
@@ -783,9 +991,12 @@ describe("quick-start del cronómetro (E1(e))", () => {
     await waitFor(() =>
       expect(quickStartRegion().textContent).toBe("El proyecto no existe."),
     );
-    for (const note of Object.values(QUICK_START_NOTES)) {
-      expect(screen.queryByText(note)).toBeNull();
-    }
+    expect(
+      screen.getByRole("button", { name: quickStartLabel(BUFANDA.name) }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: quickStopLabel(BUFANDA.name) }),
+    ).toBeNull();
   });
 
   it("no tiene violaciones de axe con el aviso a la vista", async () => {
@@ -820,6 +1031,341 @@ describe("quick-start del cronómetro (E1(e))", () => {
     await renderReady();
 
     expect(screen.queryAllByRole("link")).toHaveLength(0);
+  });
+});
+
+/**
+ * EL CRONÓMETRO SE VE Y SE PARA DESDE LA LISTA (RFC-03, enmienda **E7 (b)**),
+ * de punta a punta.
+ *
+ * Lo que se mide acá y no en la tarjeta suelta: que **el estado viene del
+ * servidor** —o sea que sobrevive a recargar—, que parar habla con el endpoint
+ * correcto, y que el resultado deja la lista coherente.
+ */
+describe("ProjectsView — cronómetro en la tarjeta (E7 b)", () => {
+  const FAKED_TIMERS = ["Date", "setInterval", "clearInterval"] as const;
+
+  const CORRIENDO = project({
+    ...BUFANDA,
+    activeSession: openSession(65),
+  });
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: [...FAKED_TIMERS] });
+    vi.setSystemTime(NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function user() {
+    return userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  }
+
+  /**
+   * **El defecto raíz de la ficha 186:** tras un F5, con la sesión abierta en el
+   * servidor, el botón decía «Empezar». Nada se toca en este test: la lista
+   * llega y el control ya sabe en qué estado está.
+   */
+  it("con una sesión abierta en el servidor, la tarjeta nace ofreciendo parar", async () => {
+    await renderReady({ projects: [CORRIENDO, GORRO] });
+
+    expect(
+      screen.getByRole("button", { name: quickStopLabel(BUFANDA.name) }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: quickStartLabel(BUFANDA.name) }),
+    ).toBeNull();
+  });
+
+  /** Y con él, el tiempo transcurrido: contado desde el arranque real (E7 b2). */
+  it("pinta el tiempo transcurrido desde el arranque que llegó del servidor", async () => {
+    await renderReady({ projects: [CORRIENDO, GORRO] });
+
+    expect(screen.getByText(formatClock(65))).toBeInTheDocument();
+  });
+
+  /**
+   * **Varios cronómetros a la vez.** La invariante del backend es "como mucho
+   * una sesión abierta **por proyecto**", así que dos proyectos pueden estar
+   * corriendo al mismo tiempo y cada tarjeta tiene que mostrar **el suyo**.
+   */
+  it("sostiene dos cronómetros a la vez, cada uno con su tiempo", async () => {
+    await renderReady({
+      projects: [
+        CORRIENDO,
+        project({ ...GORRO, activeSession: openSession(3_600) }),
+      ],
+    });
+
+    expect(
+      screen.getByRole("button", { name: quickStopLabel(BUFANDA.name) }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: quickStopLabel(GORRO.name) }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(formatClock(65))).toBeInTheDocument();
+    expect(screen.getByText(formatClock(3_600))).toBeInTheDocument();
+  });
+
+  /** El reloj de la tarjeta corre solo, sin volver a pedir nada al servidor. */
+  it("el reloj de la tarjeta avanza solo", async () => {
+    await renderReady({ projects: [CORRIENDO] });
+    const antes = fetchSpy.mock.calls.length;
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+
+    expect(screen.getByText(formatClock(70))).toBeInTheDocument();
+    expect(fetchSpy.mock.calls.length).toBe(antes);
+  });
+
+  it("arrancar deja el reloj en el arranque que devolvió el servidor, no en cero", async () => {
+    /* 200 = ya había una sesión abierta: su arranque es el de ANTES. Empezar a
+       contar desde cero acá sería pintar un tiempo que nunca existió. */
+    await renderReady({
+      sessionStatus: 200,
+      startedSession: openSession(120),
+    });
+
+    await user().click(
+      screen.getByRole("button", { name: quickStartLabel(BUFANDA.name) }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByText(formatClock(120))).toBeInTheDocument(),
+    );
+  });
+
+  it("parar habla con el endpoint de parar, sin cuerpo", async () => {
+    await renderReady({ projects: [CORRIENDO] });
+
+    await user().click(
+      screen.getByRole("button", { name: quickStopLabel(BUFANDA.name) }),
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: quickStartLabel(BUFANDA.name) }),
+      ).toBeInTheDocument(),
+    );
+
+    const call = fetchSpy.mock.calls.find(([url]) =>
+      String(url).includes("/sessions/stop"),
+    );
+    expect(call?.[0]).toBe(sessionStopEndpoint(BUFANDA.id));
+    expect((call?.[1] as RequestInit | undefined)?.method).toBe("PATCH");
+    expect((call?.[1] as RequestInit | undefined)?.body).toBeUndefined();
+  });
+
+  it("parar borra el reloj de la tarjeta y lo anuncia", async () => {
+    await renderReady({ projects: [CORRIENDO] });
+
+    await user().click(
+      screen.getByRole("button", { name: quickStopLabel(BUFANDA.name) }),
+    );
+
+    await waitFor(() =>
+      expect(quickStartRegion().textContent).toBe(
+        quickStopMessage(BUFANDA.name),
+      ),
+    );
+    expect(screen.queryByText(formatClock(65))).toBeNull();
+  });
+
+  /**
+   * El `time` del proyecto lo **recalcula el servidor** y viaja en la respuesta
+   * de parar. Sin usarlo, la tarjeta seguiría enseñando el total de antes de la
+   * sesión que se acaba de cerrar: una cifra vieja al lado del botón que la
+   * acaba de cambiar.
+   */
+  it("actualiza el tiempo tejido con el total que devuelve el servidor", async () => {
+    await renderReady({
+      projects: [project({ ...CORRIENDO, time: 0 })],
+      stoppedTime: SECONDS_PER_HOUR * 2,
+    });
+
+    await user().click(
+      screen.getByRole("button", { name: quickStopLabel(BUFANDA.name) }),
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(formatDuration(SECONDS_PER_HOUR * 2), {
+          exact: false,
+        }),
+      ).toBeInTheDocument(),
+    );
+  });
+
+  /**
+   * **La asimetría del backend:** arrancar dos veces es gratis, pero parar dos
+   * veces responde **409**. Si el servidor dice que no pudo parar, la tarjeta no
+   * puede quedarse diciendo que paró.
+   */
+  it("un 409 al parar se anuncia y deja el botón como estaba", async () => {
+    await renderReady({ projects: [CORRIENDO], stopStatus: 409 });
+
+    await user().click(
+      screen.getByRole("button", { name: quickStopLabel(BUFANDA.name) }),
+    );
+
+    await waitFor(() =>
+      expect(quickStartRegion().textContent).toBe(
+        "No hay ninguna sesión de tejido en marcha.",
+      ),
+    );
+    expect(
+      screen.getByRole("button", { name: quickStopLabel(BUFANDA.name) }),
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * **LA TERCERA PUERTA DE LA FICHA 186: el modal de edición.**
+   *
+   * `PATCH /:id` responde el proyecto **sin** `activeSession` —ese dato lo
+   * cuelga sólo la lista (E7 b3)— y renombrar un proyecto no para ninguna
+   * sesión. Si al guardar la tarjeta se reemplazara con lo que devuelve el
+   * parche **a secas**, el reloj se apagaría y el botón volvería a ofrecer
+   * «Empezar a tejer» con la sesión **abierta en el servidor**: exactamente el
+   * defecto que este lote vino a matar, entrando por otro sitio.
+   *
+   * Ni la tarjeta (b1) ni el cajón (el puente de vuelta) cubren este camino:
+   * hace falta cruzar el cronómetro con la edición, que es lo que mide este
+   * test. El nombre nuevo se comprueba de paso, para que el aserto no pueda
+   * pasar mirando una tarjeta que no se actualizó.
+   */
+  it("guardar una edición no apaga el cronómetro de la tarjeta", async () => {
+    const NOMBRE_EDITADO = "Bufanda corta";
+    const person = user();
+    await renderReady({ projects: [CORRIENDO, GORRO] });
+
+    await person.click(
+      screen.getByRole("button", { name: openDetailLabel(BUFANDA.name) }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("status", { name: DETAIL_LOADING_REGION_LABEL })
+          .textContent,
+      ).toBe(""),
+    );
+    await person.click(screen.getByRole("button", { name: EDIT_PROJECT_LABEL }));
+    await screen.findByRole("heading", { name: editFormTitle(BUFANDA.name) });
+
+    /* El modal se abre ENCIMA del cajón, así que hay dos diálogos montados y el
+       de arriba es el último. Es el estado real de la pantalla. */
+    const dialogs = screen.getAllByRole("dialog");
+    const modal = dialogs[dialogs.length - 1];
+    if (modal === undefined) {
+      throw new Error("el modal de edición no se montó");
+    }
+    const nameField = within(modal).getByLabelText(FORM_FIELD_LABELS.name);
+    await person.clear(nameField);
+    await person.type(nameField, NOMBRE_EDITADO);
+    await person.click(
+      within(modal).getByRole("button", { name: EDIT_SUBMIT_LABEL }),
+    );
+    await waitFor(() => expect(detailCalls("PATCH")).toHaveLength(1));
+
+    /* Se cierra el cajón para mirar **la tarjeta**, que es donde vive la promesa
+       de E7 (b1). Se cierra por su botón y no con `Escape` porque el modal se
+       acaba de desmontar y el foco todavía no está dentro del cajón: el atajo
+       viaja por el `keydown` del panel, así que sin foco dentro no llegaría. */
+    await waitFor(() => expect(screen.getAllByRole("dialog")).toHaveLength(1));
+    await person.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: DIALOG_CLOSE_LABEL,
+      }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    expect(
+      screen.getByRole("button", { name: quickStopLabel(NOMBRE_EDITADO) }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: quickStartLabel(NOMBRE_EDITADO) }),
+    ).toBeNull();
+    expect(screen.getByText(formatClock(65))).toBeInTheDocument();
+  });
+
+  it("no tiene violaciones de axe con un cronómetro corriendo en la lista", async () => {
+    const { container } = await renderReady({ projects: [CORRIENDO, GORRO] });
+
+    expect(await axe(container)).toHaveNoViolations();
+  });
+});
+
+/**
+ * **LA MISMA MENTIRA POR LA OTRA PUERTA.** El cajón de detalle también arranca y
+ * para el cronómetro, y desde E7 la tarjeta de detrás **afirma** en qué estado
+ * está: sin este camino de vuelta, tocar el cronómetro dentro del cajón y
+ * cerrarlo dejaría la tarjeta ofreciendo lo contrario de lo que pasa en el
+ * servidor — que es exactamente la ficha 186.
+ *
+ * El cajón **no cambia en nada de lo que se ve**: sigue con su reloj y su botón.
+ * Lo único que se añadió es el aviso hacia arriba, por el mismo camino que ya
+ * recorría el tiempo total.
+ */
+describe("ProjectsView — el cronómetro del cajón llega a la tarjeta (E7 b)", () => {
+  async function openSessionsTab(name: string) {
+    await userEvent.click(
+      screen.getByRole("button", { name: openDetailLabel(name) }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("status", { name: DETAIL_LOADING_REGION_LABEL })
+          .textContent,
+      ).toBe(""),
+    );
+    const drawer = screen.getByRole("dialog");
+    await userEvent.click(
+      within(drawer).getByRole("tab", { name: DETAIL_TAB_LABELS.sessions }),
+    );
+    return drawer;
+  }
+
+  it("arrancar dentro del cajón deja la tarjeta ofreciendo parar", async () => {
+    await renderReady();
+    const drawer = await openSessionsTab(BUFANDA.name);
+
+    await userEvent.click(
+      await within(drawer).findByRole("button", { name: START_SESSION_LABEL }),
+    );
+    await within(drawer).findByRole("button", { name: STOP_SESSION_LABEL });
+
+    await userEvent.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(
+      screen.getByRole("button", { name: quickStopLabel(BUFANDA.name) }),
+    ).toBeInTheDocument();
+  });
+
+  it("parar dentro del cajón deja la tarjeta ofreciendo empezar", async () => {
+    await renderReady({
+      projects: [project({ ...BUFANDA, activeSession: openSession(30) }), GORRO],
+    });
+    const drawer = await openSessionsTab(BUFANDA.name);
+
+    /* El tab pide su propio historial y ahí no hay ninguna abierta, así que
+       ofrece arrancar: se arranca y se para, que es el camino que un usuario
+       recorre de verdad dentro del cajón. */
+    await userEvent.click(
+      await within(drawer).findByRole("button", { name: START_SESSION_LABEL }),
+    );
+    await userEvent.click(
+      await within(drawer).findByRole("button", { name: STOP_SESSION_LABEL }),
+    );
+    await within(drawer).findByRole("button", { name: START_SESSION_LABEL });
+
+    await userEvent.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(
+      screen.getByRole("button", { name: quickStartLabel(BUFANDA.name) }),
+    ).toBeInTheDocument();
   });
 });
 
@@ -995,3 +1541,268 @@ describe("ProjectsView — el inventario de lanas llega al cajón", () => {
     expect(within(drawer).queryByText(EMPTY_INVENTORY)).toBeNull();
   });
 });
+
+/**
+ * CREAR, EDITAR Y BORRAR DE PUNTA A PUNTA (#22, tanda 2).
+ *
+ * Lo que se mide acá no lo puede medir el modal por su cuenta: **desde dónde se
+ * abre** —y que la entrada existe también con el cesto lleno—, que guardar deja
+ * la pantalla al día, y que borrar quita la tarjeta **sin recargar la página**.
+ */
+describe("ProjectsView — crear, editar y borrar (#22)", () => {
+  function createButton(type: "knitting" | "crochet"): HTMLElement {
+    return screen.getByRole("button", { name: CREATE_PROJECT_LABELS[type] });
+  }
+
+  function formDialog(): HTMLElement {
+    return screen.getByRole("dialog");
+  }
+
+  async function detailDrawer(): Promise<HTMLElement> {
+    await waitFor(() =>
+      expect(
+        screen.getByRole("status", { name: DETAIL_LOADING_REGION_LABEL })
+          .textContent,
+      ).toBe(""),
+    );
+    return screen.getByRole("dialog");
+  }
+
+  function openDetail(name: string): HTMLElement {
+    return screen.getByRole("button", { name: openDetailLabel(name) });
+  }
+
+  /**
+   * El título de **la tarjeta** de la rejilla, acotado a la sección de la lista.
+   *
+   * Hace falta acotarlo porque **con el cajón abierto hay dos encabezados con el
+   * mismo nombre**: el `h3` de la tarjeta y el `h2` del cajón, que es su nombre
+   * accesible. Un `screen.getByRole("heading", …)` a secas no falla por eso: se
+   * vuelve **ambiguo**, que es un error distinto y que no dice nada de lo que el
+   * test quiere medir. El cajón vive en un portal colgado de `body`, así que
+   * acotar a la sección lo deja fuera sin trucos.
+   */
+  function listHeading(name: string): HTMLElement {
+    return within(
+      screen.getByRole("region", { name: LIST_SECTION_TITLE }),
+    ).getByRole("heading", { name });
+  }
+
+  /** Cuántas entradas a "crear" hay en pantalla, sea cual sea su sitio. */
+  function createEntries(): HTMLElement[] {
+    return Object.values(CREATE_PROJECT_LABELS).flatMap((label) =>
+      screen.queryAllByRole("button", { name: label }),
+    );
+  }
+
+  /** Los borrados que salieron de verdad. */
+  function deleteCalls(): unknown[] {
+    return fetchSpy.mock.calls.filter(
+      ([, init]) => (init as RequestInit | undefined)?.method === "DELETE",
+    );
+  }
+
+  it("cada botón del cesto vacío abre el modal con SU clase de tejido", async () => {
+    await renderReady({ projects: [] });
+
+    await userEvent.click(createButton("crochet"));
+
+    expect(formDialog()).toHaveAccessibleName(createFormTitle("crochet"));
+  });
+
+  /**
+   * **La entrada a crear no puede vivir sólo en el estado vacío.** Antes de #22
+   * era así, y eso dejaba a quien ya tiene proyectos sin ninguna forma de
+   * empezar otro desde esta página: la única creación estaba en el inicio.
+   */
+  it("con el cesto lleno la entrada sigue estando, en la cabecera", async () => {
+    await renderReady();
+
+    expect(screen.queryByText(EMPTY_TITLE)).not.toBeInTheDocument();
+    await userEvent.click(createButton("knitting"));
+
+    expect(formDialog()).toHaveAccessibleName(createFormTitle("knitting"));
+  });
+
+  /**
+   * **Y nunca hay dos parejas a la vez.** Con el cesto vacío la llamada a la
+   * acción es la del panel vacío —es de lo que vive ese panel— y la cabecera se
+   * calla; con proyectos, al revés. Cuatro botones iguales repartidos por la
+   * misma pantalla es exactamente el defecto que dejó fichado la deuda 142.
+   */
+  it("hay exactamente una pareja de botones de crear en cada estado", async () => {
+    const { unmount } = await renderReady({ projects: [] });
+    expect(createEntries()).toHaveLength(2);
+    unmount();
+
+    await renderReady();
+    expect(createEntries()).toHaveLength(2);
+  });
+
+  it("crear desde la lista manda el alta y vuelve a pedir la lista", async () => {
+    await renderReady({ projects: [] });
+    const before = listUrls().length;
+
+    await userEvent.click(createButton("knitting"));
+    await userEvent.type(
+      within(formDialog()).getByLabelText(FORM_FIELD_LABELS.name),
+      "Chaleco",
+    );
+    await userEvent.click(
+      within(formDialog()).getByRole("button", { name: CREATE_SUBMIT_LABEL }),
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    const posted = fetchSpy.mock.calls.filter(
+      ([url, init]) =>
+        String(url) === PROJECTS_ENDPOINT &&
+        (init as RequestInit | undefined)?.method === "POST",
+    );
+    expect(posted).toHaveLength(1);
+    expect(listUrls().length).toBeGreaterThan(before);
+  });
+
+  it("editar desde el cajón manda el parche y refresca el detalle", async () => {
+    await renderReady();
+    await userEvent.click(openDetail(BUFANDA.name));
+    await detailDrawer();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: EDIT_PROJECT_LABEL }),
+    );
+    expect(
+      await screen.findByRole("heading", { name: editFormTitle(BUFANDA.name) }),
+    ).toBeInTheDocument();
+
+    /* El modal se abre ENCIMA del cajón, así que hay dos diálogos montados y el
+       de arriba es el último. Es el estado real de la pantalla, no un montaje
+       del test: por eso las consultas se acotan a ese nodo. */
+    const dialogs = screen.getAllByRole("dialog");
+    const modal = dialogs[dialogs.length - 1];
+    if (modal === undefined) {
+      throw new Error("el modal de edición no se montó");
+    }
+    const nameField = within(modal).getByLabelText(FORM_FIELD_LABELS.name);
+    await userEvent.clear(nameField);
+    await userEvent.type(nameField, "Bufanda corta");
+    await userEvent.click(
+      within(modal).getByRole("button", { name: EDIT_SUBMIT_LABEL }),
+    );
+
+    await waitFor(() => {
+      expect(detailCalls("PATCH")).toHaveLength(1);
+    });
+    /* El cajón vuelve a pedir su detalle: sin eso se quedaría enseñando el
+       nombre viejo del proyecto que se acaba de renombrar. */
+    await waitFor(() => {
+      expect(detailCalls("GET").length).toBeGreaterThan(1);
+    });
+  });
+
+  it("borrar pide confirmación antes de tocar nada", async () => {
+    await renderReady();
+    await userEvent.click(openDetail(BUFANDA.name));
+    await detailDrawer();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: DELETE_PROJECT_LABEL }),
+    );
+
+    expect(
+      screen.getByRole("heading", { name: deleteProjectTitle(BUFANDA.name) }),
+    ).toBeInTheDocument();
+    expect(deleteCalls()).toHaveLength(0);
+  });
+
+  /**
+   * **La lista queda coherente sin recargar la página**: la tarjeta se va del
+   * estado local y la lista NO se vuelve a pedir. El `DELETE` responde **204 sin
+   * cuerpo**, que es donde un cliente escrito con `response.json()` reventaría.
+   */
+  it("confirmar borra, quita la tarjeta y cierra el cajón sin recargar la lista", async () => {
+    await renderReady();
+    const before = listUrls().length;
+    await userEvent.click(openDetail(BUFANDA.name));
+    await detailDrawer();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: DELETE_PROJECT_LABEL }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: DELETE_PROJECT_CONFIRM_LABEL }),
+    );
+
+    await waitFor(() => {
+      expect(deleteCalls()).toHaveLength(1);
+    });
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("heading", { name: BUFANDA.name }),
+      ).not.toBeInTheDocument();
+    });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: GORRO.name })).toBeInTheDocument();
+    expect(listUrls().length).toBe(before);
+  });
+
+  it("cancelar la confirmación no borra nada", async () => {
+    await renderReady();
+    await userEvent.click(openDetail(BUFANDA.name));
+    await detailDrawer();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: DELETE_PROJECT_LABEL }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: CONFIRM_DIALOG_CANCEL_LABEL }),
+    );
+
+    expect(deleteCalls()).toHaveLength(0);
+    expect(listHeading(BUFANDA.name)).toBeInTheDocument();
+  });
+
+  it("un borrado que falla se dice y no quita la tarjeta", async () => {
+    await renderReady({
+      deleteStatus: 404,
+      deleteError: "El proyecto no existe.",
+    });
+    await userEvent.click(openDetail(BUFANDA.name));
+    await detailDrawer();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: DELETE_PROJECT_LABEL }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: DELETE_PROJECT_CONFIRM_LABEL }),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "El proyecto no existe.",
+    );
+    expect(listHeading(BUFANDA.name)).toBeInTheDocument();
+  });
+
+  it("no tiene violaciones de axe con el modal de alta abierto", async () => {
+    serve({ projects: [] });
+    const { baseElement } = render(<ProjectsView />, {
+      wrapper: ({ children }: { children: ReactNode }) => <main>{children}</main>,
+    });
+    await settle();
+
+    await userEvent.click(createButton("knitting"));
+    await screen.findByRole("dialog");
+
+    expect(await axe(baseElement)).toHaveNoViolations();
+  });
+});
+
+/** Las llamadas al detalle de la bufanda, por método. */
+function detailCalls(method: "GET" | "PATCH"): unknown[] {
+  return fetchSpy.mock.calls.filter(
+    ([url, init]) =>
+      String(url) === projectDetailEndpoint("bufanda") &&
+      (((init as RequestInit | undefined)?.method ?? "GET") === method),
+  );
+}

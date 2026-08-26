@@ -35,3 +35,7 @@ next-env.d.ts
 
 # drizzle (mantener migraciones versionadas; ignorar solo metadatos si aplica)
 # drizzle/meta/_journal.json  # descomenta si genera ruido
+
+# Herramientas de terceros que se regeneran solas en cada sesión
+.atl/
+.windsurf/

@@ -17,6 +17,8 @@ import {
 import { CRAFT_TYPE_LABELS } from "./project-filters";
 import {
   ADD_ROUND_LABEL,
+  DELETE_PROJECT_LABEL,
+  EDIT_PROJECT_LABEL,
   DETAIL_TABS,
   DETAIL_TABS_LABEL,
   DETAIL_TAB_LABELS,
@@ -152,18 +154,43 @@ function serveLater(): () => void {
  * volver. Un doble que abriera el cajón "ya abierto" mediría un estado que la
  * aplicación no puede alcanzar (REGLA 7).
  */
-function DrawerHarness({ data }: { data?: SerializedProject }) {
+function DrawerHarness({
+  data,
+  onEdit,
+  onDelete,
+}: {
+  data?: SerializedProject;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}) {
   const row = data ?? project();
   const [open, setOpen] = useState(false);
+  /* Los dos controles extra del arnés son la página en miniatura: uno cambia el
+     número que pide un refresco y el otro sólo fuerza un render, para poder
+     distinguir "cambió el token" de "React repintó". */
+  const [refreshToken, setRefreshToken] = useState(0);
+  const [, setRepaint] = useState(0);
 
   return (
     <main>
       <button type="button" onClick={() => setOpen(true)}>
         {`Ver detalle de ${row.name}`}
       </button>
+      <button
+        type="button"
+        onClick={() => setRefreshToken((token) => token + 1)}
+      >
+        Refrescar
+      </button>
+      <button type="button" onClick={() => setRepaint((token) => token + 1)}>
+        Repintar
+      </button>
       <ProjectDetailDrawer
         project={open ? card(row) : null}
         onClose={() => setOpen(false)}
+        refreshToken={refreshToken}
+        onEdit={onEdit}
+        onDelete={onDelete}
       />
     </main>
   );
@@ -631,3 +658,100 @@ describe("ProjectDetailDrawer — el cronómetro no sobrevive al cajón", () => 
     expect(vi.getTimerCount()).toBe(0);
   });
 });
+
+/**
+ * Las dos entradas que **E3(d)** dejó fuera de #21 porque su destino no existía:
+ * "Editar" abre el modal de #22 y "Borrar" abre su confirmación. Entran **de
+ * forma aditiva**, que es como la enmienda dijo que entrarían.
+ */
+describe("ProjectDetailDrawer — editar y borrar (E3 d, aditivo en #22)", () => {
+  /** Un botón sin destino no se pinta: es la regla entera de E3(d). */
+  it("sin destino, no pinta ninguno de los dos", async () => {
+    renderDrawer();
+    await userEvent.click(trigger());
+    await settle();
+
+    expect(
+      within(drawer()).queryByRole("button", { name: EDIT_PROJECT_LABEL }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(drawer()).queryByRole("button", { name: DELETE_PROJECT_LABEL }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("con destino, editar avisa a la página", async () => {
+    const onEdit = vi.fn();
+    serve();
+    render(<DrawerHarness onEdit={onEdit} />);
+    await userEvent.click(trigger());
+    await settle();
+
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: EDIT_PROJECT_LABEL }),
+    );
+
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    /* El caso mixto es el que de verdad prueba la regla: con un solo destino,
+       el otro botón NO puede estar. Sin esto, pintar los dos siempre pasaría
+       igual de verde. */
+    expect(
+      within(drawer()).queryByRole('button', { name: DELETE_PROJECT_LABEL }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("con destino, borrar avisa a la página", async () => {
+    const onDelete = vi.fn();
+    serve();
+    render(<DrawerHarness onDelete={onDelete} />);
+    await userEvent.click(trigger());
+    await settle();
+
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: DELETE_PROJECT_LABEL }),
+    );
+
+    expect(onDelete).toHaveBeenCalledTimes(1);
+    expect(
+      within(drawer()).queryByRole('button', { name: EDIT_PROJECT_LABEL }),
+    ).not.toBeInTheDocument();
+  });
+
+  /**
+   * **Guardar una edición deja el detalle desactualizado**, y el propio JSDoc del
+   * cajón lo tenía anticipado. La página avisa cambiando este número y el cajón
+   * vuelve a pedir el detalle: sin eso, cerrar el modal dejaría en pantalla el
+   * nombre viejo del proyecto que se acaba de renombrar.
+   */
+  it("un cambio de `refreshToken` vuelve a pedir el detalle", async () => {
+    serve();
+    render(<DrawerHarness />);
+    await userEvent.click(trigger());
+    await settle();
+
+    const before = detailRequests();
+    await userEvent.click(screen.getByRole("button", { name: "Refrescar" }));
+    await waitFor(() => {
+      expect(detailRequests()).toBe(before + 1);
+    });
+  });
+
+  /** El mismo número no vuelve a pedir nada: un render no es un cambio. */
+  it("sin cambio de `refreshToken` no vuelve a pedir el detalle", async () => {
+    serve();
+    render(<DrawerHarness />);
+    await userEvent.click(trigger());
+    await settle();
+
+    const before = detailRequests();
+    await userEvent.click(screen.getByRole("button", { name: "Repintar" }));
+
+    expect(detailRequests()).toBe(before);
+  });
+});
+
+/** Cuántas veces se pidió el detalle del proyecto. */
+function detailRequests(): number {
+  return fetchSpy.mock.calls.filter(
+    ([url]) => String(url) === projectDetailEndpoint("bufanda"),
+  ).length;
+}

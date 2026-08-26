@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { formatDate } from "@/shared/lib/format";
-import { Dialog, ErrorState, Skeleton, Tabs } from "@/shared/ui";
+import { Button, Dialog, ErrorState, Skeleton, Tabs } from "@/shared/ui";
 
 import type { LinkedYarn } from "@/features/projects/types";
 
@@ -13,11 +13,13 @@ import { SessionsTab } from "./SessionsTab";
 import { YarnsTab } from "./YarnsTab";
 import { CRAFT_TYPE_LABELS, type YarnChoice } from "./project-filters";
 import {
+  DELETE_PROJECT_LABEL,
   DETAIL_ERROR_TITLE,
   DETAIL_TABS,
   DETAIL_TAB_LABELS,
   DETAIL_TABS_LABEL,
   type DetailTab,
+  EDIT_PROJECT_LABEL,
   GENERAL_FIELD_LABELS,
   NO_END_DATE,
   NO_NEEDLES,
@@ -27,7 +29,11 @@ import {
   needlesLabel,
 } from "./project-detail";
 import { getProjectDetail } from "./projects-client";
-import type { ProjectCardData, SerializedProject } from "./types";
+import type {
+  ProjectCardData,
+  SerializedActiveSession,
+  SerializedProject,
+} from "./types";
 
 export { DETAIL_ERROR_TITLE };
 
@@ -58,6 +64,33 @@ export interface ProjectDetailDrawerProps {
    */
   yarnInventory?: readonly YarnChoice[];
   yarnInventoryUnavailable?: boolean;
+  /**
+   * Cambia cuando la página necesita que el detalle se vuelva a pedir, y hoy hay
+   * un solo caso: **el modal de #22 acaba de guardar**. Este JSDoc lo tenía
+   * anticipado desde la tanda 1 —"la fuente de verdad, la misma que el modal de
+   * edición va a dejar desactualizada en cuanto guarde"—, y esto es lo que lo
+   * resuelve.
+   *
+   * Es un **número y no un booleano** por lo mismo que el reintento interno: dos
+   * guardados seguidos tienen que disparar dos peticiones.
+   */
+  refreshToken?: number;
+  /**
+   * Abrir el modal de edición. **Si no llega, el botón no se pinta** (E3(d)): un
+   * control cuyo destino no existe no promete nada en pantalla.
+   */
+  onEdit?: () => void;
+  /** Pedir la confirmación de borrado. Mismo criterio que `onEdit`. */
+  onDelete?: () => void;
+  /**
+   * El cronómetro del proyecto cambió desde el tab Sesiones (enmienda **E7 b**).
+   *
+   * Lo sube **el cajón, que no lo usa**, porque quien sí lo necesita es la lista
+   * de detrás: desde E7 su tarjeta también dice si el cronómetro corre, y si el
+   * cajón se guardara el cambio, cerrarlo dejaría la tarjeta afirmando lo
+   * contrario. Es el mismo camino que ya recorría el tiempo total.
+   */
+  onRunningChange?: (session: SerializedActiveSession | null) => void;
 }
 
 /** Lo último que llegó, con la clave de la petición que lo trajo. */
@@ -85,9 +118,13 @@ type LoadedDetail = {
  * ese endpoint es el único que trae las **lanas enlazadas** (deuda 5, saldada por
  * la feature #17), que es de lo que vive la tanda 2.
  *
- * **Los botones que no tienen destino no se pintan** (E3(d)): "Editar" llega con
- * #22 y "crear patrón" con #26-28. No hay placeholder, ni botón desactivado, ni
- * "próximamente" que alguien tenga que acordarse de quitar.
+ * **Los botones que no tienen destino no se pintan** (E3(d)). "Editar" y
+ * "Borrar" **ya tienen destino** —llegaron con #22— y por eso están, pero la
+ * regla sigue viva en su forma exacta: se pintan **sólo si les llega su
+ * callback**, así que un montaje sin página detrás no promete nada. "Crear
+ * patrón" sigue esperando a #26-28, y por eso sigue sin pintarse. No hay
+ * placeholder, ni botón desactivado, ni "próximamente" que alguien tenga que
+ * acordarse de quitar.
  *
  * **El cajón es el dueño del proyecto cargado, y los tabs sólo le avisan.** Los
  * tres endpoints que mutan —vueltas, meta y pasos— responden el proyecto entero
@@ -101,6 +138,10 @@ export function ProjectDetailDrawer({
   onClose,
   yarnInventory = [],
   yarnInventoryUnavailable = false,
+  refreshToken = 0,
+  onEdit,
+  onDelete,
+  onRunningChange,
 }: ProjectDetailDrawerProps) {
   const [tab, setTab] = useState<DetailTab>("general");
   /* Cambia para volver a pedir lo mismo. Un booleano no serviría: dos
@@ -109,7 +150,7 @@ export function ProjectDetailDrawer({
   const [loaded, setLoaded] = useState<LoadedDetail | null>(null);
 
   const projectId = project?.id ?? null;
-  const requestKey = `${projectId ?? ""}|${String(reloadToken)}`;
+  const requestKey = `${projectId ?? ""}|${String(reloadToken)}|${String(refreshToken)}`;
   /* Estar cargando se DERIVA de comparar lo pedido con lo que llegó, igual que
      en la lista. Así abrir OTRO proyecto vuelve a "cargando" sin que nadie se
      acuerde de apagar un booleano, y el detalle del anterior no se queda en
@@ -207,7 +248,13 @@ export function ProjectDetailDrawer({
   function tabContent(name: DetailTab, loadedProject: SerializedProject) {
     switch (name) {
       case "general":
-        return <GeneralTab project={loadedProject} />;
+        return (
+          <GeneralTab
+            project={loadedProject}
+            onEdit={onEdit}
+            onDelete={onDelete}
+          />
+        );
       case "progress":
         return (
           <ProgressTab project={loadedProject} onProjectChange={applyProject} />
@@ -230,6 +277,7 @@ export function ProjectDetailDrawer({
             onTimeChange={(time) => {
               applyProject({ ...loadedProject, time });
             }}
+            onRunningChange={(session) => onRunningChange?.(session)}
           />
         );
     }
@@ -299,7 +347,15 @@ export function ProjectDetailDrawer({
  * apagado no llega al mínimo para texto chico, que es la misma trampa que ya
  * midió la tarjeta.
  */
-function GeneralTab({ project }: { project: SerializedProject }) {
+function GeneralTab({
+  project,
+  onEdit,
+  onDelete,
+}: {
+  project: SerializedProject;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}) {
   const needles = needlesLabel(project.needles);
   const notes = project.notes.trim();
 
@@ -344,6 +400,31 @@ function GeneralTab({ project }: { project: SerializedProject }) {
           wide
         />
       </dl>
+
+      {/* Las dos acciones del proyecto (E3(d), que las dejó para #22). Cada una
+          se pinta **sólo si tiene destino**.
+
+          **La jerarquía es deliberada y no simétrica.** Editar es lo que la
+          mayoría viene a hacer, así que lleva el acento sólido; borrar es
+          irreversible y **no puede pesar lo mismo**: va en la piel fantasma con
+          el color de peligro —inconfundible, pero sin gritar más fuerte que la
+          acción normal— y separada al extremo opuesto de la fila para que no se
+          pulse por inercia. El rojo sólido se reserva para la confirmación, que
+          es donde el borrado se decide de verdad. */}
+      {onEdit === undefined && onDelete === undefined ? null : (
+        <div className="flex flex-wrap items-center gap-(--space-3)">
+          {onEdit === undefined ? null : (
+            <Button variant="primary" onClick={onEdit}>
+              {EDIT_PROJECT_LABEL}
+            </Button>
+          )}
+          {onDelete === undefined ? null : (
+            <Button variant="ghost" className="ml-auto text-danger" onClick={onDelete}>
+              {DELETE_PROJECT_LABEL}
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

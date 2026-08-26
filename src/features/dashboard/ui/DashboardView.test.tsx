@@ -7,7 +7,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
 
 import type { DashboardMetrics } from "@/features/dashboard/types";
-import type { SerializedProject } from "@/features/projects/ui";
+import {
+  CREATE_SUBMIT_LABEL,
+  FORM_FIELD_LABELS,
+  NEEDLES_ADD_BUTTON_LABEL,
+  PATTERNS_ENDPOINT,
+  createFormTitle,
+  type SerializedProject,
+} from "@/features/projects/ui";
 import { SECONDS_PER_HOUR } from "@/shared/config";
 import { cardVariants, cn } from "@/shared/ui";
 
@@ -121,6 +128,12 @@ function serve({ metrics = metricsBody(), projects = [ALFOMBRA, ZOQUETES] }: Sce
   fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
     if (url.startsWith(METRICS_ENDPOINT)) {
       return Promise.resolve(jsonResponse(200, metrics));
+    }
+    /* El formulario de alta pide la biblioteca de patrones al abrirse: desde
+       E7 (a) el Dashboard monta **el mismo** `ProjectFormDialog` que
+       `/proyectos`, así que su costura HTTP es también la misma. */
+    if (url.startsWith(PATTERNS_ENDPOINT)) {
+      return Promise.resolve(jsonResponse(200, { patterns: [] }));
     }
     if (url.startsWith(PROJECTS_ENDPOINT)) {
       return Promise.resolve(
@@ -716,7 +729,24 @@ describe("estados de carga, vacío y error (RFC-02 §4)", () => {
   });
 });
 
-describe("creación rápida (RFC-02 §1 y §6)", () => {
+/**
+ * LA CREACIÓN RÁPIDA (RFC-02 §1 y §6), **con el formulario de `/proyectos`**
+ * desde la enmienda **E7 (a)**.
+ *
+ * **Lo que cambia y lo que no.** Los dos botones y su preselección de tipo son
+ * los mismos; lo único que cambia es **qué modal abren**. El `NewProjectDialog`
+ * de un solo campo se borra: tenía el mismo título que el de seis campos
+ * —*"Nuevo proyecto de dos agujas"*, medido con los dos abiertos— y prometía lo
+ * mismo enseñando la sexta parte (ficha **185**).
+ *
+ * Estos tests **se migran, no se tiran**: cada uno seguía diciendo algo cierto
+ * —el tipo preseleccionado, el foco inicial, el foco de vuelta, la recarga tras
+ * el alta, el foco al campo inválido (deuda 38) y el error del servidor sin
+ * cerrar—, y todas esas garantías las hereda el formulario nuevo. Lo único que
+ * se reescribe es lo que de verdad cambió: **el cuerpo del `POST`**, que ahora
+ * lleva el formulario entero.
+ */
+describe("creación rápida (RFC-02 §1 y §6, con el form de E7 a)", () => {
   it("abre el modal con el tipo ya elegido y devuelve el foco al cerrar", async () => {
     const user = userEvent.setup();
     await renderReady();
@@ -726,11 +756,11 @@ describe("creación rápida (RFC-02 §1 y §6)", () => {
 
     const dialog = await screen.findByRole("dialog");
     expect(
-      within(dialog).getByRole("heading", {
-        name: "Nuevo proyecto de crochet",
-      }),
+      within(dialog).getByRole("heading", { name: createFormTitle("crochet") }),
     ).toBeInTheDocument();
-    expect(within(dialog).getByLabelText("Nombre del proyecto")).toHaveFocus();
+    expect(
+      within(dialog).getByLabelText(FORM_FIELD_LABELS.name),
+    ).toHaveFocus();
 
     await user.keyboard("{Escape}");
 
@@ -738,18 +768,46 @@ describe("creación rápida (RFC-02 §1 y §6)", () => {
     expect(trigger).toHaveFocus();
   });
 
-  it("manda el tipo del botón que lo abrió", async () => {
+  /**
+   * **EL GATE DE LA FICHA 185:** el alta del Dashboard es **la misma** que la de
+   * `/proyectos`, o sea la de seis campos. Con el formulario viejo esto era
+   * imposible: sólo tenía el nombre, y quien creaba desde el inicio concluía que
+   * la app no tenía foto ni meta.
+   */
+  it("ofrece el formulario ENTERO, no sólo el nombre", async () => {
+    const user = userEvent.setup();
+    await renderReady();
+
+    await user.click(screen.getByRole("button", { name: "Nuevo crochet" }));
+    const dialog = await screen.findByRole("dialog");
+
+    for (const label of [
+      FORM_FIELD_LABELS.name,
+      FORM_FIELD_LABELS.type,
+      FORM_FIELD_LABELS.targetRounds,
+      FORM_FIELD_LABELS.notes,
+      FORM_FIELD_LABELS.image,
+    ]) {
+      expect(within(dialog).getByLabelText(label), label).toBeInTheDocument();
+    }
+    // Las agujas no son un campo suelto sino un control propio de la feature.
+    expect(
+      within(dialog).getByRole("button", { name: NEEDLES_ADD_BUTTON_LABEL }),
+    ).toBeInTheDocument();
+  });
+
+  it("manda el tipo del botón que lo abrió, con el formulario entero", async () => {
     const user = userEvent.setup();
     await renderReady();
 
     await user.click(screen.getByRole("button", { name: "Nuevo dos agujas" }));
     const dialog = await screen.findByRole("dialog");
     await user.type(
-      within(dialog).getByLabelText("Nombre del proyecto"),
+      within(dialog).getByLabelText(FORM_FIELD_LABELS.name),
       "Bufanda",
     );
     await user.click(
-      within(dialog).getByRole("button", { name: "Crear proyecto" }),
+      within(dialog).getByRole("button", { name: CREATE_SUBMIT_LABEL }),
     );
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -757,9 +815,16 @@ describe("creación rápida (RFC-02 §1 y §6)", () => {
       ([, init]) => (init as RequestInit | undefined)?.method === "POST",
     ) as [string, RequestInit];
     expect(post[0]).toBe(PROJECTS_ENDPOINT);
+    /* El cuerpo es el del formulario completo con sus valores vacíos, no el
+       `{name, type}` del modal viejo. El tipo sigue siendo **el del botón**. */
     expect(JSON.parse(String(post[1].body))).toEqual({
       name: "Bufanda",
       type: "knitting",
+      targetRounds: 0,
+      needles: [],
+      notes: "",
+      image: null,
+      patternId: null,
     });
   });
 
@@ -771,11 +836,11 @@ describe("creación rápida (RFC-02 §1 y §6)", () => {
     await user.click(screen.getByRole("button", { name: "Nuevo crochet" }));
     const dialog = await screen.findByRole("dialog");
     await user.type(
-      within(dialog).getByLabelText("Nombre del proyecto"),
+      within(dialog).getByLabelText(FORM_FIELD_LABELS.name),
       "Amigurumi",
     );
     await user.click(
-      within(dialog).getByRole("button", { name: "Crear proyecto" }),
+      within(dialog).getByRole("button", { name: CREATE_SUBMIT_LABEL }),
     );
 
     await waitFor(() =>
@@ -783,6 +848,7 @@ describe("creación rápida (RFC-02 §1 y §6)", () => {
     );
   });
 
+  /** Deuda 38: sin mover el foco, un lector de pantalla no se entera de nada. */
   it("no manda nada con el nombre vacío y deja el foco en el campo", async () => {
     const user = userEvent.setup();
     await renderReady();
@@ -790,7 +856,7 @@ describe("creación rápida (RFC-02 §1 y §6)", () => {
     await user.click(screen.getByRole("button", { name: "Nuevo crochet" }));
     const dialog = await screen.findByRole("dialog");
     await user.click(
-      within(dialog).getByRole("button", { name: "Crear proyecto" }),
+      within(dialog).getByRole("button", { name: CREATE_SUBMIT_LABEL }),
     );
 
     expect(
@@ -798,7 +864,9 @@ describe("creación rápida (RFC-02 §1 y §6)", () => {
         ([, init]) => (init as RequestInit | undefined)?.method === "POST",
       ),
     ).toBe(false);
-    expect(within(dialog).getByLabelText("Nombre del proyecto")).toHaveFocus();
+    await waitFor(() =>
+      expect(within(dialog).getByLabelText(FORM_FIELD_LABELS.name)).toHaveFocus(),
+    );
 
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -815,7 +883,9 @@ describe("creación rápida (RFC-02 §1 y §6)", () => {
               200,
               url.startsWith(METRICS_ENDPOINT)
                 ? metricsBody()
-                : { projects: [ALFOMBRA] },
+                : url.startsWith(PATTERNS_ENDPOINT)
+                  ? { patterns: [] }
+                  : { projects: [ALFOMBRA] },
             ),
           ),
     );
@@ -823,11 +893,11 @@ describe("creación rápida (RFC-02 §1 y §6)", () => {
     await user.click(screen.getByRole("button", { name: "Nuevo crochet" }));
     const dialog = await screen.findByRole("dialog");
     await user.type(
-      within(dialog).getByLabelText("Nombre del proyecto"),
+      within(dialog).getByLabelText(FORM_FIELD_LABELS.name),
       "Amigurumi",
     );
     await user.click(
-      within(dialog).getByRole("button", { name: "Crear proyecto" }),
+      within(dialog).getByRole("button", { name: CREATE_SUBMIT_LABEL }),
     );
 
     expect(

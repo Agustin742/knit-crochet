@@ -6,6 +6,7 @@ import {
   exists,
   gte,
   inArray,
+  isNull,
   lte,
   not,
   sql,
@@ -13,8 +14,15 @@ import {
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 
 import { projects, projectYarns } from "@/features/projects/schema";
+/* Por su `schema.ts` directo y no por el barrel `@/features/time-tracking`, que
+   arrastra `./api` y con él los servicios de esa feature. Es la misma puerta que
+   `time-tracking/api/store.ts` usa en el sentido contrario para leer `projects`,
+   y no hay ciclo: la capa de schema está por debajo de la de servicios y no la
+   conoce (architecture.md §"Capa de schema", regla S1). */
+import { craftSessions } from "@/features/time-tracking/schema";
 import { brands, yarns, yarnTypes } from "@/features/yarns";
 import type {
+  ActiveSessionRow,
   LinkedYarn,
   NewProjectRecord,
   ProjectFilters,
@@ -32,6 +40,13 @@ import { db } from "@/shared/db";
  */
 export type ProjectStore = {
   list(userId: string, filters: ProjectFilters): Promise<ProjectRecord[]>;
+  /**
+   * Los cronómetros abiertos del usuario (E7 b3): **una consulta para toda la
+   * lista**, no una por proyecto. Devuelve todas las sesiones sin fin y deja que
+   * el servicio las reparta; pedirlas por lista de ids obligaría a manejar el
+   * caso "lista vacía", que en SQL no es una condición sino la ausencia de una.
+   */
+  listActiveSessions(userId: string): Promise<ActiveSessionRow[]>;
   findById(userId: string, id: string): Promise<ProjectRecord | undefined>;
   create(input: NewProjectRecord): Promise<ProjectRecord>;
   update(
@@ -112,6 +127,28 @@ export function createProjectStore(
         .from(projects)
         .where(and(...conditions))
         .orderBy(desc(projects.startDate));
+    },
+
+    // Se lee `craft_sessions` directamente, igual que `listLinkedYarns` lee las
+    // tres tablas de lanas: el proyecto compone su propia vista, y una llamada
+    // al servicio de time-tracking por proyecto sería un N+1 en la pantalla que
+    // más filas pinta. El scoping NO depende de nada anterior: `craft_sessions`
+    // tiene dueño propio y el WHERE lo usa.
+    async listActiveSessions(userId) {
+      return database
+        .select({
+          id: craftSessions.id,
+          projectId: craftSessions.projectId,
+          start: craftSessions.start,
+        })
+        .from(craftSessions)
+        .where(
+          and(
+            eq(craftSessions.userId, userId),
+            isNull(craftSessions.end),
+          ),
+        )
+        .orderBy(desc(craftSessions.start));
     },
 
     async findById(userId, id) {

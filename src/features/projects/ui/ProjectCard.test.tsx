@@ -1,17 +1,20 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
 
 import { SECONDS_PER_HOUR, SECONDS_PER_MINUTE } from "@/shared/config";
-import { formatDuration } from "@/shared/lib/format";
+import { formatClock, formatDuration } from "@/shared/lib/format";
 
 import {
   ProjectCard,
+  type ProjectCardTimer,
   ProjectPhoto,
   openDetailLabel,
   quickStartLabel,
+  quickStopLabel,
+  runningTimerLabel,
 } from "./ProjectCard";
 import { CRAFT_TYPE_LABELS } from "./project-filters";
 import type { ProjectCardData } from "./types";
@@ -25,8 +28,16 @@ const BUFANDA: ProjectCardData = {
   type: "knitting",
 };
 
-/** Texto de prueba de la marca: la tarjeta no lo elige, se lo pasan. */
-const RUNNING_NOTE = "Lo arrancaste recién";
+/**
+ * El cronómetro de la tarjeta, parado y sin acciones que hagan nada. Es **un
+ * solo objeto** porque el control es uno: no hay forma de pasar "está corriendo"
+ * sin pasar también con qué pararlo.
+ */
+function timerProps(
+  patch: Partial<ProjectCardTimer> = {},
+): ProjectCardTimer {
+  return { session: null, onStart: () => {}, onStop: () => {}, ...patch };
+}
 
 /* Fragmentos de clase armados en runtime: Tailwind escanea también los tests y
    una clase citada como ejemplo se vuelve CSS de producción. */
@@ -196,32 +207,33 @@ describe("ProjectCard", () => {
   });
 
   /**
-   * EL GATE ADITIVO DEL QUICK-START (#20, enmienda E1(e)/E1(f) del RFC-03).
+   * EL GATE ADITIVO DEL CRONÓMETRO (#20 E1(e)/E1(f), reescrito por **E7 (b1)**).
    *
-   * Hasta #20 este test decía "no hay NINGÚN botón, nunca". #20 añade el
-   * quick-start y por eso el gate se **reescribe**, no se borra: sigue siendo de
-   * dos direcciones, pero ahora las dos direcciones son la prop.
+   * Hasta #20 este test decía "no hay NINGÚN botón, nunca". #20 añadió el
+   * quick-start y el gate se reescribió con la prop como las dos direcciones.
+   * **E7 lo vuelve a reescribir por el mismo motivo**: el quick-start ya no es
+   * "sólo arrancar" sino un control que **se transforma**, así que lo que decide
+   * si hay control es una sola prop, `timer`, que trae el estado y **las dos**
+   * acciones juntas.
    *
-   * **Sin `onQuickStart` la tarjeta no monta ningún control**, que es la
-   * invariante que su consumidor de #19 —el Dashboard, que no pasa la acción—
-   * conserva intacta; **con la prop monta exactamente uno**. Así el añadido no
-   * puede colarse "de serie" en pantallas que no lo pidieron, y tampoco puede
-   * quedarse en un slot muerto que ningún consumidor usa.
+   * **Sin `timer` la tarjeta no monta ningún control**, que es la invariante que
+   * su consumidor de #19 —el Dashboard, que no la pasa— conserva intacta; **con
+   * la prop monta exactamente uno, corra o no corra el cronómetro**.
    *
    * Los enlaces siguen en cero en las dos direcciones, también ahora que el tap
    * al detalle existe (#21): la tarjeta **no** es un enlace ni envuelve a sus
    * controles en uno, porque un `button` dentro de un `a` sería marcado inválido
    * que el `axe` de más abajo marcaría (E1(f)).
    */
-  it("mounts no control at all without the quick-start prop", () => {
+  it("mounts no control at all without the timer prop", () => {
     render(cardWith());
 
     expect(screen.queryAllByRole("button")).toHaveLength(0);
     expect(screen.queryAllByRole("link")).toHaveLength(0);
   });
 
-  it("mounts exactly one control with the quick-start prop, and no link", () => {
-    render(<ProjectCard project={BUFANDA} onQuickStart={() => {}} />);
+  it("mounts exactly one control with the timer prop, and no link", () => {
+    render(<ProjectCard project={BUFANDA} timer={timerProps()} />);
 
     expect(screen.queryAllByRole("button")).toHaveLength(1);
     expect(screen.queryAllByRole("link")).toHaveLength(0);
@@ -229,15 +241,15 @@ describe("ProjectCard", () => {
 
   /** Con N tarjetas iguales, "Empezar a tejer" a secas no dice de cuál habla. */
   it("names the quick-start after the project and calls back on click", async () => {
-    const onQuickStart = vi.fn();
-    render(<ProjectCard project={BUFANDA} onQuickStart={onQuickStart} />);
+    const onStart = vi.fn();
+    render(<ProjectCard project={BUFANDA} timer={timerProps({ onStart })} />);
 
     const button = screen.getByRole("button", {
       name: quickStartLabel(BUFANDA.name),
     });
     await userEvent.click(button);
 
-    expect(onQuickStart).toHaveBeenCalledTimes(1);
+    expect(onStart).toHaveBeenCalledTimes(1);
   });
 
   /**
@@ -245,12 +257,11 @@ describe("ProjectCard", () => {
    * anti-doble-click y el anuncio accesible no se reimplementan aquí.
    */
   it("disables and marks the quick-start as busy while the request is in flight", async () => {
-    const onQuickStart = vi.fn();
+    const onStart = vi.fn();
     render(
       <ProjectCard
         project={BUFANDA}
-        onQuickStart={onQuickStart}
-        quickStartPending
+        timer={timerProps({ onStart, pending: true })}
       />,
     );
 
@@ -261,50 +272,7 @@ describe("ProjectCard", () => {
     expect(button).toHaveAttribute("aria-busy", "true");
 
     await userEvent.click(button);
-    expect(onQuickStart).not.toHaveBeenCalled();
-  });
-
-  /**
-   * LA MARCA DE "ESTO ACABA DE PASAR" (enmienda E2(d)).
-   *
-   * Se prueba **contra la invariante de la deuda 132**, no aparte: la marca es
-   * un añadido a la misma tarjeta que monta el Dashboard sin la acción, así que
-   * lo que hay que demostrar es que **no monta ningún control** y que **no se
-   * mete en el encabezado** — el Dashboard compara los nombres de sus
-   * encabezados de nivel 3 con una lista exacta.
-   */
-  it("does not mark anything without the note", () => {
-    render(cardWith());
-
-    expect(screen.queryByText(RUNNING_NOTE)).toBeNull();
-  });
-
-  it("shows the note without mounting a single control", () => {
-    render(<ProjectCard project={BUFANDA} quickStartNote={RUNNING_NOTE} />);
-
-    expect(screen.getByText(RUNNING_NOTE)).toBeInTheDocument();
-    expect(screen.queryAllByRole("button")).toHaveLength(0);
-    expect(screen.queryAllByRole("link")).toHaveLength(0);
-  });
-
-  it("keeps the note out of the heading's accessible name", () => {
-    render(<ProjectCard project={BUFANDA} quickStartNote={RUNNING_NOTE} />);
-
-    const heading = screen.getByRole("heading", { name: BUFANDA.name });
-    expect(heading.textContent).toBe(BUFANDA.name);
-    expect(within(heading).queryByText(RUNNING_NOTE)).toBeNull();
-  });
-
-  it("has no axe violations with the note", async () => {
-    const { container } = render(
-      <ProjectCard
-        project={BUFANDA}
-        quickStartNote={RUNNING_NOTE}
-        onQuickStart={() => {}}
-      />,
-    );
-
-    expect(await axe(container)).toHaveNoViolations();
+    expect(onStart).not.toHaveBeenCalled();
   });
 
   it("has no axe violations (with and without photo)", async () => {
@@ -318,7 +286,268 @@ describe("ProjectCard", () => {
 
   it("has no axe violations with the quick-start mounted", async () => {
     const { container } = render(
-      <ProjectCard project={BUFANDA} onQuickStart={() => {}} />,
+      <ProjectCard project={BUFANDA} timer={timerProps()} />,
+    );
+
+    expect(await axe(container)).toHaveNoViolations();
+  });
+});
+
+/**
+ * EL BOTÓN QUE SE TRANSFORMA Y EL RELOJ DE LA TARJETA (RFC-03, enmienda **E7
+ * (b1)** y **(b2)**), con el **reloj intervenido**: un test que espera segundos
+ * de verdad es lento y, con la máquina cargada, miente.
+ *
+ * **Lo que este bloque SÍ mide:** que hay **un** control y que cambia de papel,
+ * de nombre accesible y de acción con el estado; que el reloj arranca en el
+ * segundo real que llega del servidor y avanza solo; que hay **un** intervalo y
+ * sólo cuando corre; y que **nada de esto se anuncia segundo a segundo**.
+ *
+ * **Lo que NO puede medir, y no se simula:** que el botón ocupe *el mismo sitio
+ * y la misma caja táctil* en los dos estados. `happy-dom` no maqueta ni mide
+ * cajas. Lo más cerca que se puede llegar —y se llega— es que el **nodo del DOM
+ * sea el mismo** al cambiar de estado, o sea que React lo reusa en su sitio en
+ * vez de montar otro. El resto es verificación en navegador.
+ */
+describe("ProjectCard — el cronómetro se ve y se para desde la tarjeta (E7 b)", () => {
+  const NOW = new Date("2026-08-26T12:00:00.000Z");
+  const FAKED_TIMERS = ["Date", "setInterval", "clearInterval"] as const;
+
+  /** Una sesión abierta que arrancó hace `seconds` segundos. */
+  function running(seconds: number) {
+    return { start: new Date(NOW.getTime() - seconds * 1000).toISOString() };
+  }
+
+  /** Avanza el reloj y deja que React pinte lo que ese avance provocó. */
+  async function tick(ms: number) {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(ms);
+    });
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: [...FAKED_TIMERS] });
+    vi.setSystemTime(NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("parado ofrece empezar y no pinta ningún reloj", () => {
+    render(<ProjectCard project={BUFANDA} timer={timerProps()} />);
+
+    expect(
+      screen.getByRole("button", { name: quickStartLabel(BUFANDA.name) }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(formatClock(0))).toBeNull();
+  });
+
+  /**
+   * **El defecto que E7 vino a arreglar**, medido: con una sesión abierta el
+   * botón ofrecía «Empezar a tejer», o sea una acción que ya no corresponde.
+   */
+  it("corriendo ofrece parar, y ya no ofrece empezar", () => {
+    render(
+      <ProjectCard project={BUFANDA} timer={timerProps({ session: running(0) })} />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: quickStopLabel(BUFANDA.name) }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: quickStartLabel(BUFANDA.name) }),
+    ).toBeNull();
+  });
+
+  it("corriendo llama a parar, nunca a empezar", async () => {
+    const onStart = vi.fn();
+    const onStop = vi.fn();
+    render(
+      <ProjectCard
+        project={BUFANDA}
+        timer={timerProps({ session: running(30), onStart, onStop })}
+      />,
+    );
+
+    /* `user-event` con el reloj intervenido: se le pasa el `advanceTimers` de
+       vitest para que sus esperas internas no se queden colgadas. */
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await user.click(
+      screen.getByRole("button", { name: quickStopLabel(BUFANDA.name) }),
+    );
+
+    expect(onStop).toHaveBeenCalledTimes(1);
+    expect(onStart).not.toHaveBeenCalled();
+  });
+
+  /**
+   * **Se TRANSFORMA, no se añade otro** (E7 b1, y la deuda 142 de fondo). Dos
+   * asertos, y cada uno dice una cosa distinta:
+   *
+   * 1. sigue habiendo **exactamente un** botón en los dos estados;
+   * 2. es **el mismo nodo del DOM**: React lo reusa en su sitio en vez de
+   *    desmontar uno y montar otro al lado.
+   */
+  it("es el MISMO botón el que cambia de papel, no un segundo botón", () => {
+    const { rerender } = render(
+      <ProjectCard project={BUFANDA} timer={timerProps()} />,
+    );
+    const parado = screen.getByRole("button");
+
+    rerender(
+      <ProjectCard
+        project={BUFANDA}
+        timer={timerProps({ session: running(10) })}
+      />,
+    );
+    const corriendo = screen.getByRole("button");
+
+    expect(screen.queryAllByRole("button")).toHaveLength(1);
+    expect(corriendo).toBe(parado);
+  });
+
+  /**
+   * **El reloj arranca en el segundo REAL** (E7 b2): el arranque lo pone el
+   * servidor, así que una sesión que venía de antes no puede empezar a contar en
+   * cero al pintar la lista. Es la mitad del pedido del usuario que la marca
+   * efímera no podía cumplir.
+   */
+  it("cuenta desde el arranque que llegó del servidor, no desde cero", () => {
+    render(
+      <ProjectCard project={BUFANDA} timer={timerProps({ session: running(65) })} />,
+    );
+
+    expect(screen.getByText(formatClock(65))).toBeInTheDocument();
+    expect(screen.queryByText(formatClock(0))).toBeNull();
+  });
+
+  it("avanza solo, sin volver a pedir nada", async () => {
+    render(
+      <ProjectCard project={BUFANDA} timer={timerProps({ session: running(65) })} />,
+    );
+
+    await tick(5_000);
+
+    expect(screen.getByText(formatClock(70))).toBeInTheDocument();
+  });
+
+  /**
+   * **UN intervalo, y sólo mientras corre.** Con los tres temporizadores
+   * intervenidos, `vi.getTimerCount()` cuenta exclusivamente los del componente,
+   * así que esto se puede afirmar de verdad y no por inspección del código.
+   */
+  it("no programa ningún intervalo con el cronómetro parado", () => {
+    render(<ProjectCard project={BUFANDA} timer={timerProps()} />);
+
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("programa exactamente un intervalo mientras corre y lo limpia al desmontar", () => {
+    const { unmount } = render(
+      <ProjectCard project={BUFANDA} timer={timerProps({ session: running(5) })} />,
+    );
+
+    expect(vi.getTimerCount()).toBe(1);
+
+    unmount();
+
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("deja de contar cuando la sesión se cierra", async () => {
+    const { rerender } = render(
+      <ProjectCard project={BUFANDA} timer={timerProps({ session: running(65) })} />,
+    );
+
+    rerender(<ProjectCard project={BUFANDA} timer={timerProps()} />);
+
+    expect(screen.queryByText(formatClock(65))).toBeNull();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  /**
+   * **EL `aria-live` NO VA EN EL RELOJ DE SEGUNDOS** (enmienda **E4 (a)**): un
+   * aviso por segundo convierte un lector de pantalla en un metrónomo. Y acá pesa
+   * el doble que en el cajón, porque en una rejilla puede haber **varios**
+   * cronómetros corriendo a la vez: serían N metrónomos.
+   *
+   * Lo que se ancla es que la tarjeta **no monta ninguna región viva**. Los
+   * cambios de estado los anuncia la única región de la página, que vive en la
+   * vista (`ProjectsView`), no en cada tarjeta.
+   */
+  it("no monta ninguna región viva por tarjeta", () => {
+    const { container } = render(
+      <ProjectCard project={BUFANDA} timer={timerProps({ session: running(65) })} />,
+    );
+
+    expect(container.querySelector("[role=status]")).toBeNull();
+    expect(container.querySelector("[role=alert]")).toBeNull();
+    expect(container.querySelector("[aria-live]")).toBeNull();
+  });
+
+  /**
+   * Lo que **sí** oye quien no ve la pantalla: el estado y el tiempo en grano de
+   * **minuto**, leídos a demanda. Los dígitos de segundos son decoración
+   * (`aria-hidden`) porque su texto cambia sesenta veces más a menudo y no aporta
+   * nada dicho en voz alta.
+   */
+  it("da el tiempo en minutos al lector de pantalla y esconde los segundos", () => {
+    render(
+      <ProjectCard project={BUFANDA} timer={timerProps({ session: running(65) })} />,
+    );
+
+    const digits = screen.getByText(formatClock(65));
+    expect(digits).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByText(runningTimerLabel(65))).toBeInTheDocument();
+    expect(runningTimerLabel(65)).toContain(formatDuration(65));
+    expect(runningTimerLabel(65)).not.toContain(formatClock(65));
+  });
+
+  /**
+   * El nombre accesible de la tarjeta es el del proyecto **y nada más**: el
+   * Dashboard compara los nombres de sus encabezados de nivel 3 con una lista
+   * exacta. Es la misma invariante que protegía la marca efímera que E7 (b4)
+   * retira, aplicada a lo que ocupa ahora su sitio.
+   */
+  it("mantiene el reloj fuera del nombre accesible del encabezado", () => {
+    render(
+      <ProjectCard project={BUFANDA} timer={timerProps({ session: running(65) })} />,
+    );
+
+    const heading = screen.getByRole("heading", { name: BUFANDA.name });
+    expect(heading.textContent).toBe(BUFANDA.name);
+    expect(within(heading).queryByText(formatClock(65))).toBeNull();
+  });
+
+  it("parar con la petición en vuelo está desactivado y no vuelve a llamar", async () => {
+    const onStop = vi.fn();
+    render(
+      <ProjectCard
+        project={BUFANDA}
+        timer={timerProps({ session: running(5), onStop, pending: true })}
+      />,
+    );
+
+    const button = screen.getByRole("button", {
+      name: quickStopLabel(BUFANDA.name),
+    });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("aria-busy", "true");
+
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await user.click(button);
+
+    expect(onStop).not.toHaveBeenCalled();
+  });
+
+  it("no tiene violaciones de axe con el cronómetro corriendo y el tap montado", async () => {
+    const { container } = render(
+      <ProjectCard
+        project={BUFANDA}
+        timer={timerProps({ session: running(65) })}
+        onOpenDetail={() => {}}
+      />,
     );
 
     expect(await axe(container)).toHaveNoViolations();
@@ -373,12 +602,12 @@ describe("ProjectCard — tap al detalle (E1(f), resuelto en #21)", () => {
    */
   it("convive con el quick-start sin que uno quede dentro del otro", async () => {
     const onOpenDetail = vi.fn();
-    const onQuickStart = vi.fn();
+    const onStart = vi.fn();
     render(
       <ProjectCard
         project={BUFANDA}
         onOpenDetail={onOpenDetail}
-        onQuickStart={onQuickStart}
+        timer={timerProps({ onStart })}
       />,
     );
 
@@ -404,7 +633,7 @@ describe("ProjectCard — tap al detalle (E1(f), resuelto en #21)", () => {
     // progress/reports/verificacion_navegador_21_t2.md, sección "RESOLUCIÓN".
     // No cites este aserto como evidencia de esa convivencia.
     await userEvent.click(quickStart);
-    expect(onQuickStart).toHaveBeenCalledTimes(1);
+    expect(onStart).toHaveBeenCalledTimes(1);
     expect(onOpenDetail).not.toHaveBeenCalled();
   });
 
@@ -413,7 +642,7 @@ describe("ProjectCard — tap al detalle (E1(f), resuelto en #21)", () => {
       <ProjectCard
         project={BUFANDA}
         onOpenDetail={() => {}}
-        onQuickStart={() => {}}
+        timer={timerProps()}
       />,
     );
 

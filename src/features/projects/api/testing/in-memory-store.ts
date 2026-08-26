@@ -152,6 +152,21 @@ export function createInMemoryProjectStore(): InMemoryProjectStore {
         .sort((a, b) => b.startDate.getTime() - a.startDate.getTime());
     },
 
+    // Réplica de la consulta real: sesiones del usuario **sin fin**, de la más
+    // reciente a la más antigua. El doble comparte el array `sessions` con el de
+    // time-tracking, así que arrancar un cronómetro por su servicio se ve desde
+    // aquí sin coserlo a mano.
+    async listActiveSessions(userId) {
+      return sessions
+        .filter((session) => session.userId === userId && session.end === null)
+        .sort((a, b) => b.start.getTime() - a.start.getTime())
+        .map((session) => ({
+          id: session.id,
+          projectId: session.projectId,
+          start: session.start,
+        }));
+    },
+
     async findById(userId, id) {
       return rows.find((row) => row.userId === userId && row.id === id);
     },

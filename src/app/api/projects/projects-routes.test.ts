@@ -685,3 +685,120 @@ describe("api/projects route handlers", () => {
     });
   });
 });
+
+/**
+ * El cronómetro abierto viaja en la lista (RFC-03, enmienda **E7 (b3)**).
+ *
+ * Es el **único cambio de backend** del lote, y **deroga en parte E2.2 de
+ * RFC-02**, que había descartado abrir el backend para esto. El motivo está
+ * medido: sin este dato, tras un F5 la tarjeta ofrece «Empezar» con el
+ * cronómetro corriendo.
+ *
+ * **La mitad que sólo se puede medir aquí es la SERIALIZACIÓN.** El servicio
+ * devuelve un `Date`; lo que cruza la red es una **cadena ISO**, y ese es
+ * exactamente el tipo de mentira que `SerializedProject` documenta.
+ */
+describe("GET /api/projects sesión abierta (E7 b3)", () => {
+  type ActiveSessionJson = { id: string; start: string } | null;
+  type ListedProject = ProjectRecord & { activeSession: ActiveSessionJson };
+
+  const START = new Date("2026-08-26T10:00:00.000Z");
+
+  function openSession(projectId: string, userId = "user-1"): string {
+    const id = crypto.randomUUID();
+    store.sessions.push({
+      id,
+      userId,
+      projectId,
+      start: START,
+      end: null,
+      duration: 0,
+    });
+    return id;
+  }
+
+  async function listed(): Promise<ListedProject[]> {
+    const response = await listProjectsRoute(getRequest());
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { projects: ListedProject[] };
+    return body.projects;
+  }
+
+  beforeEach(async () => {
+    store.reset();
+    cookieJar.clear();
+    vi.stubEnv("JWT_SECRET", SECRET);
+    await signIn("user-1");
+  });
+
+  it("serializa el arranque como cadena ISO, no como Date", async () => {
+    const project = seed("user-1");
+    const sessionId = openSession(project.id);
+
+    const [listedProject] = await listed();
+
+    expect(listedProject?.activeSession).toEqual({
+      id: sessionId,
+      start: START.toISOString(),
+    });
+  });
+
+  // ANCLA del contrato: dos claves, ni una más. La sesión entera traería
+  // `duration` y `end`, que en una sesión abierta son 0 y null — dos datos que
+  // no dicen nada y que la tarjeta no puede pintar.
+  it("manda exactamente dos claves: el id y el arranque", async () => {
+    const project = seed("user-1");
+    openSession(project.id);
+
+    const [listedProject] = await listed();
+
+    expect(Object.keys(listedProject?.activeSession ?? {}).sort()).toEqual([
+      "id",
+      "start",
+    ]);
+  });
+
+  it("manda null cuando el cronómetro está parado", async () => {
+    seed("user-1");
+
+    const [listedProject] = await listed();
+
+    expect(listedProject).toHaveProperty("activeSession", null);
+  });
+
+  it("no filtra el cronómetro de otro usuario", async () => {
+    const project = seed("user-1");
+    openSession(project.id, "user-2");
+
+    const [listedProject] = await listed();
+
+    expect(listedProject?.activeSession).toBeNull();
+  });
+
+  it("da a cada proyecto el suyo cuando hay dos corriendo a la vez", async () => {
+    const bufanda = seed("user-1", { name: "Bufanda" });
+    const gorro = seed("user-1", { name: "Gorro" });
+    const bufandaSession = openSession(bufanda.id);
+    const gorroSession = openSession(gorro.id);
+
+    const projects = await listed();
+    const byName = new Map(projects.map((entry) => [entry.name, entry]));
+
+    expect(byName.get("Bufanda")?.activeSession?.id).toBe(bufandaSession);
+    expect(byName.get("Gorro")?.activeSession?.id).toBe(gorroSession);
+  });
+
+  // Lo que E7 NO cambia: el detalle sigue respondiendo `{ project, yarns }`.
+  // El cajón ya sabe si corre —pide el historial entero— y añadirlo ahí sería
+  // una segunda verdad esperando a discrepar con la primera.
+  it("no toca el payload del detalle", async () => {
+    const project = seed("user-1");
+    openSession(project.id);
+
+    const response = await getProjectRoute(getRequest(), context(project.id));
+    const body = (await response.json()) as Record<string, unknown>;
+
+    expect(Object.keys(body).sort()).toEqual(["project", "yarns"]);
+    expect(body.project).not.toHaveProperty("activeSession");
+  });
+});

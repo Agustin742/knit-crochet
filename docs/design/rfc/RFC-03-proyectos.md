@@ -465,6 +465,125 @@ nuevo**: el peor que la pantalla sabía pintar era el primero que veía cualquie
 
 **Deuda que cierra:** **166**.
 
+## 7-septies. Enmienda E6 — el arranque de #22: qué falta de verdad y hasta dónde llega (2026-08-25)
+
+**Nace del inventario medido** (`progress/reports/explore_22_inventario.md`), que es el paso 2 del
+protocolo de arranque. **Es la tercera vez que ese control evita arrancar sobre una ficha optimista**
+(precedentes: #19 y #21).
+
+### El inventario, en una línea
+
+**El backend está entero** —subida de imagen, patrones, y `create`/`update`/`delete` de proyecto con sus
+rutas—, y **falta casi toda la mitad de navegador**: no hay ningún consumidor del uploader (**cero
+`type="file"` en todo `src/`**), no hay cliente para listar patrones, no existe `deleteProject` de
+cliente, el `createProject` que hay **acepta sólo `{name, type}`**, y **no existen** los primitivos
+`Select`, `Textarea`, input de archivo ni diálogo de confirmación.
+
+### El hallazgo que decide el tamaño de la feature
+
+> **El "patrón embebido" NO es un campo del proyecto.** Vive en la tabla de patrones como
+> `inLibrary: false` (`patterns/schema.ts:18`, documentado en `patterns/types.ts:22`). El proyecto sólo
+> tiene `patternId` como clave foránea. **Embeber son DOS peticiones** — `POST /api/patterns` con
+> `inLibrary: false` y después fijar `projects.patternId` — y hoy no hay cliente ni UI para ninguna.
+
+### Las decisiones
+
+| # | Qué se decide | Por qué |
+|---|---|---|
+| **E6 (a)** | **Alcance de #22** (decisión del usuario): entra el modal completo (nombre, tipo, meta, agujas, notas), la **subida de foto real**, **elegir** patrón de biblioteca, los **dos botones de creación rápida** y el **borrado con confirmación**. **Queda FUERA crear un patrón embebido desde el formulario**, que se ficha. | Embeber exige el `POST` de patrones, un formulario anidado de autoría de patrones y **dos peticiones encadenadas con su fallo a mitad**. Eso es material de **RFC-05**, no de proyectos: meter autoría de patrones dentro del alta de un proyecto mezcla dos dominios y hace la feature irrevisable. |
+| **E6 (b)** | **`Select` y `Textarea` se crean como PRIMITIVOS** en `shared/ui/primitives/`. | *El template es un suelo, no un techo.* Son design system puro —no dependen de ninguna configuración de la app— y su sitio es el mismo que el de `Field` e `Input`, con los que se componen. Hoy los `<select>` se escriben a mano con `inputClasses` (`ProjectsToolbar.tsx:174`, `:196`): **el tercer sitio que los necesita es el que los convierte en primitivo**. Al crearlos, `ProjectsToolbar` **no se migra en #22** — se ficha, para no mezclar una refactorización con una feature. |
+| **E6 (c)** | **El input de archivo se parte en dos**: un primitivo **tonto** en `shared/ui/` que sólo elige archivo y muestra el elegido, y **la subida vive en la feature**. | Es la lección de la **deuda 168**: lo que depende de configuración de la app **no sube al design system**, o se rompe la portabilidad del template. Elegir un archivo es genérico; hablar con `/api/uploads/image` **no lo es**. |
+| **E6 (d)** | **El diálogo de confirmación se crea como primitivo** (`ConfirmDialog`), sobre el `Dialog` que ya existe, y **desactiva el cierre por clic en el velo**. | `Dialog` ya trae `dismissOnScrimClick` documentado literalmente como *"se puede apagar para un flujo destructivo"* (`Dialog.tsx:74-75`): la pieza estaba prevista y nunca se usó. Un borrado que se confirma por accidente al hacer clic fuera **no es una confirmación**. |
+| **E6 (e)** | **El control de agujas vive en la FEATURE**, no en el design system. | `needles` es `number[]` de hasta 20 (`schema.ts:29`, `validation.ts:7-9`) y "agujas" es vocabulario de tejido, no de un sistema de diseño. Misma frontera que E6 (c). |
+| **E6 (f)** | **El CRUD de cliente nuevo se escribe DENTRO de `projects-client.ts`.** No se crea un archivo nuevo ni se extrae el cliente HTTP compartido. | La **deuda 129** dice que el cliente HTTP va por su **tercer clon** y que *"el momento natural de extraerlo es antes de #22"*. **Bajo la moratoria de gates no interrumpe**, porque no hay nada que un usuario pueda ver. Pero **tampoco se empeora**: escribir el CRUD donde ya vive el resto evita un cuarto clon a coste cero. Reutilizar `requestWithoutBody` (`projects-client.ts:278`) para el `DELETE`, que existe justamente porque `response.json()` revienta sobre un 204. |
+| **E6 (g)** | **Se implementa en DOS TANDAS**, con informe incremental por tanda. **T1:** primitivos + CRUD de cliente. **T2:** el modal, los botones de creación rápida, la foto cableada y el borrado. | Es lo que funcionó en #21. Una tanda que entrega piezas verificables por separado sobrevive a un corte de sesión; una tanda única de este tamaño, no. |
+| **E6 (h)** | **El contrato de subida se respeta al pie de la letra: `multipart/form-data`, campo `file`, respuesta `201` con `{ url }`.** | **Aviso con ficha (deuda 60):** *asumir 200 rompe en el navegador y no en los tests*. #22 es el **primer consumidor real de este endpoint desde un navegador**, así que es la primera vez que ese error puede manifestarse. También hay que contemplar el **502** (Cloudinary caído) y el límite de **4 MB**, que son estados que el usuario va a ver. |
+
+### De qué se copia (y por qué no se inventa)
+
+- **Para el formulario en modal**, el precedente es `NewProjectDialog.tsx` del Dashboard: `initialFocusRef`
+  al primer campo, `<form noValidate>`, validación en cliente **con el mismo schema del endpoint**
+  importado **por ruta interna y no por el barrel** (el barrel arrastra Drizzle al bundle del navegador),
+  foco al campo inválido al fallar (deuda 38) y `<Button loading={pending}>`.
+- **Para el ciclo de vida del diálogo**, el precedente es `ProjectDetailDrawer.tsx` de #21: **el hijo no
+  tiene estado `open`** y devuelve `null` sin dato; el padre guarda **el id, no el objeto**; el estado
+  pendiente **se deriva** en vez de guardarse como booleano; los errores de acción van por `ActionError`
+  (`role="alert"`, montado sólo si hay mensaje); y **la copia vive en constantes que los tests importan**
+  en lugar de reescribir los strings.
+
+### Lo que E6 NO cambia
+
+El **backend**: no se toca ni un endpoint, ni el esquema, ni la validación de servidor. Y **`/proyectos`
+no cambia de estructura**: los dos `<Link href="/">` del estado vacío se sustituyen por los botones del
+modal, que es exactamente lo que `ProjectsView.tsx:490-493` dejó anticipado.
+
+**Deudas que abre:** el **patrón embebido** fuera de alcance, y la **migración de los `<select>` a mano**
+de `ProjectsToolbar`.
+
+## 7-octies. Enmienda E7 — lo que el usuario vio al usar la app: un alta partida en dos y un cronómetro encerrado (2026-08-26)
+
+**Quién la pide:** el **usuario**, probando la app después de cerrar #22. Reportó tres cosas; **una no era
+de la app** y las otras dos están abajo. Todo lo de aquí está **medido en navegador**, no deducido.
+
+> **La que NO era de la app, y se escribe para que nadie la persiga:** el tab **Sesiones** daba
+> *"Se soltó un punto"* en todos los proyectos. Medido: `GET /api/projects/:id/sessions` → **404 con
+> `text/html`**, y lo mismo `…/yarns` — o sea **todas las subrutas anidadas bajo `[id]/`**, no sólo
+> sesiones. **Parecía una regresión de #22.** El `pnpm build` compila **las nueve rutas**, `sessions`
+> incluida, así que **el código estaba sano**: era la **caché de Turbopack del servidor de desarrollo**.
+> Con `.next` borrado y el servidor reiniciado: **`200 {"sessions":[]}`**. **Es la REGLA 2 otra vez**
+> (*antes de culpar a la app, descartá el entorno*), y esta vez habría costado una cacería entera.
+
+### E7 (a) — El alta de proyecto es UNA, y vive en un solo sitio
+
+**Medido, con los dos modales abiertos:**
+
+| | Dashboard | `/proyectos` |
+|---|---|---|
+| título | «Nuevo proyecto de dos agujas» | **idéntico** |
+| campos | **1** (`name`) | **6** (`name`, `type`, foto, `targetRounds`, agujas, `notes`) |
+
+**Mismo título, misma promesa, dos formularios distintos.** El Dashboard se quedó con el
+`NewProjectDialog` viejo y `/proyectos` estrenó el `ProjectFormDialog` de #22.
+
+**Y esto es un agujero de E6, no del implementer:** E6 definió el modal de `/proyectos` y **no dijo nada
+del Dashboard**, así que nadie tenía el encargo de mirarlo. *Una enmienda que define "el" formulario de una
+entidad tiene que decir **todos** los sitios desde los que se crea.*
+
+**Decisión:** el Dashboard usa **el mismo `ProjectFormDialog`**, y **`NewProjectDialog` se borra**. Sus dos
+botones y su preselección de tipo **no cambian**: lo único que cambia es qué modal abren. `createProject`
+de `dashboard-client.ts` —el que acepta sólo `{name, type}`— **se retira** en favor del de
+`projects-client.ts`, que ya está probado y aprobado.
+
+### E7 (b) — El cronómetro se ve y se para desde la tarjeta, y el botón se TRANSFORMA
+
+**Lo que el usuario ve hoy, con una sesión abierta en el servidor (medido):** el botón de la tarjeta vuelve
+a **`▶` «Empezar a tejer»** —ofrece una acción que ya no corresponde—, la única marca es el texto
+**«Lo arrancaste recién»**, **no hay cronómetro** y **no hay forma de parar** sin abrir el cajón. Dentro del
+cajón, en cambio, hay **`00:55` corriendo** y **«Parar el cronómetro»**.
+
+> **La información y el control ya existen, bien hechos. Están encerrados.**
+
+**Lo bueno, y hay que decirlo:** el backend **está protegido**. Al pulsar otra vez no duplicó nada —
+respondió *«ya tenía el cronómetro en marcha»* y siguió habiendo **una sola sesión**. La invariante escrita
+en `start-session.ts` es *"como mucho una sesión abierta **por proyecto**"*, así que **puede haber varios
+cronómetros a la vez en proyectos distintos**, y el diseño tiene que contemplarlo.
+
+**Decisiones:**
+
+| # | Qué | Por qué |
+|---|---|---|
+| **E7 (b1)** | **El botón se TRANSFORMA, no se añade otro.** Con el cronómetro parado es «empezar»; corriendo, es «parar» — mismo sitio, misma caja táctil, etiqueta accesible y acción acordes al estado. | Pedido explícito del usuario. Y es lo correcto: **un control que ofrece una acción imposible miente**. Hoy sólo te enterás **después** de pulsar, por un mensaje. Dos botones separados serían la **deuda 142** otra vez —dos controles con comportamiento distinto compitiendo por el mismo sitio. |
+| **E7 (b2)** | **El tiempo transcurrido se ve en la tarjeta** mientras corre. | *"debería poder verse el timer si está iniciado sin necesidad de entrar a detalles"*. Es la mitad del pedido, y sin ella el estado se comunica sólo por la forma del botón. |
+| **E7 (b3)** | **El dato viene del servidor: `GET /api/projects` incluye, por proyecto, su sesión abierta (o `null`).** *(Decisión del usuario entre tres opciones.)* | **Deroga la parte de E2.2 de RFC-02 que descartó abrir el backend para esto**, y el motivo es que aquella decisión **tenía una consecuencia que ahora se ve**: `ProjectsView.tsx:130-138` ya dejaba escrito que *"no hay forma de saber desde la lista si el cronómetro corre… la marca **se pierde al recargar**"*, y por eso la copia actual es deliberadamente efímera («Lo arrancaste recién»). **Sin dato del servidor, un F5 deja el botón diciendo «Empezar» con el cronómetro corriendo** — o sea, mintiendo. Se eligió la lista y no un endpoint aparte porque es **una sola petición**, el dato **llega con la tarjeta que lo necesita**, y el contador puede arrancar **calculado desde el inicio real** en vez de desde cero. |
+| **E7 (b4)** | **La copia efímera desaparece.** «Lo arrancaste recién» / «Ya venía en marcha» dejan de ser el modo de comunicar el estado. | Existían **porque el estado no era persistente**. Con (b3) sí lo es, y mantener las dos cosas diría lo mismo dos veces y de forma incoherente tras recargar. El aviso de acción (`role="status"`) **se queda**: eso informa de que la pulsación surtió efecto, que es otra cosa. |
+
+### Lo que E7 NO cambia
+
+El **cajón de detalle** (su cronómetro y su botón siguen igual: son la vista larga), la lógica de
+`start-session` / `stop-session`, y la **preselección de tipo** de los botones de alta en ambas páginas.
+
+**Deudas que cierra:** las dos que abre este reporte (**185** y **186**).
+
 ## 8. Slices de implementación (→ `feature_list.json`)
 
 IDs reales en `feature_list.json` (mapeo en [RFC-00 §4](RFC-00-proceso.md)):

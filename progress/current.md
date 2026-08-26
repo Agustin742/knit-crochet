@@ -3,7 +3,153 @@
 > Este archivo se vacía al cerrar cada sesión y se mueve a `history.md`.
 > Mientras trabajas, **mantenlo actualizado en tiempo real**, no al final.
 
-## ✅ CERRADO: lote de deudas 🟠 **165 + 166**. ▶️ SIGUIENTE: **#22 `projects_form_ui`**
+## 🛑 CIERRE DE SESIÓN (2026-08-26) — LEER ESTO PRIMERO
+
+**Estado:** `init.sh` **EXIT 0** · **1838 passed | 13 skipped (1851)**. Todo lo de abajo está commiteado.
+
+### Lo ÚNICO pendiente de decisión
+
+- **#22 sigue en `in_progress`.** El ciclo está **completo** (implementer → reviewer aprobado → REGLA 4
+  con los 8 puntos verificados) y el informe de cierre es `progress/informs/30.…`. **El leader no marca
+  `done` por regla del repo**: lo cierra el usuario. Se le preguntó y la sesión siguió por otro camino.
+- **Ficha 191 (dato del usuario):** una tarjeta marca **`281 h 25 min`** — el cronómetro que quedó
+  corriendo en la verificación de #20. **Tocarlo escribe en sus datos: se pregunta antes.**
+
+### ⚠️ ANTES DE INVESTIGAR CUALQUIER 404: leé la ficha 189
+
+**Dos veces en esta sesión** el `next dev` devolvió **404 `text/html`** en rutas anidadas que **el build
+compila perfectamente**, y las dos imitaron a una regresión recién introducida.
+**`pnpm build` es el discriminador**: si lista la ruta y dev responde 404, **el código está sano**.
+Borrá `.next` y reiniciá; si insiste, **verificá contra `pnpm start`** (así se completó la REGLA 4 de E7).
+
+---
+
+## ✅ CERRADO HOY (3): deudas 165+166 · **#22 `projects_form_ui`** · lote **E7**
+
+| | Commit | Tests | Informe |
+|---|---|---|---|
+| Deudas **165 + 166** | `7c49a8f` | 1587 → **1613** | `29.informe-deudas_165_166.md` |
+| **#22 `projects_form_ui`** | (este) | 1613 → **1792** | `30.informe-22_projects_form_ui.md` |
+| Lote **E7** | (este) | 1792 → **1838** | `31.informe-e7-alta-y-cronometro.md` |
+
+### El lote E7 salió de que el usuario USÓ la app
+
+Reportó tres cosas. **Una no era de la app** (la 189, Turbopack). Las otras dos:
+
+- **185** — el alta estaba **partida en dos**: Dashboard con **un** campo, `/proyectos` con **seis**, mismo
+  título. **Agujero de la enmienda E6**, que definió "el" formulario y **no enumeró todos los sitios desde
+  los que se crea**. Ya no: el Dashboard monta el mismo modal y `NewProjectDialog` está **borrado**.
+- **186** — el cronómetro **existía y estaba encerrado** en el cajón. Ahora el botón **se transforma**
+  (mismo nodo, **misma caja 44×44 medida en los dos estados**), el reloj se ve en la tarjeta, y
+  **`GET /api/projects` trae la sesión abierta** — lo que **deroga en parte E2.2 de RFC-02**.
+  **Verificado donde dolía: tras un F5 el botón dice «Parar», no «Empezar».**
+
+### La lección del día: un test ausente sobre código CORRECTO merece rechazo
+
+El reviewer probó **diez garantías por mutación**; **nueve murieron y una sobrevivió**
+(`handleSaved` conserva `activeSession`, `ProjectsView.tsx:459`: forzarlo a `null` dejaba **66/66 verdes**).
+El código estaba bien; faltaba **la red**. Y por ahí **volvía a entrar la deuda 186** desde el modal de
+edición. Se cerró con **un test y cero líneas de producción**, con la mutación repetida **por el propio
+reviewer** y comprobando que **el test no es vacuo**.
+
+### Fichas abiertas hoy
+
+**176** ⚪ · **177-181** · **182 🟠 el acento de TODA la app da 3,02:1 y AA exige 4,5** (preexistente, nadie
+lo había medido; → RFC-01) · **183 🟠 el foco se cae al `body` al COMPLETAR una acción, no al cancelarla** ·
+**184 🟠 la vista previa de foto vacía** (ahora en **las dos** páginas) · **185/186** (cerradas por E7) ·
+**187/188** 🟡 · **189 🟠 entorno** · **190 ⚪ falta lector de pantalla real** · **191 🟡 las 281 h**.
+
+---
+
+## Histórico de la sesión (detalle)
+
+**Commit del lote anterior:** `7c49a8f`. Árbol limpio al arrancar #22.
+
+### El inventario dijo que la ficha era optimista (tercera vez que este control paga)
+
+`progress/reports/explore_22_inventario.md`. **El backend está entero; falta casi toda la mitad de
+navegador.** Y el hallazgo que decidió el tamaño:
+
+> **El "patrón embebido" NO es un campo del proyecto.** Vive en la tabla de patrones como
+> `inLibrary: false`. Embeber son **dos peticiones** y no hay cliente ni UI para ninguna.
+
+### Contrato: RFC-03 → enmienda **E6**
+
+- **(a) Alcance, decidido por el usuario:** entra el modal completo, la **foto real**, **elegir** patrón de
+  biblioteca, los dos botones de creación rápida y el borrado con confirmación. **Fuera: CREAR patrón
+  embebido** (es material de RFC-05; meter autoría de patrones dentro del alta de un proyecto mezcla dos
+  dominios). Se ficha.
+- **(b)** `Select` y `Textarea` **se crean como primitivos**. **(c)** el input de archivo se parte: el
+  primitivo es tonto, la subida vive en la feature (frontera de la deuda 168). **(d)** `ConfirmDialog`
+  sobre el `Dialog` existente, con **`dismissOnScrimClick` apagado**. **(e)** el control de agujas es de la
+  feature, no del design system.
+- **(f) Deuda 129** (cliente HTTP en su tercer clon): **bajo la moratoria NO interrumpe**, pero **no se
+  empeora** — el CRUD nuevo va dentro de `projects-client.ts`, ni un cuarto clon.
+- **(g) DOS TANDAS.** T1: primitivos + cliente. T2: modal, botones, foto cableada y borrado.
+- **(h)** contrato de subida al pie de la letra: **`multipart/form-data`, campo `file`, `201` con
+  `{ url }`** — la deuda 60 avisa de que *asumir 200 rompe en el navegador y no en los tests*, y #22 es el
+  **primer consumidor real desde navegador**.
+
+### ✅ TANDA 1 ENTREGADA (pendiente de reviewer y de REGLA 4)
+
+**Feature en curso:** #22 `projects_form_ui` — tanda 1 (cimientos).
+**Plan ejecutado (seis piezas, test primero en cada una):**
+
+- `Select` y `Textarea` como primitivos, derivando la piel de `inputClasses` y componiendo con `Field`.
+- `FileInput` **tonto** (input real oculto pero enfocable + disparador `aria-hidden`), con gate de frontera
+  que lee el fuente: la subida no sube al design system (deuda 168).
+- `ConfirmDialog` sobre `Dialog`, con **`dismissOnScrimClick` apagado y no expuesto** y foco inicial en
+  «Cancelar»; las dos garantías probadas por mutación.
+- Barrels + nueve nombres nuevos anclados en `public-api.test.ts` + **un** gate de CSS compilado para las
+  cuatro piezas.
+- CRUD de cliente dentro de `projects-client.ts` (E6 f): `createProject`, `updateProject`, `deleteProject`
+  (204 sin cuerpo), `getPatterns`, `uploadProjectImage` (**201**, `multipart`, campo `file`).
+
+**Verificación:** `bash ./init.sh` **EXIT 0** · **1707 passed | 13 skipped** (venía de 1613) → **+94 tests**.
+**Informe:** `progress/reports/impl_22_t1.md`, con lo que **no** se pudo verificar (ningún navegador en esa
+sesión; nada está cableado todavía, así que no hay pantalla nueva que mirar hasta T2).
+
+### 🔴 TANDA 2 INTERRUMPIDA a media pieza — estado MEDIDO, no supuesto (2026-08-26)
+
+**Segunda muerte por límite de cuenta en esta sesión** (reset 4:20am). **No es un fallo del código.**
+Esta vez sí había trabajo hecho, y **el informe incremental lo salvó**: `progress/reports/impl_22_t2.md`
+tiene el plan de siete piezas, la bitácora de las cerradas y las decisiones ya justificadas.
+
+**La suite está ROJA, y es rojo de TDD, no daño:** `init.sh` **EXIT 1** · **11 failed | 1779 passed**.
+Los 11 fallos están **todos** en `ProjectsView.test.tsx`, bloque
+`describe("ProjectsView — crear, editar y borrar (#22)")` (desde `:1063`). O sea: **los tests de la pieza 5
+están escritos en rojo y falta el código que los pone en verde.** Esos tests **son la especificación**.
+
+| # | Pieza | Estado medido |
+|---|---|---|
+| 1 | `project-form.ts` — copia y helpers puros (20 tests) | ✅ cerrada |
+| 2 | `NeedlesField` — agujas, en la feature (E6 e) | ✅ cerrada |
+| 3 | `ProjectFormDialog` — el modal crear/editar | ✅ cerrada |
+| 4 | Entradas "editar"/"borrar" en el cajón | ✅ cerrada (`ProjectDetailDrawer.tsx` con `onEdit`/`onDelete`; copia en `project-detail.ts:373-392`) |
+| 5 | **Cablear `ProjectsView.tsx`** | 🔴 **a medias — tests en rojo, falta el código** |
+| 6 | Gate de clases ampliado | ⏳ pendiente |
+| 7 | Deuda **176** (el comentario que promete lo que no mide) | ⏳ pendiente |
+
+**Relanzada como CONTINUACIÓN, no desde cero** — rehacer tiraría las cuatro piezas buenas.
+
+**Decisiones que ya tomó T2 y hay que respetar** (están razonadas en su informe):
+- **La foto se sube al ELEGIRLA, no al guardar**: el endpoint falla de tres maneras (400 formato o >4 MB,
+  401 sesión, 502 proveedor) y descubrirlo tras rellenar el formulario entero tira el trabajo. Además deja
+  el envío como **una sola petición** en vez de dos encadenadas con fallo a mitad.
+- **`projectPatch` manda SÓLO lo que cambió**, para no pisar con el formulario un campo que otra pantalla
+  haya tocado mientras el modal estaba abierto.
+- **Si la biblioteca de patrones no se puede traer, el campo no se ofrece** y `patternId` no viaja en el
+  parche: editar un proyecto con patrón **no lo pierde**.
+
+### ⚠️ Un intento anterior de T1 murió por LÍMITE DE SESIÓN de la cuenta (no por código)
+
+Verificado antes de relanzar: **no escribió nada** —ni informe ni primitivos—, árbol limpio, cero trabajo
+perdido. **Relanzada.** Si vuelve a cortarse, el estado real está acá y en
+`progress/reports/impl_22_t1.md` (informe incremental, escrito antes de empezar).
+
+---
+
+## ✅ CERRADO ANTES EN ESTA SESIÓN: lote de deudas 🟠 **165 + 166**
 
 **Orden elegido por el usuario:** saldar lo visible primero, meter la feature encima con el terreno limpio.
 
@@ -115,3 +261,83 @@ fuera de alcance por esta vía**; haría falta emulación por CDP.
 3. Si el RFC tiene decisiones abiertas: **resolverlas con el usuario y escribirlas en el RFC ANTES de
    tocar código**. Es lo que ha funcionado en E13, E4 (RFC-02) y E3 (RFC-03).
 4. **REGLA 4 antes de cerrar**, con el árbol quieto.
+
+---
+
+## ▶️ TANDA 2 de #22 en curso (implementer)
+
+**Feature en curso:** #22 `projects_form_ui` — tanda 2 (cableado).
+**Plan:** (1) copia y helpers puros `project-form.ts`; (2) `NeedlesField` en la feature (E6 e);
+(3) `ProjectFormDialog` crear/editar con foto real y patrón de biblioteca; (4) entradas "Editar" y
+"Borrar" en el cajón (E3 d, aditivo); (5) cableado en `ProjectsView` (dos botones de creación rápida,
+borrado con confirmación, lista coherente sin recargar); (6) gate de clases ampliado; (7) deuda **176**
+(comentario de `FileInput.test.tsx:126`).
+**Informe incremental:** `progress/reports/impl_22_t2.md` (escrito ANTES de tocar código).
+
+### ⏸️→▶️ TANDA 2 RETOMADA tras corte por límite de cuenta — **ENTREGADA**
+
+La sesión anterior murió con las piezas 1-4 cerradas y **los 11 tests de la pieza 5 escritos en rojo**. Se
+retomó desde ahí, **sin rehacer nada**: esos tests fueron la especificación.
+
+**Cerrado en esta sesión:** pieza **5** (cableado de `ProjectsView`: crear con los dos botones que
+preseleccionan el tipo, editar desde el cajón, borrar con confirmación y lista coherente sin recargar),
+pieza **6** (gate de clases ampliado a `ProjectFormDialog` y `NeedlesField`) y pieza **7** (deuda **176**,
+sólo el comentario).
+
+**Decisión que quedaba abierta — la entrada a "crear" con el cesto NO vacío:** va **en la cabecera de la
+página**, y **sólo cuando el panel de cesto vacío no se está pintando**, para que nunca haya dos parejas de
+botones iguales en la misma pantalla (deuda 142). Antes de esto, quien ya tenía proyectos **no tenía ninguna
+forma de crear otro desde `/proyectos`**.
+
+**Hallazgo grave del arnés de test, cazado por mutación:** `listUrls()` filtraba **sólo por URL**, y el alta
+es un `POST` a la URL pelada de la lista — o sea que **el propio alta se contaba como "volvió a pedir la
+lista"** y el test que exige la recarga salía verde sin ella. Corregido filtrando también por método.
+Segunda vez que ese helper se queda corto por mirar sólo la URL.
+
+**Y `lint` y `typecheck` estaban EN ROJO al retomar**: la tanda anterior no llegó a correr `init.sh`
+(`set-state-in-effect` en `ProjectFormDialog.tsx` + dos errores de tipos en su test). Arreglados los tres.
+
+**Verificación:** `bash ./init.sh` **EXIT 0** · **1792 passed | 13 skipped (1805)** (venía de 1707) →
+**+85 tests**.
+**Informe:** `progress/reports/impl_22_t2.md`.
+
+⚠️ **REGLA 4 SIN HACER:** esta sesión **no tuvo herramientas de navegador**. Los tres puntos que dejó el
+reviewer de T1 —anillo de foco del disparador de archivo, flecha nativa del `Select`, contraste del botón
+`danger`— siguen **abiertos**; en el informe hay lo único medible desde acá (el `danger` da **4.69:1** por
+aritmética sobre tokens, y `selectClasses` no lleva `appearance-none`), que **no** sustituye a mirar la
+pantalla.
+
+---
+
+## ▶️ EN CURSO: lote **E7** — el alta partida en dos y el cronómetro encerrado (2026-08-26)
+
+**Feature en curso:** ninguna de `feature_list.json` (el lote son las fichas **185** y **186**, reportadas
+por el usuario probando la app tras #22). **No se tocó ningún estado del `feature_list.json`.**
+
+**Contrato:** `docs/design/rfc/RFC-03-proyectos.md` → **§7-octies, enmienda E7**.
+
+**Plan ejecutado (test primero en cada pieza):**
+
+1. **B3 — el dato.** `GET /api/projects` devuelve, por proyecto, su sesión abierta o `null`. Único cambio
+   de backend del lote; **deroga en parte E2.2 de RFC-02**.
+2. **B1 — el botón se transforma** (mismo control, misma caja): parado ofrece empezar, corriendo ofrece
+   parar. Nunca hay dos botones (deuda 142).
+3. **B2 — el reloj en la tarjeta**, contado desde el arranque real del servidor. Sin `aria-live` en los
+   segundos (E4 a).
+4. **B4 — muere `QUICK_START_NOTES`.** El aviso de acción por `role="status"` se queda.
+5. **A — el alta es UNA.** El Dashboard monta `ProjectFormDialog`; se borran `NewProjectDialog.tsx` y el
+   `createProject` de `dashboard-client.ts`; sus cinco tests **se migran**, no se tiran.
+6. **Extra necesario:** el cajón avisa hacia arriba (`onRunningChange`) cuando arranca o para, para que la
+   tarjeta de detrás no quede afirmando lo contrario al cerrarlo.
+
+**Verificación:** `bash ./init.sh` → **EXIT 0** · **1837 passed | 13 skipped** (venía de 1792) → **+45**.
+`pnpm build` compila las 28 rutas.
+
+**Deudas nuevas:** **187** (el Dashboard no enseña el cronómetro) y **188** (el tiempo tejido de la
+tarjeta se queda viejo si se para desde el cajón). **185** y **186** quedan **pendientes de que el
+reviewer las dé por saldadas**.
+
+**Aviso de entorno confirmado otra vez:** el `typecheck` arrancó **rojo** por
+`.next/dev/types/validator.ts` —caché de Turbopack—; `rm -rf .next` y verde. **No es del código.**
+
+**Informe:** `progress/reports/impl_e7_alta_y_cronometro.md`.

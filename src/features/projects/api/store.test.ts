@@ -199,3 +199,65 @@ describe("createProjectStore listLinkedYarns SQL", () => {
     expect(text).not.toContain("left join");
   });
 });
+
+/**
+ * La consulta que trae los cronómetros abiertos del usuario (E7 b3).
+ *
+ * Es **una sola** para toda la lista, y eso es la mitad del contrato: una por
+ * proyecto sería un N+1 en la pantalla que más proyectos pinta. La otra mitad
+ * es el scoping: `craft_sessions` sí tiene dueño, y el `WHERE` lo usa.
+ */
+describe("createProjectStore listActiveSessions SQL (E7 b3)", () => {
+  async function recordActiveSessionsQuery(): Promise<RecordedQuery> {
+    const { database, queries } = createRecordingDatabase();
+    const store = createProjectStore(database);
+
+    await store.listActiveSessions(USER_ID);
+
+    expect(queries).toHaveLength(1);
+    const query = queries[0];
+    if (!query) {
+      throw new Error("No se registró ninguna consulta.");
+    }
+    return query;
+  }
+
+  it("proyecta sólo lo que la tarjeta necesita: id, proyecto y arranque", async () => {
+    const query = await recordActiveSessionsQuery();
+
+    /* Sin cualificar por tabla: hay una sola en el FROM y Drizzle no prefija.
+       Es la diferencia real con el SELECT de las lanas, que sí las prefija
+       porque ahí conviven cuatro tablas. */
+    expect(section(query, "select ", " from ").split(", ")).toEqual([
+      "id",
+      "project_id",
+      "start",
+    ]);
+    expect(naked(query)).toContain("from craft_sessions");
+  });
+
+  it("filtra por el dueño y por la sesión sin fin, en el mismo WHERE", async () => {
+    const query = await recordActiveSessionsQuery();
+
+    expect(section(query, " where ", " order by ")).toBe(
+      "(craft_sessions.user_id = $1 and craft_sessions.end is null)",
+    );
+    expect(query.params).toEqual([USER_ID]);
+  });
+
+  // Mismo orden que `findActive` de time-tracking: si un proyecto tuviera dos
+  // sesiones abiertas —que la invariante impide—, la que gana es la más
+  // reciente, y no la que Postgres devuelva primero.
+  it("ordena por arranque descendente, como findActive", async () => {
+    const query = await recordActiveSessionsQuery();
+
+    expect(section(query, " order by ")).toBe("craft_sessions.start desc");
+  });
+
+  it("no toca la tabla de proyectos: no hay JOIN que pagar", async () => {
+    const query = await recordActiveSessionsQuery();
+
+    expect(naked(query)).not.toContain("join");
+    expect(naked(query)).not.toContain("from projects");
+  });
+});

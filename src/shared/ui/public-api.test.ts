@@ -19,14 +19,28 @@ import * as ui from "./index";
  */
 const PRIMITIVES = [
   "Button",
+  "CONFIRM_DIALOG_CANCEL_LABEL",
+  "CONFIRM_DIALOG_CONFIRM_LABEL",
+  // Enmienda E6(d) del RFC-03: la confirmación de un borrado. Se construye sobre
+  // `Dialog` y su ancla se paga igual que la del segmentado y la de las
+  // pestañas: esconder la pieza en `features/` para no tocar esta lista es justo
+  // el antipatrón que la regla "el template es un SUELO" prohíbe.
+  "CONFIRM_DIALOG_TONES",
   "Card",
+  "ConfirmDialog",
   "DIALOG_CLOSE_LABEL",
   // Enmienda E3(b) del RFC-03: el cajón lateral es una COLOCACIÓN del diálogo,
   // no un componente nuevo. Sus nombres públicos se anclan igual que los tamaños.
   "DIALOG_PLACEMENTS",
   "DIALOG_SIZES",
   "Dialog",
+  // Enmienda E6(c) del RFC-03: elegir un archivo es genérico y sube al design
+  // system; SUBIRLO depende de la configuración de la app y se queda en la
+  // feature (frontera de la deuda 168).
+  "FILE_INPUT_BUTTON_LABEL",
+  "FILE_INPUT_EMPTY_LABEL",
   "Field",
+  "FileInput",
   "Input",
   "PROGRESS_MAX",
   "PROGRESS_MIN",
@@ -37,11 +51,19 @@ const PRIMITIVES = [
   // propósito — esconder la pieza en `features/` para no tocar esta lista es
   // justo el antipatrón que la regla "el template es un SUELO" prohíbe.
   "SegmentedControl",
+  // Enmienda E6(b) del RFC-03: los dos controles de formulario que faltaban.
+  // Son design system puro —no dependen de ninguna configuración de la app— y
+  // componen con `Field` igual que `Input`. Sus listas de clases NO se exportan:
+  // `inputClasses` existe porque antes había que pintar controles a mano, y
+  // publicar `selectClasses`/`textareaClasses` invitaría justo al `<select>`
+  // escrito a mano que estos primitivos vienen a sustituir.
+  "Select",
   "Skeleton",
   // Enmienda E3(c) del RFC-03: las pestañas del drawer de detalle. Mismo trato
   // que `SegmentedControl` — es un control genérico (RFC-04 y RFC-05 también
   // piden pestañas), así que vive en el design system y su ancla se paga.
   "Tabs",
+  "Textarea",
   "Toggle",
   "ToggleGroup",
   "buttonVariants",
@@ -66,6 +88,19 @@ const NEW_IN_UI_PRIMITIVES_2 = [
   "Skeleton",
   "Toggle",
   "ToggleGroup",
+];
+
+/**
+ * Las cuatro piezas que la enmienda **E6** de RFC-03 mandó crear para el
+ * formulario de proyectos (#22, tanda 1). Se comprueba que llegan **por el
+ * barrel raíz**, que es por donde las va a importar la tanda 2: un primitivo que
+ * existe pero no se reexporta es un primitivo que nadie puede usar.
+ */
+const NEW_IN_PROJECTS_FORM = [
+  "ConfirmDialog",
+  "FileInput",
+  "Select",
+  "Textarea",
 ];
 
 function exportedNames(namespace: object): string[] {
@@ -98,6 +133,15 @@ describe("superficie pública de shared/ui", () => {
   it("las seis piezas de #33 llegan por el barrel raíz", () => {
     const root = new Set(Object.keys(ui));
     for (const name of NEW_IN_UI_PRIMITIVES_2) {
+      expect(root.has(name), `${name} no se exporta desde @/shared/ui`).toBe(
+        true,
+      );
+    }
+  });
+
+  it("los cuatro controles de #22 llegan por el barrel raíz", () => {
+    const root = new Set(Object.keys(ui));
+    for (const name of NEW_IN_PROJECTS_FORM) {
       expect(root.has(name), `${name} no se exporta desde @/shared/ui`).toBe(
         true,
       );

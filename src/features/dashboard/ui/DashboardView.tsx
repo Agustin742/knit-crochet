@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 
 import type { DashboardMetrics } from "@/features/dashboard/types";
-import type { SerializedProject } from "@/features/projects/ui";
+import {
+  ProjectFormDialog,
+  type SerializedProject,
+} from "@/features/projects/ui";
 import { type CraftType } from "@/shared/config";
 import {
   Button,
@@ -18,7 +21,6 @@ import {
 import { ActiveProjectsPanel } from "./ActiveProjectsPanel";
 import { DashboardHero } from "./DashboardHero";
 import { MetricsPanel } from "./MetricsPanel";
-import { NewProjectDialog } from "./NewProjectDialog";
 import { getActiveProjects, getMetrics } from "./dashboard-client";
 import {
   CRAFT_TYPE_LABELS,
@@ -353,16 +355,28 @@ export function DashboardView() {
         </>
       )}
 
-      {newProjectType === null ? null : (
-        <NewProjectDialog
-          type={newProjectType}
-          onClose={() => setNewProjectType(null)}
-          onCreated={() => {
-            setNewProjectType(null);
-            reload();
-          }}
-        />
-      )}
+      {/* El alta de proyecto es UNA (enmienda **E7 a**): este es el mismo modal
+          que abre `/proyectos`, con sus seis campos. El Dashboard sólo decide
+          **qué tipo viene preseleccionado**, que es lo único que distinguía a
+          sus dos botones.
+
+          Se monta **siempre** y decide solo si hay algo que enseñar —sin
+          objetivo devuelve `null`—, así que "qué estoy creando" vive en un solo
+          sitio. Tras un alta confirmada se cierra y **se recarga**: dónde cae el
+          proyecto nuevo lo deciden el servidor y los filtros puestos, y eso no
+          se puede adivinar desde acá. */}
+      <ProjectFormDialog
+        target={
+          newProjectType === null
+            ? null
+            : { mode: "create", type: newProjectType }
+        }
+        onClose={() => setNewProjectType(null)}
+        onSaved={() => {
+          setNewProjectType(null);
+          reload();
+        }}
+      />
     </div>
   );
 }

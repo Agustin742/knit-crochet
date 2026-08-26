@@ -91,11 +91,17 @@ export function normalizeText(value: string): string {
  * pagina**: la lista ya se trae entera de todas formas.
  *
  * No muta la lista recibida: el array que llega es el estado de quien llama.
+ *
+ * **Es genérico sobre lo que le den**, y no fija `SerializedProject`: filtrar no
+ * transforma, así que lo que sale tiene que ser exactamente lo que entró. Desde
+ * la enmienda E7 (b3) la lista son `SerializedProjectListItem` —el proyecto con
+ * su cronómetro—, y un tipo de retorno fijo recortaría ese dato justo antes de
+ * pintarlo. Sólo se exige lo que de verdad se lee: el nombre.
  */
-export function filterByName(
-  projects: readonly SerializedProject[],
+export function filterByName<T extends Pick<SerializedProject, "name">>(
+  projects: readonly T[],
   search: string,
-): SerializedProject[] {
+): T[] {
   const needle = normalizeText(search);
   if (needle === "") {
     return [...projects];

@@ -134,6 +134,14 @@ después. Se rompe el empate a favor de que **#19 la cree y #20 la reuse**.
 **E2.2 — Q14 cerrada: la lista de activos ordena por `updatedAt`, y la etiqueta deja de decir "último
 tejido".** §3 de este RFC dejaba la decisión abierta y recomendaba el camino (a) apoyándose en que
 `updatedAt` *"ya se bumpea al parar una sesión"*.
+
+> ⚠️ **DEROGADA EN PARTE el 2026-08-26 por la enmienda E7 (b3) de RFC-03.** Lo que decae es **sólo** la
+> negativa a abrir el backend para saber si un cronómetro corre: **`GET /api/projects` pasa a incluir, por
+> proyecto, su sesión abierta (o `null`)**. Lo demás de E2.2 —el orden por `updatedAt` y la etiqueta— sigue
+> vigente. **Por qué se deroga:** aquella decisión dejó a la lista sin forma de saberlo, y la consecuencia
+> quedó escrita en `ProjectsView.tsx:130-138` (*"la marca **se pierde al recargar**"*). El usuario la
+> encontró usando la app: **tras un F5, el botón dice «Empezar» con el cronómetro corriendo**. Un estado
+> que sólo vive en memoria del navegador **no puede gobernar un control que promete una acción**.
 - **Lo medido (`progress/reports/explore_19_datos_y_primitivas.md` §A.3):** esa afirmación es **cierta pero
   incompleta**. `setProjectTime` sí lo bumpea al parar el cronómetro — aunque vive en
   `src/features/time-tracking/api/store.ts`, **no** en el store de projects como decía §3. Pero **también**

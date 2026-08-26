@@ -4,6 +4,7 @@ import { createProject } from "@/features/projects/api/create-project";
 import { deleteProject } from "@/features/projects/api/delete-project";
 import { ProjectNotFoundError } from "@/features/projects/api/errors";
 import { getProject } from "@/features/projects/api/get-project";
+import { listProjects } from "@/features/projects/api/list-projects";
 import { calculateProgress } from "@/features/projects/api/progress";
 import { updateProject } from "@/features/projects/api/update-project";
 import {
@@ -340,5 +341,137 @@ describe("features/projects getProject linked yarns", () => {
     const detail = await getProject("user-1", projectId, store);
 
     expect(detail.yarns.map((yarn) => yarn.id)).toEqual([first.id, second.id]);
+  });
+});
+
+/**
+ * El cronómetro abierto viaja con la lista (RFC-03, enmienda **E7 (b3)**).
+ *
+ * La invariante que `start-session.ts` sostiene es *"como mucho una sesión
+ * abierta **por proyecto**"*, no una por usuario: **puede haber varios
+ * cronómetros corriendo a la vez** en proyectos distintos, y estos tests lo
+ * miden en vez de darlo por supuesto.
+ */
+describe("features/projects listProjects sesión abierta (E7 b3)", () => {
+  const OTHER_USER = "user-2";
+
+  function openSession(
+    store: InMemoryProjectStore,
+    projectId: string,
+    start: Date,
+    userId = "user-1",
+  ): string {
+    const id = crypto.randomUUID();
+    store.sessions.push({
+      id,
+      userId,
+      projectId,
+      start,
+      end: null,
+      duration: 0,
+    });
+    return id;
+  }
+
+  async function seed(
+    store: InMemoryProjectStore,
+    name: string,
+  ): Promise<string> {
+    const project = await createProject(
+      "user-1",
+      { name, type: "knitting" },
+      store,
+    );
+    return project.id;
+  }
+
+  it("cuelga la sesión abierta del proyecto que la tiene, con su arranque real", async () => {
+    const store = createInMemoryProjectStore();
+    const projectId = await seed(store, "Bufanda");
+    const start = new Date("2026-08-26T10:00:00.000Z");
+    const sessionId = openSession(store, projectId, start);
+
+    const [project] = await listProjects("user-1", {}, store);
+
+    expect(project?.activeSession).toEqual({ id: sessionId, start });
+  });
+
+  it("devuelve null cuando el proyecto nunca tuvo sesión", async () => {
+    const store = createInMemoryProjectStore();
+    await seed(store, "Bufanda");
+
+    const [project] = await listProjects("user-1", {}, store);
+
+    expect(project?.activeSession).toBeNull();
+  });
+
+  it("devuelve null cuando todas las sesiones del proyecto están cerradas", async () => {
+    const store = createInMemoryProjectStore();
+    const projectId = await seed(store, "Bufanda");
+    store.sessions.push({
+      id: crypto.randomUUID(),
+      userId: "user-1",
+      projectId,
+      start: new Date("2026-08-25T10:00:00.000Z"),
+      end: new Date("2026-08-25T11:00:00.000Z"),
+      duration: 3600,
+    });
+
+    const [project] = await listProjects("user-1", {}, store);
+
+    expect(project?.activeSession).toBeNull();
+  });
+
+  // Lo que el modelo TIENE que soportar: dos cronómetros a la vez, cada uno en
+  // su proyecto, y cada tarjeta con el suyo (no el del vecino).
+  it("sostiene varios cronómetros a la vez, uno por proyecto", async () => {
+    const store = createInMemoryProjectStore();
+    const bufanda = await seed(store, "Bufanda");
+    const gorro = await seed(store, "Gorro");
+    const quieto = await seed(store, "Manta");
+    const bufandaStart = new Date("2026-08-26T10:00:00.000Z");
+    const gorroStart = new Date("2026-08-26T11:00:00.000Z");
+    const bufandaSession = openSession(store, bufanda, bufandaStart);
+    const gorroSession = openSession(store, gorro, gorroStart);
+
+    const projects = await listProjects("user-1", {}, store);
+    const byId = new Map(projects.map((entry) => [entry.id, entry]));
+
+    expect(byId.get(bufanda)?.activeSession).toEqual({
+      id: bufandaSession,
+      start: bufandaStart,
+    });
+    expect(byId.get(gorro)?.activeSession).toEqual({
+      id: gorroSession,
+      start: gorroStart,
+    });
+    expect(byId.get(quieto)?.activeSession).toBeNull();
+  });
+
+  it("nunca deja ver la sesión abierta de otro usuario", async () => {
+    const store = createInMemoryProjectStore();
+    const projectId = await seed(store, "Bufanda");
+    openSession(
+      store,
+      projectId,
+      new Date("2026-08-26T10:00:00.000Z"),
+      OTHER_USER,
+    );
+
+    const [project] = await listProjects("user-1", {}, store);
+
+    expect(project?.activeSession).toBeNull();
+  });
+
+  it("mantiene intactos los campos del proyecto al colgarle el cronómetro", async () => {
+    const store = createInMemoryProjectStore();
+    const projectId = await seed(store, "Bufanda");
+    openSession(store, projectId, new Date("2026-08-26T10:00:00.000Z"));
+
+    const [project] = await listProjects("user-1", {}, store);
+    const row = store.rows[0];
+
+    expect(project).toEqual({ ...row, activeSession: project?.activeSession });
+    expect(project?.name).toBe("Bufanda");
   });
 });

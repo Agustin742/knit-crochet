@@ -143,19 +143,13 @@ export async function getActiveProjects(
   return result.ok ? { ok: true, data: result.data.projects } : result;
 }
 
-/**
- * `POST /api/projects` de la creación rápida (RFC-02 §6: aquí sólo el modal de
- * alta, no el CRUD). Manda lo mínimo que el schema exige —nombre y tipo—; el
- * resto de campos tienen default en la tabla y son trabajo del formulario
- * completo (#22). Éxito = **201**.
+/*
+ * **Acá vivía `createProject`, y se retiró con la enmienda E7 (a).**
+ *
+ * Mandaba sólo `{name, type}` —su propio JSDoc decía que el resto era trabajo
+ * del formulario completo de #22—, y cuando ese formulario llegó, el Dashboard
+ * se quedó con el modal viejo: dos altas distintas con el mismo título (ficha
+ * **185**). Ahora el Dashboard monta el `ProjectFormDialog` de `/proyectos`, que
+ * usa el `createProject` de `projects-client.ts` — ya probado y aprobado—, así
+ * que este era un segundo camino al mismo endpoint sin nadie que lo usara.
  */
-export function createProject(input: {
-  name: string;
-  type: CraftType;
-}): Promise<DashboardRequestResult<unknown>> {
-  return request<unknown>(PROJECTS_ENDPOINT, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(input),
-  });
-}

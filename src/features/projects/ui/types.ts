@@ -1,5 +1,9 @@
 import type { KeyValue, PatternRecord } from "@/features/patterns/types";
-import type { LinkedYarn, ProjectRecord } from "@/features/projects/types";
+import type {
+  ActiveProjectSession,
+  LinkedYarn,
+  ProjectRecord,
+} from "@/features/projects/types";
 import type { CraftSessionRecord } from "@/features/time-tracking/types";
 import type { YarnRecord } from "@/features/yarns/types";
 
@@ -31,8 +35,32 @@ export type SerializedProject = Omit<ProjectRecord, SerializedDates> & {
   updatedAt: string;
 };
 
+/**
+ * El cronómetro abierto de un proyecto **tal y como llega al navegador**
+ * (RFC-03, enmienda **E7 (b3)**). Misma trampa que `SerializedProject`: el
+ * dominio declara `Date` en `start` y lo que viaja es una cadena ISO-8601.
+ */
+export type SerializedActiveSession = Omit<ActiveProjectSession, "start"> & {
+  start: string;
+};
+
+/**
+ * Un proyecto **de la lista**: la fila más su cronómetro.
+ *
+ * Es un tipo aparte y no un campo más de `SerializedProject` porque **sólo lo
+ * trae la lista**: el detalle (`GET /:id`) responde el proyecto pelado, y el
+ * cajón deduce si corre de su historial completo de sesiones. Un solo tipo para
+ * los dos payloads dejaría leer `activeSession` donde nunca llega.
+ *
+ * `activeSession` es `null` —y no ausente— cuando el cronómetro está parado: la
+ * ausencia y el "está parado" son cosas distintas, y el endpoint sabe cuál dice.
+ */
+export type SerializedProjectListItem = SerializedProject & {
+  activeSession: SerializedActiveSession | null;
+};
+
 /** Payload de `GET /api/projects`: la lista viaja **envuelta** (PRD §9). */
-export type ProjectListPayload = { projects: SerializedProject[] };
+export type ProjectListPayload = { projects: SerializedProjectListItem[] };
 
 /**
  * Lo que la tarjeta necesita, y nada más (RFC-02 §2 / enmienda E2.1): foto,
@@ -109,6 +137,13 @@ export type SerializedCraftSession = Omit<CraftSessionRecord, "start" | "end"> &
 export type SessionListPayload = { sessions: SerializedCraftSession[] };
 
 /**
+ * Payload de `POST /api/projects/:id/sessions/start`, en sus **dos** status: el
+ * 201 devuelve la sesión recién creada y el 200 la que ya estaba abierta. El
+ * cuerpo es el mismo; lo que distingue los casos es el status.
+ */
+export type SessionPayload = { session: SerializedCraftSession };
+
+/**
  * Payload de `PATCH /api/projects/:id/sessions/stop`. Trae **dos** cosas: la
  * sesión cerrada y el `time` del proyecto ya recalculado, así que parar el
  * cronómetro deja el tiempo total al día sin volver a pedir el detalle.
@@ -144,6 +179,13 @@ export type SerializedPattern = Omit<
 
 /** Payload de `GET /api/patterns/:id`. */
 export type PatternPayload = { pattern: SerializedPattern };
+
+/**
+ * Payload de `GET /api/patterns`: la lista viaja **envuelta**, igual que la de
+ * proyectos. Es lo que el formulario de #22 necesita para **elegir** un patrón de
+ * biblioteca (enmienda E6 a: elegir entra, **crear un embebido no**).
+ */
+export type PatternListPayload = { patterns: SerializedPattern[] };
 
 /**
  * Un paso de un patrón: par clave-valor y **el orden del array es

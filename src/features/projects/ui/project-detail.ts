@@ -358,3 +358,35 @@ export function totalSessionSeconds(
 ): number {
   return sessions.reduce((total, session) => total + session.duration, 0);
 }
+
+/* ============================================================================
+   Editar y BORRAR (RFC-03 §1 y §4). Las dos entradas que **E3(d)** dejó fuera de
+   #21 porque su destino no existía; entran con #22, de forma aditiva.
+   ============================================================================ */
+
+/**
+ * Los dos controles viven en el tab General y **no dicen el nombre del
+ * proyecto**: el cajón ya lo lleva como título, o sea como su nombre accesible,
+ * y repetirlo obligaría a un lector de pantalla a decirlo dos veces en la misma
+ * frase. Fuera del cajón no existen.
+ */
+export const EDIT_PROJECT_LABEL = "Editar";
+export const DELETE_PROJECT_LABEL = "Borrar";
+
+/** La pregunta de la confirmación **nombra lo que se va a borrar**. */
+export function deleteProjectTitle(projectName: string): string {
+  return `¿Borrar ${projectName}?`;
+}
+
+/**
+ * Qué se lleva por delante, **dicho con precisión**. La cascada la declara la FK
+ * (`architecture.md` §"Capa de schema"): se borran las **sesiones** del proyecto
+ * y los **enlaces** a lanas, pero las lanas del inventario **no se tocan** —su FK
+ * es `no action` justo para eso—. Decir "se borran tus lanas" asustaría con algo
+ * que no pasa; no decir nada dejaría la duda en el peor momento.
+ */
+export const DELETE_PROJECT_DESCRIPTION =
+  "Se borran también sus vueltas y las sesiones que cronometraste. Tu inventario de lanas no se toca. No hay vuelta atrás.";
+
+/** En el diálogo, "Confirmar" a secas no dice qué se confirma. */
+export const DELETE_PROJECT_CONFIRM_LABEL = "Borrar el proyecto";

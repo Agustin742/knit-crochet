@@ -347,7 +347,7 @@
         "crear preselecciona el type según el botón de origen; borrado con confirmación (dialog)",
         "Verificación SDD §9: RTL (crear con type, editar, subir foto, elegir/embeber patrón) + axe + smoke + init.sh + build"
       ],
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": 23,

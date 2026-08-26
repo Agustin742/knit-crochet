@@ -1,7 +1,16 @@
+import type {
+  CreateProjectPayload,
+  UpdateProjectPayload,
+} from "@/features/projects/validation";
+import {
+  ACCEPTED_IMAGE_TYPES,
+  MAX_IMAGE_BYTES,
+} from "@/features/uploads/validation";
 import type { CraftType } from "@/shared/config";
 
 import type {
   LinkedYarnIdsPayload,
+  PatternListPayload,
   PatternPayload,
   ProjectListPayload,
   ProjectPayload,
@@ -9,7 +18,9 @@ import type {
   SerializedPattern,
   SerializedProject,
   SerializedProjectDetail,
+  SerializedProjectListItem,
   SessionListPayload,
+  SessionPayload,
   StopSessionPayload,
   YarnListPayload,
   YarnOption,
@@ -79,7 +90,18 @@ export type ProjectListFilters = {
   yarnId?: string;
 };
 
-async function readErrorMessage(response: Response): Promise<string> {
+/**
+ * El mensaje de error del servidor, o el repliegue.
+ *
+ * El repliegue es un parámetro (y no siempre el genérico) porque hay endpoints
+ * donde **el status ya dice qué hacer** aunque el cuerpo no se pueda leer: una
+ * subida que falla por 502 no es "algo salió mal", es "el servicio de imágenes
+ * no responde, probá en un minuto". Ver `uploadProjectImage`.
+ */
+async function readErrorMessage(
+  response: Response,
+  fallback: string = UNEXPECTED_ERROR_MESSAGE,
+): Promise<string> {
   try {
     const body: unknown = await response.json();
     if (
@@ -91,9 +113,9 @@ async function readErrorMessage(response: Response): Promise<string> {
       return (body as { error: string }).error;
     }
   } catch {
-    // Un 500 puede responder HTML: el mensaje genérico es la salida correcta.
+    // Un 500 puede responder HTML: el repliegue es la salida correcta.
   }
-  return UNEXPECTED_ERROR_MESSAGE;
+  return fallback;
 }
 
 async function request<T>(
@@ -147,10 +169,14 @@ function queryString(entries: Record<string, string | undefined>): string {
  * diferencia de la de métricas del Dashboard, que es plana: la asimetría es del
  * contrato—. No se pide ni `limit` ni `offset` porque **no existen**: el
  * endpoint no pagina y el orden (`startDate` descendente) es fijo.
+ *
+ * Cada proyecto trae **su cronómetro abierto o `null`** (enmienda E7 b3): es lo
+ * que permite que la tarjeta sepa si corre **después de recargar la página**,
+ * que es exactamente lo que la marca en memoria no podía prometer.
  */
 export async function getProjects(
   filters: ProjectListFilters,
-): Promise<ProjectsRequestResult<SerializedProject[]>> {
+): Promise<ProjectsRequestResult<SerializedProjectListItem[]>> {
   const result = await request<ProjectListPayload>(
     `${PROJECTS_ENDPOINT}${queryString({
       active: filters.active ? "true" : "false",
@@ -187,11 +213,22 @@ export async function getYarnOptions(): Promise<
  * **200** si ya había una abierta y la reutiliza. Nunca 409, nunca duplica,
  * nunca reinicia el `start` (el 409 vive en el *stop*, no aquí). Por eso el
  * botón puede ser optimista: un doble toque no corrompe nada.
+ *
+ * **Devuelve la sesión** (enmienda E7 b1), que antes se tiraba como `unknown`:
+ * es lo que deja la tarjeta en estado "corriendo" sin volver a pedir la lista, y
+ * con el **arranque real** —el del 200 es el de antes, no el de ahora—, así que
+ * el reloj empieza en el segundo que toca y no en cero.
  */
-export function startCraftSession(
+export async function startCraftSession(
   projectId: string,
-): Promise<ProjectsRequestResult<unknown>> {
-  return request<unknown>(sessionStartEndpoint(projectId), { method: "POST" });
+): Promise<ProjectsRequestResult<SerializedCraftSession>> {
+  const result = await request<SessionPayload>(
+    sessionStartEndpoint(projectId),
+    { method: "POST" },
+  );
+  return result.ok
+    ? { ok: true, status: result.status, data: result.data.session }
+    : result;
 }
 
 /** Creada = **201**; reutilizada = 200. Es la única señal de "ya estaba corriendo". */
@@ -429,4 +466,214 @@ export async function getPattern(
   return result.ok
     ? { ok: true, status: result.status, data: result.data.pattern }
     : result;
+}
+
+/* ============================================================================
+   El CRUD del formulario (#22, tanda 1 de la enmienda E6).
+
+   **Vive en ESTE archivo por decisión escrita en E6 (f).** La deuda 129 dice que
+   el cliente HTTP de navegador va por su TERCER clon y que el momento natural de
+   extraerlo era antes de #22. Bajo la moratoria de gates no interrumpe —no hay
+   nada que un usuario pueda ver—, pero tampoco se empeora: escribir el CRUD donde
+   ya vive el resto evita un CUARTO clon a coste cero.
+
+   Los tipos de entrada se importan **como tipos** desde la validación del
+   feature, no se reescriben: `import type` se borra en la compilación
+   (`verbatimModuleSyntax`), así que el navegador no se lleva nada, y si mañana el
+   esquema del endpoint gana un campo, éste lo gana también. Se importa por RUTA
+   INTERNA y no por el barrel del feature a propósito: el barrel arrastra `./api`
+   → Drizzle al bundle del navegador (mismo motivo que en `NewProjectDialog.tsx`).
+   ============================================================================ */
+
+/**
+ * `POST /api/projects` — el alta **completa**. Éxito = **201** con `{ project }`.
+ *
+ * No es el mismo que el del Dashboard: aquél acepta **sólo `{ name, type }`** y
+ * su propio JSDoc dice que el resto era trabajo de #22
+ * (`dashboard/ui/dashboard-client.ts`). Éste manda el formulario entero —meta,
+ * agujas, notas, foto, patrón—, que es lo que el esquema del endpoint admite.
+ */
+export function createProject(
+  input: CreateProjectPayload,
+): Promise<ProjectsRequestResult<SerializedProject>> {
+  return projectMutation(PROJECTS_ENDPOINT, "POST", input);
+}
+
+/**
+ * `PATCH /api/projects/:id` — el parche **genérico**. Éxito = **200** con el
+ * proyecto ya recalculado.
+ *
+ * El que había (`updateProjectTargetRounds`) manda **un solo campo**, porque el
+ * cajón de detalle sólo edita la meta. El formulario edita varios a la vez, y el
+ * esquema del endpoint es el de alta en versión parcial: manda lo que le den.
+ * Ojo con el único caso que rechaza: **un parche vacío responde 400** ("No hay
+ * nada que actualizar."), no 200.
+ */
+export function updateProject(
+  projectId: string,
+  patch: UpdateProjectPayload,
+): Promise<ProjectsRequestResult<SerializedProject>> {
+  return projectMutation(projectDetailEndpoint(projectId), "PATCH", patch);
+}
+
+/**
+ * `DELETE /api/projects/:id` — **204 sin cuerpo**.
+ *
+ * Usa `requestWithoutBody`, que existe justamente porque el camino feliz del
+ * ayudante normal llama a `response.json()` y **eso lanza sobre un 204**: un
+ * borrado hecho bien se leería como un fallo. Un id con formato inválido responde
+ * **404, no 400** (lo decide el Route Handler), así que el camino de error es uno
+ * solo: el mensaje que venga.
+ */
+export function deleteProject(
+  projectId: string,
+): Promise<ProjectsRequestResult<null>> {
+  return requestWithoutBody(projectDetailEndpoint(projectId), {
+    method: "DELETE",
+  });
+}
+
+/**
+ * Los dos filtros que `GET /api/patterns` admite (`patterns/validation.ts`).
+ *
+ * `inLibrary` es lo que separa un patrón **de biblioteca** (reusable en N
+ * proyectos) de uno **embebido**. El formulario de #22 pide los de biblioteca:
+ * **elegir entra en el alcance y crear un embebido no** (E6 a).
+ */
+export type PatternListFilters = {
+  type?: CraftType;
+  inLibrary?: boolean;
+};
+
+/**
+ * `GET /api/patterns` — la biblioteca para elegir. Responde **envuelto**
+ * (`{ patterns }`), como la lista de proyectos.
+ *
+ * Los filtros viajan como **cadenas literales**: el esquema es un enumerado de
+ * dos cadenas con transformación, así que un `1` en vez de la palabra responde
+ * **400**, no "sin filtro".
+ */
+export async function getPatterns(
+  filters: PatternListFilters = {},
+): Promise<ProjectsRequestResult<SerializedPattern[]>> {
+  const result = await request<PatternListPayload>(
+    `${PATTERNS_ENDPOINT}${queryString({
+      type: filters.type,
+      inLibrary:
+        filters.inLibrary === undefined ? undefined : String(filters.inLibrary),
+    })}`,
+  );
+  return result.ok
+    ? { ok: true, status: result.status, data: result.data.patterns }
+    : result;
+}
+
+/* ---------------------------------------------------------------------------
+   La subida de la foto (enmienda E6 (h)).
+   --------------------------------------------------------------------------- */
+
+export const UPLOADS_IMAGE_ENDPOINT = "/api/uploads/image";
+
+/**
+ * El endpoint lee **sólo** este campo del formulario
+ * (`app/api/uploads/image/route.ts`). Mandarlo con otro nombre responde 400 con
+ * "Falta el archivo de imagen.", que parece un problema del archivo y no lo es.
+ */
+export const UPLOAD_FILE_FIELD = "file";
+
+/**
+ * **Éxito = 201, no 200.** El endpoint responde 201 con `{ url }`.
+ *
+ * **Aviso con ficha (deuda 60):** *asumir 200 rompe en el navegador y NO en los
+ * tests*, porque un cliente escrito contra `response.ok` funde los dos y ningún
+ * test que devuelva 201 lo delata. #22 es el **primer consumidor real de este
+ * endpoint desde un navegador**, o sea la primera vez que ese error puede
+ * manifestarse de verdad. Por eso el éxito se compara contra ESTE número y hay un
+ * test que comprueba que un 200 **no** se acepta.
+ */
+export const UPLOAD_CREATED_STATUS = 201;
+
+/* Los formatos y el tope se DERIVAN de la validación del servidor: si mañana
+   entra un formato nuevo, el mensaje lo dice sin que nadie se acuerde de venir
+   acá. Reescribirlos a mano es cómo el cartel y la regla se separan. */
+const UPLOAD_ACCEPTED_FORMATS = ACCEPTED_IMAGE_TYPES.map(
+  (type) => type.split("/")[1]?.toUpperCase() ?? type,
+).join(", ");
+
+const UPLOAD_MAX_MB = MAX_IMAGE_BYTES / (1024 * 1024);
+
+/**
+ * Los tres repliegues de la subida. Se usan **sólo si el cuerpo no se puede
+ * leer**: cuando el servidor manda su `{ error }`, ése es más preciso (dice si
+ * falló el formato o el tamaño). Existen porque en esta pantalla el status ya
+ * dice qué hacer, y "algo salió mal" no ayuda a nadie a arreglar una foto.
+ */
+export const UPLOAD_IMAGE_REJECTED_MESSAGE = `No pudimos usar esa imagen. Tiene que ser ${UPLOAD_ACCEPTED_FORMATS} y pesar menos de ${UPLOAD_MAX_MB} MB.`;
+export const UPLOAD_UNAUTHORIZED_MESSAGE =
+  "Tu sesión caducó. Volvé a entrar y probá de nuevo con la foto.";
+/** 502 = el proveedor de imágenes falló, no el archivo. Reintentar sirve. */
+export const UPLOAD_PROVIDER_DOWN_MESSAGE =
+  "El servicio de imágenes no responde ahora mismo. Probá de nuevo en un minuto.";
+
+const UPLOAD_FALLBACKS: Record<number, string> = {
+  400: UPLOAD_IMAGE_REJECTED_MESSAGE,
+  401: UPLOAD_UNAUTHORIZED_MESSAGE,
+  502: UPLOAD_PROVIDER_DOWN_MESSAGE,
+};
+
+/**
+ * `POST /api/uploads/image` — sube la foto y devuelve **su URL**.
+ *
+ * Tres cosas que no se pueden tocar sin romperlo:
+ *
+ * 1. **`multipart/form-data` con el campo `file`.** El cuerpo es un `FormData` y
+ *    **no se fija la cabecera de tipo de contenido a mano**: el navegador tiene
+ *    que poner la suya CON la frontera del multipart, que sólo él conoce. Fijarla
+ *    deja al servidor sin frontera y el 400 resultante parece del archivo.
+ * 2. **Éxito = 201** (ver `UPLOAD_CREATED_STATUS`).
+ * 3. **El endpoint no admite ningún otro campo**: la carpeta y el identificador
+ *    en el proveedor se derivan del JWT, no del cuerpo.
+ *
+ * Devuelve la URL pelada, no el payload: lo que el formulario guarda en
+ * `projects.image` es una cadena.
+ */
+export async function uploadProjectImage(
+  file: File,
+): Promise<ProjectsRequestResult<string>> {
+  const body = new FormData();
+  body.append(UPLOAD_FILE_FIELD, file);
+
+  let response: Response;
+  try {
+    response = await fetch(UPLOADS_IMAGE_ENDPOINT, {
+      method: "POST",
+      credentials: "same-origin",
+      body,
+    });
+  } catch {
+    return { ok: false, status: 0, message: NETWORK_ERROR_MESSAGE };
+  }
+
+  if (response.status !== UPLOAD_CREATED_STATUS) {
+    return {
+      ok: false,
+      status: response.status,
+      message: await readErrorMessage(
+        response,
+        UPLOAD_FALLBACKS[response.status] ?? UNEXPECTED_ERROR_MESSAGE,
+      ),
+    };
+  }
+
+  try {
+    const payload = (await response.json()) as { url: string };
+    return { ok: true, status: response.status, data: payload.url };
+  } catch {
+    // Un 201 con cuerpo ilegible no deja ninguna URL que guardar.
+    return {
+      ok: false,
+      status: response.status,
+      message: UNEXPECTED_ERROR_MESSAGE,
+    };
+  }
 }

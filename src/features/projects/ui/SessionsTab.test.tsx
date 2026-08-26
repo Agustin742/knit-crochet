@@ -124,11 +124,16 @@ function serveBackend(store: SerializedCraftSession[] = []) {
 
 const fetchSpy = vi.fn();
 const onTimeChange = vi.fn();
+const onRunningChange = vi.fn();
 
 function renderTab() {
   return render(
     <main>
-      <SessionsTab projectId={PROJECT_ID} onTimeChange={onTimeChange} />
+      <SessionsTab
+        projectId={PROJECT_ID}
+        onTimeChange={onTimeChange}
+        onRunningChange={onRunningChange}
+      />
     </main>,
   );
 }
@@ -146,6 +151,7 @@ afterEach(() => {
   cleanup();
   fetchSpy.mockReset();
   onTimeChange.mockReset();
+  onRunningChange.mockReset();
   vi.unstubAllGlobals();
 });
 
@@ -427,5 +433,86 @@ describe("SessionsTab — historial y estados", () => {
         .map((button) => button.textContent),
     ).toEqual([START_SESSION_LABEL]);
     expect(within(container).queryByRole("link")).toBeNull();
+  });
+});
+
+/**
+ * EL CAJÓN LE CUENTA A LA LISTA QUÉ PASÓ CON EL CRONÓMETRO (RFC-03, enmienda
+ * **E7 (b)**).
+ *
+ * **El tab no cambia en nada de lo que se ve**: mismo reloj, mismo botón, mismo
+ * historial. Lo único que se añade es que **avisa hacia arriba**, exactamente
+ * como ya hacía con el tiempo total (`onTimeChange`) y por el mismo motivo: con
+ * E7 la tarjeta de la lista **también** sabe si el cronómetro corre, así que
+ * arrancar o parar desde acá y cerrar el cajón dejaría a la tarjeta detrás
+ * afirmando lo contrario — la misma mentira de la ficha 186 entrando por otra
+ * puerta.
+ */
+describe("SessionsTab — avisa a quien lo monta (E7 b)", () => {
+  it("al arrancar reporta la sesión que quedó abierta, con su arranque", async () => {
+    const user = userEvent.setup();
+    renderTab();
+
+    await user.click(
+      await screen.findByRole("button", { name: START_SESSION_LABEL }),
+    );
+
+    await waitFor(() => expect(onRunningChange).toHaveBeenCalledTimes(1));
+    const reported = onRunningChange.mock.calls[0]?.[0] as {
+      id: string;
+      start: string;
+    } | null;
+    expect(reported?.start).toEqual(expect.any(String));
+    expect(reported?.id).toEqual(expect.any(String));
+  });
+
+  it("al parar reporta que ya no corre nada", async () => {
+    serveBackend([session({ id: "s2", end: null, duration: 0 })]);
+    const user = userEvent.setup();
+    renderTab();
+
+    await user.click(
+      await screen.findByRole("button", { name: STOP_SESSION_LABEL }),
+    );
+
+    await waitFor(() => expect(onRunningChange).toHaveBeenCalledWith(null));
+  });
+
+  /** Si el servidor no paró nada, no se puede decir arriba que se paró. */
+  it("un 409 al parar no reporta ningún cambio", async () => {
+    serveBackend([session({ id: "s2", end: null, duration: 0 })]);
+    const user = userEvent.setup();
+    renderTab();
+    const stop = await screen.findByRole("button", {
+      name: STOP_SESSION_LABEL,
+    });
+
+    await user.click(stop);
+    await waitFor(() => expect(onRunningChange).toHaveBeenCalledWith(null));
+    onRunningChange.mockReset();
+
+    /* La sesión ya está cerrada en el doble: el tab vuelve a ofrecer arrancar,
+       así que el 409 se provoca parando otra vez a través del cliente. */
+    await user.click(
+      await screen.findByRole("button", { name: START_SESSION_LABEL }),
+    );
+    await waitFor(() => expect(onRunningChange).toHaveBeenCalled());
+    onRunningChange.mockReset();
+    fetchSpy.mockImplementation((url: string, init?: RequestInit) =>
+      init?.method === "PATCH"
+        ? Promise.resolve(
+            jsonResponse(409, {
+              error: "No hay ninguna sesión de tejido en marcha.",
+            }),
+          )
+        : Promise.resolve(jsonResponse(200, { sessions: [] })),
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: STOP_SESSION_LABEL }),
+    );
+
+    await screen.findByText("No hay ninguna sesión de tejido en marcha.");
+    expect(onRunningChange).not.toHaveBeenCalled();
   });
 });

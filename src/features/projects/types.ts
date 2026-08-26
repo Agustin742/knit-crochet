@@ -19,6 +19,33 @@ export type LinkedYarn = {
   typeName: string;
 };
 
+/**
+ * El cronómetro abierto de un proyecto, tal y como viaja en la lista (RFC-03,
+ * enmienda **E7 (b3)**).
+ *
+ * **Dos campos y no la sesión entera**, a propósito: de una sesión abierta,
+ * `end` es siempre `null` y `duration` siempre `0` —el servidor los calcula al
+ * cerrarla—, así que mandarlos sería mandar dos huecos. Lo que la tarjeta
+ * necesita es **desde cuándo** corre (para arrancar el reloj en el segundo real
+ * y no en cero) y **cuál** es (para poder hablar de ella).
+ */
+export type ActiveProjectSession = { id: string; start: Date };
+
+/** La misma sesión con el proyecto al que pertenece, tal y como sale del store. */
+export type ActiveSessionRow = ActiveProjectSession & { projectId: string };
+
+/**
+ * Un proyecto **de la lista**: la fila entera más su cronómetro.
+ *
+ * La invariante del backend es *"como mucho una sesión abierta **por
+ * proyecto**"* (`start-session.ts`), **no una por usuario**: puede haber varios
+ * cronómetros corriendo a la vez en proyectos distintos, y por eso el dato
+ * cuelga de cada proyecto en vez de ser uno solo de la respuesta.
+ */
+export type ProjectListItem = ProjectRecord & {
+  activeSession: ActiveProjectSession | null;
+};
+
 /** Payload de `GET /api/projects/:id`: `project` intacto + clave hermana. */
 export type ProjectDetail = {
   project: ProjectRecord;

@@ -1,9 +1,18 @@
-import { type CraftType } from "@/shared/config";
-import { Button, Card, ProgressBar } from "@/shared/ui";
-import { formatDuration, formatInteger } from "@/shared/lib/format";
+"use client";
 
+import { useEffect, useState } from "react";
+
+import { MILLISECONDS_PER_SECOND, type CraftType } from "@/shared/config";
+import { Button, Card, ProgressBar } from "@/shared/ui";
+import {
+  formatClock,
+  formatDuration,
+  formatInteger,
+} from "@/shared/lib/format";
+
+import { sessionElapsedSeconds } from "./project-detail";
 import { CRAFT_TYPE_LABELS } from "./project-filters";
-import type { ProjectCardData } from "./types";
+import type { ProjectCardData, SerializedActiveSession } from "./types";
 
 /** Niveles admitidos para el nombre. Mismo criterio que `StatePanel`. */
 export const PROJECT_CARD_HEADING_LEVELS = [2, 3, 4] as const;
@@ -21,12 +30,68 @@ export function quickStartLabel(projectName: string): string {
 }
 
 /**
+ * Nombre accesible del **mismo** control con el cronómetro en marcha (enmienda
+ * **E7 (b1)**). Es la mitad accesible de "el botón se transforma": quien no ve
+ * la pantalla se entera de que la acción cambió porque cambia el nombre, no
+ * porque cambie un icono.
+ */
+export function quickStopLabel(projectName: string): string {
+  return `Parar el cronómetro de ${projectName}`;
+}
+
+/**
+ * Lo que se lee del reloj en grano de **minuto** (enmienda **E4 (a)**).
+ *
+ * Los dígitos de segundos son decoración: dichos en voz alta cambiarían sesenta
+ * veces por minuto sin decir nada nuevo. Este texto dice **el estado y el
+ * tiempo**, y **no** vive en una región viva —no se anuncia solo—, así que se
+ * lee cuando quien navega llega a la tarjeta.
+ */
+export function runningTimerLabel(elapsedSeconds: number): string {
+  return `Cronómetro en marcha: ${formatDuration(elapsedSeconds)}`;
+}
+
+/**
  * Nombre accesible del tap al detalle. Lleva el nombre del proyecto por lo mismo
  * que el del quick-start: en una grilla hay N tarjetas iguales y "Ver detalle" a
  * secas no dice de cuál habla.
  */
 export function openDetailLabel(projectName: string): string {
   return `Ver detalle de ${projectName}`;
+}
+
+/**
+ * El cronómetro de la tarjeta: **su estado y sus dos acciones, en un solo
+ * objeto** (RFC-03, enmienda **E7 (b1)** y **(b2)**).
+ *
+ * **Por qué un objeto y no props sueltas.** El control es **uno**: con el
+ * cronómetro parado ofrece empezar y con el cronómetro en marcha ofrece parar,
+ * en el mismo sitio y con la misma caja táctil. Con `session` y `onStop` como
+ * props opcionales independientes existiría el estado *"corriendo y sin forma de
+ * pararlo"*, que es **exactamente el defecto que E7 vino a arreglar** (ficha
+ * 186). Así, ese estado no se puede ni escribir.
+ *
+ * **Sigue siendo opt-in, y eso conserva la invariante de la deuda 132:** sin
+ * esta prop la tarjeta no monta **ningún** control ni ningún reloj, que es como
+ * la monta el Dashboard.
+ */
+export interface ProjectCardTimer {
+  /**
+   * La sesión abierta del proyecto, o `null` si está parado. Llega del servidor
+   * con la lista (E7 b3), así que **sobrevive a recargar la página**: es la
+   * diferencia con la marca en memoria que E7 (b4) retira.
+   *
+   * Se pide sólo el arranque porque es lo único que la tarjeta pinta; el objeto
+   * entero encaja igual.
+   */
+  session: Pick<SerializedActiveSession, "start"> | null;
+  /**
+   * Petición en vuelo. Va acá y no en `ProjectCardData` por la deuda 109: "hay
+   * una petición en marcha" no es un dato del proyecto.
+   */
+  pending?: boolean;
+  onStart: () => void;
+  onStop: () => void;
 }
 
 export interface ProjectCardProps {
@@ -40,39 +105,18 @@ export interface ProjectCardProps {
   headingLevel?: ProjectCardHeadingLevel;
   className?: string;
   /**
-   * Quick-start del cronómetro (RFC-03 §2). **Es opt-in y por eso el añadido es
-   * aditivo**: sin esta prop la tarjeta no monta NINGÚN control, que es la
-   * invariante que su consumidor de #19 —el Dashboard, que no pasa la acción—
-   * conserva intacta.
+   * Quick-start del cronómetro (RFC-03 §2, reescrito por la enmienda **E7 (b)**).
+   * **Es opt-in y por eso el añadido sigue siendo aditivo**: sin esta prop la
+   * tarjeta no monta NINGÚN control, que es la invariante que su consumidor de
+   * #19 —el Dashboard, que no la pasa— conserva intacta.
    *
-   * **Sólo arranca. No es un toggle** (enmienda E1(e)): `POST
-   * /:id/sessions/start` es idempotente (201 si crea, 200 si reutiliza una
-   * sesión abierta, nunca 409) y **no hay forma de saber desde la lista si el
-   * cronómetro corre** —ni columna, ni filtro, ni endpoint—, así que un
-   * start/stop tendría que adivinar qué icono pintar. El estado "corriendo" se
-   * aprende al tocar, no antes.
+   * **Ahora es un toggle, y antes no podía serlo.** E1(e) razonó que un
+   * start/stop *"tendría que adivinar qué icono pintar"* porque **no había forma
+   * de saber desde la lista si el cronómetro corría**. Con **E7 (b3)** el dato
+   * llega del servidor con cada proyecto, así que ya no se adivina nada: el
+   * botón sabe en qué estado está y ofrece la acción que corresponde.
    */
-  onQuickStart?: () => void;
-  /**
-   * Petición en vuelo. Va como prop **propia** y no como campo del proyecto: el
-   * `Pick` de `ProjectCardData` no tiene por qué crecer para esto (deuda 109),
-   * y "hay una petición en marcha" no es un dato del proyecto.
-   */
-  quickStartPending?: boolean;
-  /**
-   * Marca corta de lo que acaba de pasar con el cronómetro de este proyecto
-   * (enmienda E2(d)). Es **presentación pura**: la tarjeta no sabe de dónde sale
-   * el texto ni cuánto dura, sólo lo pinta si se lo dan.
-   *
-   * **No monta ningún control**, y eso no es un detalle: la invariante de la
-   * deuda 132 —sin `onQuickStart`, cero controles— tiene que seguir en pie,
-   * porque el Dashboard monta esta misma tarjeta sin la acción. Marcar "en
-   * marcha" tampoco es ofrecer "parar": el quick-start **sólo arranca** (E1(e)).
-   *
-   * Va **fuera del encabezado** a propósito: el nombre accesible de la tarjeta
-   * es el nombre del proyecto y nada más.
-   */
-  quickStartNote?: string;
+  timer?: ProjectCardTimer;
   /**
    * Abre el cajón de detalle (RFC-03 §2: *"Tap → drawer"*). **Es opt-in, igual
    * que el quick-start**, así que el Dashboard —que monta esta misma tarjeta sin
@@ -100,11 +144,12 @@ export interface ProjectCardProps {
  * cree la slice del Dashboard: es la tarjeta *de proyecto*, y la lista de
  * proyectos (#20) la va a buscar aquí.
  *
- * **NO lleva quick-start de cronómetro, y no es un olvido.** La versión de
- * RFC-02 es un subconjunto estricto de la de RFC-03, así que #20 la extiende de
- * forma aditiva sin reescribir nada. Tampoco hay un slot de acción "preparado"
- * esperándolo: un slot que ningún consumidor usa no se puede probar contra un
- * consumidor real, y es código muerto.
+ * **El cronómetro es opcional y entra por una sola prop** (`timer`): la versión
+ * de RFC-02 —la que monta el Dashboard— es un subconjunto estricto de la de
+ * RFC-03, así que se extiende de forma aditiva sin reescribir nada, y sin la
+ * prop no hay ni control ni reloj. Tampoco hay un slot "preparado" esperando: un
+ * slot que ningún consumidor usa no se puede probar contra un consumidor real, y
+ * es código muerto.
  *
  * Es un `div` (lo que `Card` sabe ser) y **no** un `li` ni un `article`: quien la
  * monte en una lista la envuelve. Así la misma tarjeta sirve en una grilla, en
@@ -114,12 +159,11 @@ export function ProjectCard({
   project,
   headingLevel = 3,
   className,
-  onQuickStart,
-  quickStartPending = false,
-  quickStartNote,
+  timer,
   onOpenDetail,
 }: ProjectCardProps) {
   const Heading = `h${headingLevel}` as const;
+  const running = timer?.session ?? null;
 
   return (
     <Card className={className}>
@@ -145,30 +189,43 @@ export function ProjectCard({
         />
 
         <div className="flex items-start justify-between gap-(--space-3)">
-          <div className="flex min-w-0 flex-col items-start gap-(--space-2)">
-            <Heading className="font-display text-xl leading-tight text-fg">
-              {project.name}
-            </Heading>
+          {/* `min-w-0` para que un nombre largo **se parta** en vez de empujar
+              al cronómetro fuera de la tarjeta. */}
+          <Heading className="min-w-0 font-display text-xl leading-tight text-fg">
+            {project.name}
+          </Heading>
 
-            {quickStartNote === undefined ? null : (
-              <span className={QUICK_START_NOTE_CLASSES}>{quickStartNote}</span>
-            )}
-          </div>
+          {/* El bloque del cronómetro NO envuelve la tarjeta ni vive dentro de
+              un enlace, y tampoco dentro de la capa del tap: un control dentro
+              de otro es marcado inválido que `axe` marca. Son hermanos, y el
+              orden del DOM (más el `relative` de acá) es lo que deja este por
+              encima.
 
-          {/* El botón NO envuelve la tarjeta ni vive dentro de un enlace, y
-              tampoco dentro de la capa del tap: un control dentro de otro es
-              marcado inválido que `axe` marca. Son hermanos, y el orden del DOM
-              (más el `relative` de acá) es lo que deja este por encima. */}
-          {onQuickStart === undefined ? null : (
-            <Button
-              size="icon"
-              className="relative"
-              aria-label={quickStartLabel(project.name)}
-              loading={quickStartPending}
-              onClick={onQuickStart}
-            >
-              {quickStartPending ? null : <span aria-hidden="true">▶</span>}
-            </Button>
+              El reloj va **pegado al botón** y no bajo el nombre: es el estado
+              de ese control, así que se lee junto a él de una sola mirada. */}
+          {timer === undefined ? null : (
+            <div className="relative flex shrink-0 items-center gap-(--space-2)">
+              {running === null ? null : (
+                <SessionClock start={running.start} />
+              )}
+              {/* UN botón, no dos (E7 b1): cambia de variante, de icono, de
+                  nombre accesible y de acción, y se queda donde estaba. */}
+              <Button
+                size="icon"
+                variant={running === null ? "secondary" : "primary"}
+                aria-label={
+                  running === null
+                    ? quickStartLabel(project.name)
+                    : quickStopLabel(project.name)
+                }
+                loading={timer.pending ?? false}
+                onClick={running === null ? timer.onStart : timer.onStop}
+              >
+                {timer.pending === true ? null : (
+                  <span aria-hidden="true">{running === null ? "▶" : "■"}</span>
+                )}
+              </Button>
+            </div>
           )}
         </div>
 
@@ -216,22 +273,68 @@ const DETAIL_TAP_CLASSES = [
 ].join(" ");
 
 /**
- * Marca de "esto acaba de pasar" en la tarjeta (enmienda E2(d)).
- *
- * Usa el color de **acierto** del sistema, que hasta ahora no tenía **ni un solo
- * uso** en toda la app (deuda 144): la aplicación sabía decir "esto falló" y no
- * sabía decir "esto salió bien". Se lee a 4.83:1 sobre la superficie elevada de
- * la tarjeta, que es donde se monta.
- *
- * Es un `span`, no un botón ni un enlace: la tarjeta sin `onQuickStart` sigue
- * sin montar ningún control (deuda 132).
+ * Cada cuánto se redibuja el reloj. Un segundo: es la unidad que muestra, así
+ * que un intervalo más corto redibujaría sin cambiar nada y uno más largo
+ * dejaría saltos visibles. Mismo criterio que el cronómetro del cajón.
  */
-const QUICK_START_NOTE_CLASSES = [
-  "inline-flex items-center",
-  "border-(length:--border-width) border-solid border-success rounded-sm",
-  "px-(--space-2) py-(--space-1)",
-  "font-mono text-xs leading-base text-success",
-].join(" ");
+const TICK_MS = MILLISECONDS_PER_SECOND;
+
+/**
+ * El tiempo transcurrido en la tarjeta, mientras el cronómetro corre (enmienda
+ * **E7 (b2)**).
+ *
+ * **Empieza en el segundo real.** El arranque lo pone el servidor y llega con la
+ * lista, así que una sesión que venía de antes no se pinta en cero: se calcula
+ * contra el reloj del navegador con `sessionElapsedSeconds`, la misma función
+ * que usa el cajón —incluida su acotación a cero, que evita el negativo cuando
+ * el reloj local va por detrás del servidor—.
+ *
+ * **El intervalo vive acá, en la pieza que corre, y no en la vista.** Así sólo
+ * tickan las tarjetas que tienen algo que contar, y cada tick repinta esa
+ * tarjeta en vez de la rejilla entera. Se limpia al desmontar, y desmontar pasa
+ * también cuando la sesión se cierra: el padre deja de pintar este componente.
+ *
+ * **No es una región viva, y es deliberado** (enmienda **E4 (a)**): un aviso por
+ * segundo convierte un lector de pantalla en un metrónomo, y acá pesa el doble
+ * que en el cajón porque puede haber **varios cronómetros a la vez** en la misma
+ * rejilla. Lo que se puede leer es el texto de grano de minuto; los cambios de
+ * estado los anuncia la **única** región viva de la página, que vive en la vista.
+ *
+ * El color de **acierto** marca "esto está vivo" — se lee a 4.83:1 sobre la
+ * superficie elevada de la tarjeta, que es donde se monta.
+ */
+function SessionClock({ start }: { start: string }) {
+  /* Sólo lo mueve el intervalo, nunca un render: si cada render lo actualizara,
+     el tiempo saltaría al pulsar cualquier cosa de la página. */
+  const [now, setNow] = useState(() => Date.now());
+
+  /* La dependencia es el ARRANQUE, no el objeto de la sesión: cada recarga de la
+     lista trae uno nuevo desde la red, y depender del objeto reiniciaría el
+     intervalo aunque siguiera corriendo la misma sesión. */
+  useEffect(() => {
+    const ticker = setInterval(() => {
+      setNow(Date.now());
+    }, TICK_MS);
+
+    return () => {
+      clearInterval(ticker);
+    };
+  }, [start]);
+
+  const elapsed = sessionElapsedSeconds(start, now);
+
+  return (
+    <span className="inline-flex items-center">
+      <span
+        aria-hidden="true"
+        className="font-mono text-base leading-base text-success"
+      >
+        {formatClock(elapsed)}
+      </span>
+      <span className="sr-only">{runningTimerLabel(elapsed)}</span>
+    </span>
+  );
+}
 
 /**
  * Dónde se está montando la foto, que es lo único que decide su encuadre.

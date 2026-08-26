@@ -28,7 +28,10 @@ import {
   startCraftSession,
   stopCraftSession,
 } from "./projects-client";
-import type { SerializedCraftSession } from "./types";
+import type {
+  SerializedActiveSession,
+  SerializedCraftSession,
+} from "./types";
 
 /**
  * Cada cuánto se redibuja el cronómetro. Un segundo: es la unidad que el
@@ -56,6 +59,20 @@ export interface SessionsTabProps {
    * con la cifra de antes de la sesión que se acaba de cerrar.
    */
   onTimeChange: (time: number) => void;
+  /**
+   * Qué cronómetro quedó corriendo tras la acción, o `null` si ya no corre
+   * ninguno (enmienda **E7 (b)**).
+   *
+   * **El tab no cambia en nada de lo que se ve**: es el mismo aviso hacia arriba
+   * que `onTimeChange`, y por el mismo motivo. Desde E7 la **tarjeta de la
+   * lista** también sabe si el cronómetro corre, así que arrancar o parar desde
+   * el cajón y cerrarlo dejaría a la tarjeta de detrás afirmando lo contrario —
+   * la mentira de la ficha 186 entrando por otra puerta.
+   *
+   * Sólo se llama cuando el servidor confirmó el cambio: si parar responde 409
+   * no se paró nada, y no hay nada que contar.
+   */
+  onRunningChange: (session: SerializedActiveSession | null) => void;
 }
 
 /**
@@ -85,7 +102,11 @@ export interface SessionsTabProps {
  * responde 409**. Por eso el botón de parar no se pinta si no hay nada
  * corriendo.
  */
-export function SessionsTab({ projectId, onTimeChange }: SessionsTabProps) {
+export function SessionsTab({
+  projectId,
+  onTimeChange,
+  onRunningChange,
+}: SessionsTabProps) {
   const [loaded, setLoaded] = useState<LoadedSessions | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [pending, setPending] = useState(false);
@@ -159,6 +180,7 @@ export function SessionsTab({ projectId, onTimeChange }: SessionsTabProps) {
     setActionError(null);
     const result = await startCraftSession(projectId);
     if (result.ok) {
+      onRunningChange({ id: result.data.id, start: result.data.start });
       /* Se vuelve a pedir la lista en vez de meter la sesión a mano: el orden y
          el "cuál está abierta" los decide el servidor, y una lista cosida a mano
          es una segunda verdad esperando a discrepar. */
@@ -175,6 +197,7 @@ export function SessionsTab({ projectId, onTimeChange }: SessionsTabProps) {
     const result = await stopCraftSession(projectId);
     if (result.ok) {
       onTimeChange(result.data.time);
+      onRunningChange(null);
       setReloadToken((token) => token + 1);
     } else {
       setActionError(result.message);

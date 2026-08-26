@@ -2645,3 +2645,230 @@ bloqueante **no era un bug de código**, era una frase que afirmaba que ese test
 4. **Dos "404" que no eran bugs.** `/lanas`, `/patrones`, `/calculadoras` y `/stash` **no existen todavía**
    —son las features pendientes #23-#30—, y el Dashboard vive en **`/`, no en `/dashboard`**. La barra
    enlaza a cuatro rutas que hoy dan 404: **esperado en este punto del MVP**, no una regresión.
+
+---
+
+> **De la tanda 1 de #22 `projects_form_ui` (2026-08-26).** T1 se cierra **aprobada sin bloqueantes**: el
+> reviewer **rompió el código él mismo con ocho mutaciones** y confirmó que las seis garantías del
+> implementer son ciertas. Una sola ficha, y es un rótulo, no un agujero.
+
+176. **⚪ QUINTA variante de verde-falso, y esta vez es sólo el COMENTARIO:** el de
+     `FileInput.test.tsx:126` dice guardar el invariante de que el input de archivo **no puede ser
+     `display:none`** —porque dejaría de ser enfocable por teclado— y **no puede guardarlo**: el reviewer
+     puso `hidden` y **ese archivo salió 11/11 verde**. **NO hay agujero detrás:** el invariante real
+     **sí** está cubierto, y por el sitio correcto —el **gate de CSS compilado**, que con esa misma
+     mutación **muere**—. Es un **rótulo desactualizado**, y se ficha por lo único que hace daño: que un
+     review futuro lo cite como evidencia de algo que no mide. **Arreglo de una línea, va en la T2.**
+     Familia: **160**, **167**, **174**. Y la lección se repite: *un comentario que promete una garantía
+     es una afirmación sobre el código, y envejece igual de mal que el código.*
+
+---
+
+> **De la verificación en navegador (REGLA 4) de #22 `projects_form_ui`, 2026-08-26.** Las dos tandas
+> quedaron **aprobadas sin bloqueantes**. De los **ocho puntos** que dejaron abiertos los reviewers, se
+> verificaron **los ocho**. Seis salieron bien. Lo de abajo son las **tres fichas** que salieron de mirar,
+> y la primera **no la produjo #22: la destapa**.
+
+182. **🟠 EL ACENTO DE TODA LA APP NO LLEGA A AA, y es la primera vez que alguien lo mide.**
+     **NO lo produjo #22.** Salió al verificar el contraste del botón de peligro (que **sí** pasa: `#c6432f`
+     sobre `#fffdf6` = **4,86:1**, medido con el color computado real, no con aritmética sobre tokens).
+     Al medir el vecino apareció esto, y **se confirmó antes de reportarlo** barriendo la página entera:
+     | elemento | de dónde viene | ratio |
+     |---|---|---|
+     | «Editar» del cajón | **#22** | **3,02:1** |
+     | «Nuevo dos agujas» / «Nuevo crochet» | **#22** | **3,02:1** |
+     | **«Activos»** del segmentado | **preexistente, #20** | **3,02:1** |
+     La causa es el token: **`--accent: #e4649b` con texto `#fff8ee` da 3,02:1**, y **AA para texto normal
+     exige 4,5**. A `16px/700` **no califica como texto grande** (haría falta ≥18,66px en negrita).
+     **Escenario de fallo:** con poca luz, en una pantalla mala o con visión reducida, **el rótulo del
+     botón principal de cada pantalla es el que peor se lee**. **Es 🟠 y no 🔴 porque se lee** —3,02 no es
+     ilegible, es insuficiente—, y **no se abre bajo la moratoria** porque tocar el acento **repinta la app
+     entera** y es una decisión de diseño del usuario: oscurecer `--accent`, oscurecer el texto sobre él,
+     o aceptar el incumplimiento por escrito. **Va a RFC-01.**
+     > **Por qué esto es hermano de la 165 y de la 173:** nadie lo había medido nunca. No hay gate que mire
+     > contraste, así que el defecto **no podía salir de la suite** — sólo de mirar la pantalla.
+
+183. **🟠 Tras COMPLETAR una acción, el foco se cae al `body`. Al cancelarla, no.** Medido en los tres
+     caminos, y **el diagnóstico es exacto**:
+     | camino | dónde queda el foco |
+     |---|---|
+     | cancelar el alta | **vuelve al disparador** («Nuevo dos agujas») ✅ |
+     | **crear** con éxito | **`BODY`** ❌ |
+     | **borrar** con éxito | **`BODY`** ❌ |
+     **El `Dialog` NO tiene la culpa**: devuelve el foco correctamente cuando el flujo se descarta. Lo que
+     falla es **el camino de éxito** de #22. **Escenario de fallo:** quien navega con teclado o lector de
+     pantalla y **completa** un alta o un borrado es devuelto **al principio del documento** y pierde el
+     sitio; quien **cancela** queda bien atendido. **Está al revés de lo que debería.** En el borrado hay
+     un matiz que explica la mitad: **el disparador deja de existir** (la tarjeta se borró), así que no hay
+     dónde volver y **hay que elegir destino** —el encabezado de la lista, o la tarjeta vecina—; en el alta
+     **no hay excusa**, porque «Nuevo dos agujas» sigue ahí. **Cómo se salda:** mover el foco
+     explícitamente al cerrar por éxito. **No bloquea #22** bajo la moratoria: la acción se completa y la
+     pantalla queda correcta.
+
+184. **🟠 La vista previa de la foto se pinta VACÍA en el alta, y ahí no comunica nada.** En un proyecto
+     nuevo, `ProjectPhoto` ocupa **≈135 px de alto** en lo alto del formulario **antes** del campo «Foto
+     del proyecto», y lo único que muestra es el **tipo de tejido que acabás de elegir dos campos más
+     arriba**. En un modal que ya necesita **313 px de scroll**, es el bloque que más espacio gasta sin
+     decir nada. **Es la misma familia que la deuda 144 / E2 (g)** (*el hueco de la foto vacía era un vacío
+     del 61% de la tarjeta*), que ya se resolvió una vez en la lista y **vuelve a aparecer en el
+     formulario**. **Cómo se salda:** decisión de diseño —no pintarla hasta que haya foto, o encogerla a la
+     altura de un marcador— y va a **RFC-03**.
+
+### 📌 Lo que esta verificación enseñó sobre el MÉTODO
+
+1. **`TaskStop` NO mata el `next dev`.** Mata el envoltorio de `pnpm` y **deja vivo al hijo**. El servidor
+   que se "paró" ayer seguía escuchando en `:3000` **horas después**, y el arranque de hoy falló por eso.
+   **Pararlo de verdad es matar el PID del puerto y VERIFICAR que quedó libre.** Es la misma familia que la
+   sesión de 281 h.
+2. **Dos falsos positivos MÍOS, cazados antes de reportarlos** —y esta vez el control funcionó a la
+   primera—: (a) *"el cajón no tiene botones de editar/borrar"*, cuando lo que pasaba es que **medí antes
+   de que el detalle resolviera** (el cajón **deriva** su estado, así que los botones llegan después); y
+   (b) *"el botón de guardar queda fuera de pantalla"*, cuando había buscado **el contenedor de scroll
+   equivocado** — el que scrollea es el propio `[role="dialog"]`, con **313 px** de recorrido, y al fondo
+   Cancelar y Crear **son alcanzables**. **Ninguno de los dos era de la app.**
+3. **El teclado sintético también miente, como `resize_window`.** Un `type` de 33 caracteres **no llegó al
+   campo** (`value` quedó vacío) porque depende de la ventana en primer plano. **Comprobá el `value` real
+   después de escribir.** Y el accidente pagó: el envío vacío **verificó gratis** que la validación en
+   cliente pone `aria-invalid`, cablea `aria-describedby` y **manda el foco al campo inválido** (deuda 38).
+4. **Verificar el borrado exigía borrar, y eso se PIDIÓ antes.** Se creó un proyecto de prueba por la UI y
+   se borró: **saldo neto cero** y el proyecto del usuario intacto. Es la aplicación de lo que dejó escrito
+   la ficha 171.
+
+---
+
+> **Reportadas por el USUARIO probando la app tras cerrar #22 (2026-08-26).** Tres cosas. **Una NO era de
+> la app** y se explica abajo porque casi cuesta una cacería; las otras dos son las fichas **185** y
+> **186**, y las cierra la enmienda **E7** de RFC-03.
+
+### 📌 La que NO era de la app, y por poco se ficha como regresión de #22
+
+El tab **Sesiones** daba *"Se soltó un punto"* en **todos** los proyectos. **Medido:**
+`GET /api/projects/:id/sessions` → **404 con `text/html`** (no JSON, o sea **la ruta no se resolvía**), y
+**lo mismo `…/yarns`**: fallaban **todas las subrutas anidadas bajo `[id]/`**, no sólo sesiones — el tab
+**Lanas estaba roto igual** y nadie lo había tocado. El handler **existe y exporta `GET`**;
+`projectNotFound()` devuelve **JSON**, así que el HTML no salía de ahí.
+
+**Lo que lo resolvió sin tocar una línea:** `pnpm build` → **compila las nueve rutas**, `sessions`
+incluida. **El código estaba sano: era la caché de Turbopack del servidor de desarrollo.** Con `.next`
+borrada y el servidor reiniciado limpio: **`200 {"sessions":[]}`** y el tab funcionando.
+
+> **REGLA 2, otra vez, y esta vez habría costado caro:** *antes de culpar a la app, descartá el entorno de
+> medición*. Un `next dev` con caché sucia **imita perfectamente a una regresión**: mismo síntoma, mismo
+> sitio, y aparece justo después de tocar el código. **El discriminador barato es el build**: si compila
+> la ruta y dev no la sirve, no es tuyo. Emparenta con el `500` falso del `next dev` degradado y con
+> [la ficha de `TaskStop`].
+
+185. **🟠 El alta de proyecto está PARTIDA EN DOS: el Dashboard y `/proyectos` abren formularios
+     distintos con el mismo título.** **Medido con los dos modales abiertos:** ambos se titulan *"Nuevo
+     proyecto de dos agujas"*; el de `/proyectos` tiene **seis campos** (nombre, tipo, foto, meta, agujas,
+     notas) y el del Dashboard **uno** (nombre). **Lo introdujo #22**, que estrenó `ProjectFormDialog` en
+     `/proyectos` y dejó el `NewProjectDialog` viejo en el Dashboard. **Escenario de fallo:** el usuario
+     crea desde el Dashboard, no ve dónde poner la foto ni la meta, y concluye que la app no las tiene.
+     **Y la causa raíz es de método, no de código:** **la enmienda E6 definió "el" formulario de proyecto y
+     no dijo nada del Dashboard**, así que nadie tenía el encargo de mirarlo. *Una enmienda que define el
+     formulario de una entidad tiene que enumerar **todos** los sitios desde los que se crea.* La cierra
+     **E7 (a)**.
+
+186. **🟠 El cronómetro rápido no comunica su estado, no se ve y no se puede parar desde la lista.**
+     Reportado por el usuario y **medido con una sesión abierta en el servidor** (`fin: null`): el botón de
+     la tarjeta **vuelve a `▶` «Empezar a tejer»** —ofrece una acción que ya no corresponde—, la única
+     marca es el texto **«Lo arrancaste recién»**, **no hay cronómetro visible** y **no hay forma de
+     parar** sin abrir el cajón. **Dentro del cajón sí:** `00:55` corriendo y «Parar el cronómetro».
+     **La información y el control existen, bien hechos, y están encerrados.**
+     **El backend NO tiene la culpa y está protegido:** al pulsar otra vez **no duplicó nada** —respondió
+     *"ya tenía el cronómetro en marcha"*— y siguió habiendo **una sola sesión**; la invariante escrita en
+     `start-session.ts` es *"como mucho una sesión abierta **por proyecto**"*, así que **puede haber varios
+     cronómetros a la vez** en proyectos distintos.
+     **La causa de fondo es una decisión vieja, y estaba documentada:** `ProjectsView.tsx:130-138` ya decía
+     que *"**no hay forma de saber desde la lista si el cronómetro corre** —ni columna, ni filtro, ni
+     endpoint— … la marca **se pierde al recargar**"*, por E1(e) y por **E2.2 de RFC-02**, que descartó
+     abrir el backend. **Por eso la copia es deliberadamente efímera.** La consecuencia sólo se ve usando
+     la app: **tras un F5, el botón dice «Empezar» con el cronómetro corriendo**.
+     **Cómo se salda (E7 b, decisión del usuario):** el dato viene del servidor —**`GET /api/projects`
+     incluye la sesión abierta de cada proyecto**, lo que **deroga en parte E2.2**—, el **botón se
+     TRANSFORMA** en vez de añadirse otro (dos botones serían la **deuda 142** otra vez), el tiempo se ve
+     en la tarjeta, y la copia efímera desaparece.
+
+---
+
+> **Abiertas durante la implementación de E7** (2026-08-26). Ninguna de las dos interrumpe: son
+> consecuencias conocidas del alcance de la enmienda, no defectos de lo que entrega.
+
+187. **🟡 Las tarjetas del Dashboard no enseñan el cronómetro que sí enseña `/proyectos`.** El panel
+     "Proyectos en curso" monta la **misma** `ProjectCard` pero **sin la prop `timer`**, así que un
+     proyecto con el cronómetro corriendo se ve **con reloj en `/proyectos` y sin nada en el inicio**.
+     **No es un descuido:** E7 (b) habla de la tarjeta de la lista, y el Dashboard sostiene desde #19 la
+     invariante de la **deuda 132** —*sin `timer`, cero controles*—, que se decidió conservar en vez de
+     romperla de paso. **Lo que cuesta saldarla** es una decisión de producto, no de código: si la tarjeta
+     del inicio ofrece parar, el Dashboard necesita su propia región de aviso y su propio manejo de error;
+     si sólo enseña el reloj sin control, hay que decidir si un reloj sin botón al lado se lee como
+     interactivo. **Escenario donde se ve:** cronómetro en marcha → el inicio no lo dice.
+
+188. **🟡 El tiempo tejido de la tarjeta se queda viejo si el cronómetro se para DESDE EL CAJÓN.** Parar
+     devuelve el `time` del proyecto ya recalculado; **parando desde la tarjeta se aplica** (E7 lo cablea),
+     pero parando desde el cajón ese número se queda **sólo dentro del cajón** —`onTimeChange` alimenta
+     `applyProject`, que es estado del propio cajón—, así que al cerrarlo la tarjeta sigue enseñando el
+     total de antes de la sesión. **Es anterior a E7** (el camino de vuelta del `time` nunca existió) y E7
+     lo deja a medias a propósito: lo que sí se cableó de vuelta es **el estado del cronómetro**, porque
+     ése es el que hacía **mentir al botón**. El total viejo es una cifra desactualizada, no una acción
+     imposible. Se salda pasando el `time` por el mismo camino que ya usa `onRunningChange`.
+
+---
+
+> **De la verificación en navegador (REGLA 4) del lote E7, 2026-08-26.** El lote se cierra **APROBADO**
+> —con un rechazo intermedio bien puesto, ver abajo—. De los **diez puntos** que dejó el reviewer se
+> verificaron **nueve**. Ocho salieron bien. Lo de aquí son las **tres fichas** que quedan, y la **189 es
+> de ENTORNO, no de la app**: merece leerse antes que ninguna, porque ya costó dos cacerías en un día.
+
+189. **🟠 DE ENTORNO, NO DE LA APP: el `next dev` de Next 16 / Turbopack NO SIRVE rutas anidadas que el
+     build SÍ compila.** **Dos veces en la misma sesión**, y las dos imitaron perfectamente a un defecto
+     recién introducido:
+     | # | Síntoma | Alcance medido | Qué lo resolvió |
+     |---|---|---|---|
+     | 1ª | El tab **Sesiones** daba *"Se soltó un punto"* en todos los proyectos | `GET …/sessions` **y** `…/yarns` → **404 `text/html`** (todas las subrutas bajo `[id]/`); `GET /api/projects/:id` → 200 | borrar `.next` + reiniciar → **200 `{"sessions":[]}`** |
+     | 2ª | El cronómetro no arrancaba desde la tarjeta | `POST …/sessions/start` → **404 `text/html`**, pero `GET …/sessions` → **200** (falla el nivel 4, no el 3) | **verificar contra `pnpm start`** → **201 `application/json`** |
+     **El discriminador barato, y hay que usarlo SIEMPRE antes de investigar código:** `pnpm build`
+     **lista las rutas**. Si el build compila `/api/projects/[id]/sessions/start` y dev responde 404, **el
+     código está sano**. Confirmado las dos veces.
+     **Por qué es 🟠 y no ⚪:** no rompe producción, pero **hace perder horas y empuja a fichar regresiones
+     inexistentes**. La primera vez estuvo a un paso de abrirse como *"#22 rompió las sesiones"*.
+     **Escenario de fallo:** un agente —o el usuario— toca una feature, ve 404 en la zona que acaba de
+     tocar, y sale a cazar un fantasma. **Cómo se salda:** dejarlo escrito en el arnés (hecho aquí y en
+     `progress/current.md`), y **si reincide, evaluar el `next dev` sin Turbopack**. Emparenta con el `500`
+     falso del `next dev` degradado y con la ficha de `TaskStop`.
+
+190. **⚪ El punto 10 de la lista del reviewer NO SE PUDO VERIFICAR: lector de pantalla real.** Falta
+     comprobar con **NVDA o VoiceOver** que una tarjeta con el cronómetro corriendo **anuncia el estado y
+     los minutos y NO recita segundos**. **Lo que SÍ está medido** y lo hace probable: el texto accesible
+     de la tarjeta dice *"Cronómetro en marcha: 3 min"* —**minutos**, conforme a **E4 (a)**— y la etiqueta
+     del botón cambia a *"Parar el cronómetro de …"*. **Pero eso es leer el DOM, no oír el lector**, y este
+     arnés **no tiene ninguno**. Se declara en vez de darse por bueno. Cae natural en la primera sesión que
+     tenga un lector a mano.
+
+191. **🟡 DATO SUCIO EN LA BASE DEL USUARIO: una tarjeta marca `281 h 25 min` de tiempo tejido.** Visto en
+     pantalla el 2026-08-26. **No lo produjo ningún lote**: es el **cronómetro que se dejó corriendo en la
+     verificación de #20** y nunca se paró —el mismo que originó la regla de método *"si arrancás un
+     cronómetro para probar, PARALO"*—. La sesión se cerró sola después, cargando las horas transcurridas.
+     **Escenario de fallo:** el usuario mira su tarjeta y lee que tejió **once días y medio seguidos**; el
+     dato es falso y contamina cualquier métrica de tiempo del Dashboard. **Es 🟡 y no 🟠 porque no rompe
+     nada y sólo afecta a un proyecto de pruebas**, pero **es del usuario y hay que preguntarle antes de
+     tocarlo**: corregir el `duration` de esa sesión escribe en sus datos. **Cómo se salda:** decidir con
+     él si se corrige la sesión o se borra el proyecto de pruebas.
+
+### 📌 Lo que este lote enseñó sobre el MÉTODO
+
+1. **Un test ausente sobre código CORRECTO es una trampa con retardo, y merece rechazo.** El reviewer
+   probó **diez garantías por mutación**: nueve murieron, **una sobrevivió** —`handleSaved` conserva
+   `activeSession`, `ProjectsView.tsx:459`: forzarlo a `null` dejaba **66/66 en verde**—. El código estaba
+   **bien**; lo que faltaba era la red que lo sostuviera. Y el sitio era el peor posible: **por ahí volvía
+   a entrar la deuda 186 desde el modal de edición** (editás con el cronómetro corriendo y la tarjeta se
+   olvida). Se cerró con **un test, cero líneas de producción**, y el reviewer **repitió la mutación él
+   mismo** y comprobó además que **el test no es vacuo** (bajo mutación el DOM ya tiene el nombre nuevo, o
+   sea que falla **por la sesión perdida** y no de rebote).
+2. **`pnpm build` es el discriminador de fantasmas.** Ver la **189**. Dos veces salvó de fichar una
+   regresión que no existía.
+3. **Un falso positivo del leader, cazado antes de reportarlo.** *"El aviso hace saltar la rejilla"* — el
+   documento crecía **63 px**, pero midiendo el `top` de la rejilla con y sin aviso: **0 px de salto**. Los
+   63 px eran **el reloj nuevo dentro de la tarjeta**. Medir la consecuencia, no el síntoma.
+4. **Verificar contra el build de producción es una vía legítima cuando dev falla**, y hay que decir que se
+   hizo así. El `201 application/json` del arranque **se midió en `pnpm start`**, no en dev.

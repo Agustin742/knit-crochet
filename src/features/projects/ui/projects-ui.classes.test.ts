@@ -37,6 +37,11 @@ const COMPILE_TIMEOUT_MS = 120_000;
  * entra con la tanda 1 de #21, y sus tres tabs pesados más las piezas que
  * comparten con la tanda 2: es la misma página y sus clases se quedarían sin
  * comprobar si no.
+ *
+ * **Con #22 entran las dos piezas nuevas de la feature**: el modal de alta y
+ * edición y el control de agujas. Los primitivos que estrenó la tanda 1
+ * —selector, área de texto, selector de archivo y confirmación— **no van acá**:
+ * viven en el design system y los cubre el gate de esa capa.
  */
 const COMPONENTS = [
   "ProjectsView.tsx",
@@ -47,6 +52,8 @@ const COMPONENTS = [
   "ProgressTab.tsx",
   "YarnsTab.tsx",
   "SessionsTab.tsx",
+  "ProjectFormDialog.tsx",
+  "NeedlesField.tsx",
 ];
 
 /**
