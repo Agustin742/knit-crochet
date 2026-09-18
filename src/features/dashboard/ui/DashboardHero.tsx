@@ -35,7 +35,7 @@ import { AsciiYarn } from "@/shared/ui";
  * #19 porque hasta entonces **sólo el par `archive` estaba atado**
  * (`archive-nav.tokens.test.ts:257-262`) y los otros tres se podían mover sin
  * que ningún test se enterara: está medido en
- * `progress/reports/review_dashboard_ui.md` §2.
+ * `docs/historial/reports/review_dashboard_ui.md` §2.
  */
 export function DashboardHero() {
   return (

@@ -44,18 +44,36 @@ pnpm dev
 
 - ❌ "He añadido el endpoint, debería funcionar." → falta test ejecutable.
 - ❌ Test que solo verifica que la función no lanza. → comprueba el resultado.
-- ❌ Marcar la feature como `done` sin pasar `bash ./init.sh`.
+- ❌ Dar un trabajo por terminado sin la cadena de verificación completa en verde.
 - ❌ Verificar contra la DB de producción de Neon.
 
 ## Verificación final antes de cerrar
 
+La cadena completa, en este orden. Los cuatro comandos tienen que terminar en
+verde antes de cerrar un cambio:
+
 ```bash
-bash ./init.sh          # debe terminar con [OK] Entorno listo
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
 ```
 
-Si `bash ./init.sh` está rojo, **no** marques nada como `done`. Anota el
-bloqueo en `progress/current.md` con estado `blocked` en `feature_list.json`.
+Los tres primeros son los niveles 0 y 1 de arriba. `pnpm build` se añade porque
+el App Router de Next.js sólo detecta en compilación ciertos errores de frontera
+cliente/servidor (por ejemplo, importar código de servidor desde un componente
+de cliente): un test verde no los ve.
 
-> Nota: mientras el proyecto no tenga `package.json`/scripts todavía, `init.sh`
-> reporta esos niveles como `[WARN]` (pendientes), no como fallo. En cuanto
-> exista el scaffold de Next.js, pasan a ser obligatorios.
+Esta cadena es la que ejecuta la fase de **verify** del proceso SDD
+(*Spec-Driven Development*), declarada en `openspec/config.yaml` bajo
+`verify.test_command`, `verify.build_command` y `verify.additional_gates`. Para
+trabajo de UI hay además el listón del **SDD-01 §9** —el *Software Design
+Document* del design system, que no tiene relación con el proceso SDD—:
+tests de React Testing Library sobre comportamiento y accesibilidad,
+`axe` en los primitivos, smoke de render y cero valores hardcodeados.
+
+Si algún comando queda en rojo, **no cierres el cambio**. Anota el bloqueo en
+los artefactos del cambio activo (`openspec/changes/<cambio>/tasks.md` y
+`apply-progress.md`), que son los que llevan el estado en curso.
+
+> Gestor de paquetes: **pnpm**, siempre. Nunca `npm`/`npx`.

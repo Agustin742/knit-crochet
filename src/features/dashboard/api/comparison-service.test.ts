@@ -18,7 +18,7 @@ import {
 } from "@/shared/config";
 
 /**
- * Regla 2b de `progress/current.md`: estos tests DERIVAN todo de las constantes
+ * Regla 2b de `docs/historial/bitacora.md`: estos tests DERIVAN todo de las constantes
  * de `shared/config`. Ninguna etiqueta ni ningún número de referencia se escribe
  * a mano aquí — el ancla de la semilla vive (una sola vez) en
  * `src/shared/config/index.test.ts`. Así, "elige la mayor referencia que cabe"

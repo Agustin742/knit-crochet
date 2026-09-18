@@ -9,18 +9,19 @@
 
 ---
 
-## 0. Proceso de implementación (entorno de agentes)
+## 0. Proceso de implementación
 
-Este proyecto se construye con un **arnés multi-agente** de Claude Code
-(líder → implementador → revisor). Cómo trabaja el equipo de agentes:
+Este proyecto se construye con el proceso **SDD** (*Spec-Driven Development*) de
+gentle-ai, gobernado por `openspec/config.yaml`. Cómo se trabaja:
 
 - **Fuente de verdad → alcance ejecutable:** cada entregable de este PRD (§12)
-  está desglosado en `feature_list.json`, con criterios de `acceptance`
-  verificables. El campo `prd_ref` de cada feature apunta a la sección exacta
-  de este documento.
-- **Una feature a la vez.** El `implementer` toma una feature `pending`, escribe
-  código **y tests**, y se autoverifica con `bash ./init.sh`. El `reviewer` la
-  aprueba/rechaza contra `docs/harness/` y `CHECKPOINTS.md` antes de cerrarla.
+  se convierte en un cambio bajo `openspec/changes/<cambio>/`, con requisitos y
+  escenarios verificables en su spec. La propuesta de cada cambio cita la
+  sección exacta de este documento a la que responde.
+- **Un cambio a la vez.** La fase de *apply* escribe código **y tests**; la fase
+  de *verify* comprueba la implementación contra la spec, el diseño y las
+  tareas, más los criterios de verificación de `docs/harness/verification.md` y
+  las reglas de capas de `docs/harness/architecture.md`, antes de archivar.
 - **Cómo construir (arquitectura y convenciones):** ver `docs/harness/`
   (`architecture.md`, `conventions.md`, `verification.md`). La estructura
   feature-first de §3 y las reglas de capas son obligatorias.
@@ -580,10 +581,12 @@ o `usedBy` en `GET /api/patterns/:id`"). Decisión cerrada por el usuario, **no 
 
 ## 12. Entregables de este PRD (checklist de implementación)
 
-> El **estado real** de cada entregable se rastrea en `feature_list.json`
-> (`pending` / `in_progress` / `done`), no en estos checkboxes. Abajo, el mapeo
-> entregable → feature del arnés. Los tests **no** son una feature aparte: son
-> parte del `acceptance` de cada una (`require_tests_to_close`).
+> El **estado real** de cada entregable no vive en estos checkboxes: las
+> features 1-11 de abajo ya están entregadas (su rastro está en
+> `docs/historial/`), y lo que esté en curso vive en los artefactos del cambio
+> SDD activo (`openspec/changes/<cambio>/tasks.md` y `apply-progress.md`).
+> Abajo, el mapeo entregable → feature. Los tests **no** son un entregable
+> aparte: son parte de los criterios de aceptación de cada uno.
 
 - [ ] **feature 1** · Setup Next.js 16 + TS + estructura feature-first (Tailwind es fase visual, fuera de este PRD).
 - [ ] **feature 2** · Conexión Neon + Drizzle + migraciones.

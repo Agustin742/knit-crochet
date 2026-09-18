@@ -9,10 +9,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
  * Guardrail del alcance de escaneo de Tailwind (v4 `@source not`).
  *
  * Tailwind busca candidatos a clase en TODO el repo, incluidos los .md. Un
- * informe de `progress/` que citaba una clase con comodín generó
- * `var(--dur-*)`: CSS inválido que rompió `pnpm dev`. `globals.css` acota el
- * escaneo a `src/` y excluye `progress/`, `docs/` y `template/`; estos tests
- * fallan si ese alcance se ensancha o si `globals.css` deja de compilar.
+ * informe que citaba una clase con comodín generó `var(--dur-*)`: CSS inválido
+ * que rompió `pnpm dev`. `globals.css` acota el escaneo a `src/` y excluye
+ * `openspec/`, `docs/` y `template/`; estos tests fallan si ese alcance se
+ * ensancha o si `globals.css` deja de compilar.
  *
  * La compilación real tarda unos segundos: los hooks llevan timeout explícito.
  */
@@ -29,7 +29,7 @@ const INVALID_VAR = /var\(--[a-z-]*\*/g;
  * excluida. Si Tailwind escanea el archivo, su valor aparece en la salida.
  */
 const BAITS = [
-  { file: "progress/tailwind-source-guard.tmp.md", size: "9971px" },
+  { file: "openspec/tailwind-source-guard.tmp.md", size: "9971px" },
   { file: "docs/tailwind-source-guard.tmp.md", size: "9972px" },
   { file: "template/tailwind-source-guard.tmp.md", size: "9973px" },
 ];
@@ -63,7 +63,7 @@ describe("globals.css compila y no emite CSS inválido", () => {
   });
 });
 
-describe("progress/, docs/ y template/ están fuera del escaneo de Tailwind", () => {
+describe("openspec/, docs/ y template/ están fuera del escaneo de Tailwind", () => {
   let css = "";
 
   beforeAll(async () => {

@@ -23,7 +23,7 @@ describe("smoke", () => {
 });
 
 /**
- * Anclas de semilla (regla 2a de `progress/current.md`): éste es el ÚNICO sitio
+ * Anclas de semilla (regla 2a de `docs/historial/bitacora.md`): éste es el ÚNICO sitio
  * donde los números se escriben a mano, porque aquí el literal **es** el
  * contrato (PRD §8 y §8.1). El resto de los tests derivan de las constantes.
  *

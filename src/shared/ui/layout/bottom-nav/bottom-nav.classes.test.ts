@@ -46,7 +46,7 @@ import {
  * maquetación, y la maquetación no ocurre en ningún entorno de esta suite. Lo
  * único que se comprueba acá es que **las declaraciones existan en el CSS que el
  * navegador va a recibir**. Ver también la nota sobre `viewport-fit` en
- * `progress/reports/impl_deudas_165_166.md`.
+ * `docs/historial/reports/impl_deudas_165_166.md`.
  *
  * La técnica de barrido y de lectura del compilado vive en
  * `shared/ui/testing/class-names-from-source.ts` (deuda 146 subida a pieza

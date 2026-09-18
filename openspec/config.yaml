@@ -1,0 +1,161 @@
+schema: spec-driven
+
+context: |
+  Project: knit-crochet — web app to manage knitting (two-needle) and crochet
+  projects: yarn inventory, patterns, stats, a per-project stopwatch, and
+  utility calculators. Product language is Spanish (UI copy, docs).
+
+  CURRENT stack (as of this init):
+    - Next.js 16+ (App Router), TypeScript strict, package manager pnpm
+      (packageManager: pnpm@11.9.0 — pnpm ALWAYS, npm/npx FORBIDDEN).
+    - Drizzle ORM + Neon (Postgres serverless); migrations via drizzle-kit.
+    - Route Handlers as BFF (`src/app/api/**/route.ts`); every input validated
+      with Zod at the edge.
+    - Client state: Zustand.
+    - Auth: hand-rolled JWT (password hash + httpOnly cookie, SameSite=Lax),
+      route protection via `src/proxy.ts` (Next.js 16's replacement for
+      `middleware.ts`).
+    - Images: Cloudinary — only the URL is persisted in the DB, never blobs.
+    - Deploy: Vercel.
+    - Styling / 3D: Tailwind CSS v4 + a hand-written `three` (no R3F/drei) ASCII
+      3D layer — in active build as of the current UI phase.
+
+  Functional source of truth: `docs/product/PRD-01-estructura-funcional.md`
+  (data model, BFF, business logic — features 1-11, all done). Scope
+  explicitly EXCLUDES UI/styling/Three.js, which is covered by the later UI
+  phase below. When harness and PRD disagree on functional scope, the PRD
+  wins.
+
+  UI/design-system phase source of truth (layered, each owns its domain):
+    - `docs/design/rfc/RFC-00-proceso.md` — process index, truth hierarchy,
+      and the RFC → feature mapping (features id >= 12). Governs "how a
+      concrete Knit&Crochet page is wired" (routes, data fetching, state).
+    - `docs/design/SDD-01-design-system.md` — the portable design-system
+      CONTRACT (token names, component API, 3D layer isolation,
+      verification bar). Note: this document's "SDD" stands for "Software
+      Design Document" and is unrelated to Spec-Driven Development; do not
+      conflate the two. Governs "what the template's contract is."
+    - PRD-01 still wins on functional scope (what endpoint/field/rule exists)
+      if an RFC would contradict it.
+
+  Engineering standard (HOW to build; survives the harness swap, unchanged by
+  this init) — `docs/harness/`:
+    - `architecture.md` — feature-first layering: `src/app/**` stays thin
+      (routing + composition only); business logic lives in
+      `src/features/<feature>/api/`; DB access is confined to
+      `shared/db` + `features/<x>/schema.ts` + feature services — the UI
+      never imports Drizzle directly; every resource is scoped by `userId`
+      from the JWT; Zod validation at every edge; typed/named domain errors,
+      Route Handlers never leak stack traces; a `features/<x>/schema.ts`
+      imports another feature's tables via that feature's `schema.ts`
+      directly (never via its `index.ts` barrel, to avoid an
+      schema→index→api→store→schema import cycle).
+    - `conventions.md` — code (identifiers, files, routes) is English; UI copy
+      and prose are Spanish; TypeScript strict (no `any`); PascalCase
+      components/types, camelCase functions/vars, UPPER_SNAKE constants,
+      kebab-case feature folders, snake_case Drizzle columns; UI layer is
+      token-first (no hardcoded color/size/border/radius/shadow/z-index),
+      canonical Tailwind v4 var syntax (`p-(--space-6)`, not
+      `p-[var(--space-6)]`), `cn()` (`twMerge(clsx(...))`) on every
+      `className`-accepting component, variants via `cva` in a separate
+      `<name>.variants.ts`, the 3D layer isolated to `shared/ui/three/**`
+      (client-only, respects `prefers-reduced-motion`).
+    - `verification.md` — Level 0 static (lint + typecheck), Level 1 unit
+      tests (happy path + at least one error path per non-trivial unit),
+      Level 2 endpoint integration tests for Route Handlers, Level 3 optional
+      manual smoke. Never verify against the production Neon DB.
+
+  UI "done" bar (SDD-01 §9, restated by RFC-00 §1) — component/page work
+  additionally requires: React Testing Library + `user-event` over
+  `happy-dom` testing BEHAVIOR and accessibility (roles, focus, state,
+  callbacks — never pixels), a render smoke test, `axe` assertions on
+  primitives, zero hardcoded style values (everything through a design
+  token), and a green `pnpm build`. Visual fidelity against the mockup is a
+  human review, not an automated test.
+
+  Real `src/` layout confirms the architecture doc: `src/app/api/**/route.ts`
+  (thin BFF), `src/features/{auth,projects,time-tracking,yarns,patterns}/`
+  (schema.ts, types.ts, validation.ts, api/, index.ts barrel), `src/shared/`
+  (`db/`, `lib/{auth,cloudinary}/`, `config/`, `ui/` — the last one currently
+  scaffolded but not yet built out for the UI phase), `src/proxy.ts` for JWT
+  route protection.
+
+  Testing: Vitest (`vitest.config.ts`, `vitest.setup.ts`) with `happy-dom`,
+  `@testing-library/react` + `user-event` + `jest-dom`, and `vitest-axe` /
+  `axe-core` already installed as devDependencies — the RTL+axe UI bar above
+  is executable today, not aspirational.
+
+  Harness replacement note: this repository previously ran a bespoke
+  hand-rolled multi-agent harness (`AGENTS.md`, `CHECKPOINTS.md`, `init.sh`,
+  `feature_list.json`, `progress/`, `.claude/agents/{leader,implementer,
+  reviewer}.md`, a project `CLAUDE.md` forcing a leader role, and
+  `.claude/settings.json` verification hooks). That harness is being replaced
+  by this standard gentle-ai SDD harness; do not reference or depend on the
+  old harness files — they are being removed separately.
+
+  Language split (hard rule): all generated technical artifacts (this file,
+  specs, designs, tasks, code, comments, identifiers) are written in English.
+  The app's user-facing copy and the existing `docs/` are Spanish and stay
+  Spanish — do not translate existing Spanish docs when referencing them.
+
+rules:
+  proposal:
+    - State explicitly which existing behavior (data model, BFF contracts,
+      auth flow, layering rules) must survive unchanged.
+    - Identify whether the change is functional-structure scope (governed by
+      PRD-01) or UI/design-system scope (governed by RFC-00/SDD-01), and cite
+      the exact PRD section or RFC/feature id it maps to.
+    - Include a rollback plan for anything touching auth, DB schema, or
+      deployed Route Handlers.
+  specs:
+    - Use Given/When/Then for scenarios.
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY).
+    - Every requirement touching a Route Handler MUST restate its exact
+      request/response contract and HTTP status codes (401/404/409 per
+      `docs/harness/architecture.md` and `conventions.md`).
+    - Every requirement touching a UI component MUST restate the SDD-01 §9
+      verification bar it must satisfy (RTL behavior/a11y test, render smoke,
+      axe on primitives, zero hardcoded values).
+  design:
+    - Respect feature-first layering: schema in `features/<x>/schema.ts`,
+      business logic in `features/<x>/api/`, thin Route Handlers, UI never
+      imports Drizzle directly.
+    - Cross-feature schema imports go through the target feature's
+      `schema.ts` directly, never through its `index.ts` barrel.
+    - For UI work, name every new/changed component, state which ones
+      hydrate/are client components and why, and identify the design tokens
+      consumed (token-first, no hardcoded style values).
+  tasks:
+    - Group by phase, use hierarchical numbering.
+    - Keep tasks completable in one session.
+    - Strict TDD: every task that adds behavior states its test first
+      (happy path + at least one error path for non-trivial units; RTL + axe
+      for UI components) before the implementation step.
+  apply:
+    guidelines:
+      - Feature-first layering and the layer rules in
+        `docs/harness/architecture.md` are non-negotiable.
+      - Every external input (body, params, query) is validated with Zod at
+        the edge before touching domain logic.
+      - Every DB query scopes by `userId` extracted from the JWT.
+      - Code, identifiers, and comments are English; user-facing copy is
+        Spanish.
+      - UI components are token-first and use `cn()` for `className` merging.
+    tdd: true
+    test_command: "pnpm test"
+  verify:
+    test_command: "pnpm test"
+    build_command: "pnpm build"
+    coverage_threshold: 0
+    additional_gates:
+      - "pnpm lint"
+      - "pnpm typecheck"
+    ui_gates:
+      - "RTL behavior + accessibility tests (happy-dom) for changed components"
+      - "axe assertions on primitives"
+      - "render smoke test per new/changed component"
+      - "zero hardcoded style values — everything through a design token"
+  archive:
+    - Warn before merging destructive deltas (schema drops, FK `onDelete`
+      changes, auth/cookie contract changes).
+    - Never verify or archive against the production Neon database.

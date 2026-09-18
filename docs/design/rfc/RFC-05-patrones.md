@@ -2,7 +2,7 @@
 
 - **Alcance:** lista + filtros + CRUD de patrones (biblioteca/embebido) con editor de instrucciones/metadata.
 - **Estado:** borrador. Depende de **RFC-01**.
-- **Proceso / arnés:** ver **[RFC-00](RFC-00-proceso.md)** (entorno de agentes, jerarquía de verdad, mapeo a `feature_list.json`).
+- **Proceso:** ver **[RFC-00](RFC-00-proceso.md)** (proceso SDD, jerarquía de verdad, mapeo al backlog de UI).
 - **Estética:** template adaptable.
 
 ---
@@ -50,9 +50,9 @@
 - Página `src/app/(app)/patrones/`. UI en `src/features/patterns/ui/`.
 - Verificación: RTL (editor de instrucciones drag/keyboard, filtros, publicar, usado-en) + axe + smoke + build.
 
-## 8. Slices de implementación (→ `feature_list.json`)
+## 8. Slices de implementación (→ backlog de UI)
 
-IDs reales en `feature_list.json` (mapeo en [RFC-00 §4](RFC-00-proceso.md)):
+IDs reales en la tabla de [RFC-00 §4](RFC-00-proceso.md); las entradas que siguen abiertas están en `docs/product/backlog-ui.md`:
 
 - **feature 18 `patterns_used_by`** (backend) — "usado en proyectos" (filtro `?patternId=` o `usedBy`, +tests).
 - **feature 15 `uploads_image`** (backend, **compartido** con RFC-03/04) — `POST /api/uploads/image`

@@ -2,7 +2,7 @@
 
 - **Alcance:** lista + filtros + CRUD + detalle (con progreso, rounds, pasos, lanas, patrón y cronómetro).
 - **Estado:** borrador. Depende de **RFC-01**.
-- **Proceso / arnés:** ver **[RFC-00](RFC-00-proceso.md)** (entorno de agentes, jerarquía de verdad, mapeo a `feature_list.json`).
+- **Proceso:** ver **[RFC-00](RFC-00-proceso.md)** (proceso SDD, jerarquía de verdad, mapeo al backlog de UI).
 - **Estética:** template adaptable.
 
 ---
@@ -80,7 +80,7 @@
 > **nueve** (a-i). **Queda corregida, no borrada.** El desajuste nació de contar sólo las **ocho que
 > cerró el usuario** y olvidar que **E1(i) la añadió el leader** — está marcada como tal en su propio
 > encabezado. **Son nueve en total: ocho del usuario + una del leader.** Lo levantó el implementer de
-> #20 (§6.1 de `progress/reports/impl_projects_list_ui.md`), leyendo el documento en vez de fiarse del
+> #20 (§6.1 de `docs/historial/reports/impl_projects_list_ui.md`), leyendo el documento en vez de fiarse del
 > título. Es la misma raíz que este proyecto lleva registrada cuatro veces: *nadie volvió a la fuente a
 > contar*.
 
@@ -89,7 +89,7 @@
 > contradice a sí mismo**—. No son detalles de implementación: son decisiones que el implementer no
 > puede improvisar sin inventarse el contrato. **Ocho las cerró el usuario** el 2026-08-12; **E1(i) la
 > asumió el leader** por ser técnica y no de producto.
-> Informes de medición: `progress/reports/explore_20_filtros_backend.md`,
+> Informes de medición: `docs/historial/reports/explore_20_filtros_backend.md`,
 > `explore_20_card_quickstart.md`, `explore_20_pagina_estados_gates.md`.
 
 ### E1(a) — "Buscar" se resuelve **en cliente**, filtrando por nombre. No se toca el backend.
@@ -247,13 +247,13 @@ página tiene que mandar `?active=true` **explícitamente**, igual que ya hace
 
 **Por qué existe esta enmienda.** #20 se cerró verde (`1281 passed`), con `axe`, gate de composición y
 review aprobado a la primera. El usuario abrió la página y **se veía mal**. La verificación en navegador
-real del leader (`progress/reports/verificacion_navegador_proyectos.md`) midió seis defectos, y la
+real del leader (`docs/historial/reports/verificacion_navegador_proyectos.md`) midió seis defectos, y la
 exploración de `docs/` encontró la causa raíz: **este RFC fija piezas y su orden, y nada de aspecto**
 (deuda **143**). Las nueve decisiones de E1 son todas de contrato. Cuando el contrato calla, el
 inventario de `shared/ui/` pasa a ser la especificación por descarte.
 
 **E2 es el contrato visual que faltaba.** No es una feature: es deuda técnica (**136-144**).
-`feature_list.json` **no se toca**; #20 sigue `done`.
+No abre una entrada nueva en el backlog de UI; **#20 sigue cerrada**.
 
 ### E2(a) — La página adopta la jerarquía del Dashboard: secciones con título visible
 
@@ -414,7 +414,7 @@ significativo en un cronómetro es el minuto**, y hay test que lo mide **en las 
 
 ### E4 (b) — #21 se cierra con cuatro puntos NO verificados, y se dice cuáles
 
-La verificación en navegador (`progress/reports/verificacion_navegador_21_t2.md`) **no pudo mirar**, por
+La verificación en navegador (`docs/historial/reports/verificacion_navegador_21_t2.md`) **no pudo mirar**, por
 **falta de datos** en la base: el **contraste de los 13 swatches** de lana —con dos sospechosos
 nombrados: **`--yarn-neutral`, que es literalmente `--surface-sunken`**, y `--yarn-white`—, la lana
 **multicolor**, la **checklist con un patrón real** y el **buscador con un inventario grande**.
@@ -467,7 +467,7 @@ nuevo**: el peor que la pantalla sabía pintar era el primero que veía cualquie
 
 ## 7-septies. Enmienda E6 — el arranque de #22: qué falta de verdad y hasta dónde llega (2026-08-25)
 
-**Nace del inventario medido** (`progress/reports/explore_22_inventario.md`), que es el paso 2 del
+**Nace del inventario medido** (`docs/historial/reports/explore_22_inventario.md`), que es el paso 2 del
 protocolo de arranque. **Es la tercera vez que ese control evita arrancar sobre una ficha optimista**
 (precedentes: #19 y #21).
 
@@ -584,9 +584,9 @@ El **cajón de detalle** (su cronómetro y su botón siguen igual: son la vista 
 
 **Deudas que cierra:** las dos que abre este reporte (**185** y **186**).
 
-## 8. Slices de implementación (→ `feature_list.json`)
+## 8. Slices de implementación (→ backlog de UI)
 
-IDs reales en `feature_list.json` (mapeo en [RFC-00 §4](RFC-00-proceso.md)):
+IDs reales en la tabla de [RFC-00 §4](RFC-00-proceso.md); las entradas que siguen abiertas están en `docs/product/backlog-ui.md`:
 
 - **feature 17 `projects_detail_yarns`** (backend) — `GET /:id` incluye lanas enlazadas (+tests).
 - **feature 15 `uploads_image`** (backend, **compartido** con RFC-04/05) — `POST /api/uploads/image`

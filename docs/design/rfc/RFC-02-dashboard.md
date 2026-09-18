@@ -2,7 +2,7 @@
 
 - **Alcance:** la página de inicio post-login. Métricas del año + comparativas + crear proyecto + activos + ovillo hero.
 - **Estado:** borrador. Depende de **RFC-01 (shell)**.
-- **Proceso / arnés:** ver **[RFC-00](RFC-00-proceso.md)** (entorno de agentes, jerarquía de verdad, mapeo a `feature_list.json`).
+- **Proceso:** ver **[RFC-00](RFC-00-proceso.md)** (proceso SDD, jerarquía de verdad, mapeo al backlog de UI).
 - **Estética:** template como insumo adaptable; ovillo ASCII fijo.
 
 ---
@@ -67,9 +67,9 @@ probado**. Con sesión, `/login` sigue redirigiendo a `/`, así que el circuito 
 > con gate propio en `button.variants.test.ts`: no tiene relación con el proxy, las rutas ni la sesión.
 > El error nació de leer el `(#13)` del título de la deuda 1 —que es **el id de la feature donde se
 > detectó**, convención del libro mayor (la deuda 2 lleva el mismo `(#13)` y trata de otra cosa)— como si
-> fuera el número de otra deuda. De ahí se propagó a `feature_list.json` #19, y de ahí a esta enmienda.
+> fuera el número de otra deuda. De ahí se propagó a la ficha de la feature #19, y de ahí a esta enmienda.
 > **No tachar la deuda 13 al cerrar #19: ya está tachada por otro motivo, y volver a tocarla corrompe el
-> libro mayor.** Verificado de forma independiente por el leader contra `progress/deudas.md`.
+> libro mayor.** Verificado de forma independiente por el leader contra `docs/historial/deuda-tecnica.md`.
 
 Se descartó una landing pública aparte: ningún
 RFC la pide, y RFC-02 define el Dashboard como "la página de inicio post-login" **en `/`**.
@@ -142,7 +142,7 @@ tejido".** §3 de este RFC dejaba la decisión abierta y recomendaba el camino (
 > quedó escrita en `ProjectsView.tsx:130-138` (*"la marca **se pierde al recargar**"*). El usuario la
 > encontró usando la app: **tras un F5, el botón dice «Empezar» con el cronómetro corriendo**. Un estado
 > que sólo vive en memoria del navegador **no puede gobernar un control que promete una acción**.
-- **Lo medido (`progress/reports/explore_19_datos_y_primitivas.md` §A.3):** esa afirmación es **cierta pero
+- **Lo medido (`docs/historial/reports/explore_19_datos_y_primitivas.md` §A.3):** esa afirmación es **cierta pero
   incompleta**. `setProjectTime` sí lo bumpea al parar el cronómetro — aunque vive en
   `src/features/time-tracking/api/store.ts`, **no** en el store de projects como decía §3. Pero **también**
   lo bumpean `PATCH /api/projects/:id` (renombrar, la nota, la foto, el estado…), sumar vueltas y marcar
@@ -177,7 +177,7 @@ Dashboard: es del caparazón y rige para las 6 rutas. Esta sección sólo regist
 página**, para que quien lea el RFC-02 no tenga que deducirlo.
 
 **Qué la motiva.** La verificación en navegador del 2026-08-20 (la primera que se completa; informe
-`progress/informs/25.informe-deudas_146_147_148.md` §REGLA 4). El usuario reportó la página como *"horrible"*
+`docs/historial/informes/25.informe-deudas_146_147_148.md` §REGLA 4). El usuario reportó la página como *"horrible"*
 y la causa raíz resultó ser que **no existe contenedor de ancho máximo en toda la app** — no un defecto de
 esta página. **Deuda 154.**
 
@@ -257,9 +257,9 @@ el **título**, que es lo que §4 fija, y **deja de valer para la descripción**
 depende de si hay algo en curso. Se anota explícitamente para que nadie lea las dos frases como una
 contradicción.
 
-## 8. Slices de implementación (→ `feature_list.json`)
+## 8. Slices de implementación (→ backlog de UI)
 
-IDs reales en `feature_list.json` (mapeo en [RFC-00 §4](RFC-00-proceso.md)):
+IDs reales en la tabla de [RFC-00 §4](RFC-00-proceso.md); las entradas que siguen abiertas están en `docs/product/backlog-ui.md`:
 
 - **feature 16 `dashboard_comparison_3metrics`** (backend) — extender `comparison` a las 3 métricas
   (+ referencias en `shared/config`, +tests). **`done` (2026-08-05).**

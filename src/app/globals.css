@@ -1,11 +1,11 @@
 /* ============================================================
    Alcance del escaneo de clases (Tailwind v4)
    Tailwind busca candidatos a clase en TODO el repo, incluidos los .md.
-   `progress/` (informes de agentes), `docs/` (PRD/RFC/SDD) y `template/`
-   (prototipo HTML, con clases que NO son las de la app) citan nombres de
-   clases en prosa: un ejemplo con comodín en un informe se tomó por una clase
-   real y emitió `var(--dur-*)`, CSS inválido que rompió el build. Nada de eso
-   es código de la app.
+   `openspec/` (artefactos de SDD: propuestas, specs, diseño, tareas), `docs/`
+   (PRD/RFC/SDD-01 e historial) y `template/` (prototipo HTML, con clases que
+   NO son las de la app) citan nombres de clases en prosa: un ejemplo con
+   comodín en un informe se tomó por una clase real y emitió `var(--dur-*)`,
+   CSS inválido que rompió el build. Nada de eso es código de la app.
    - `source("../")` acota la detección automática a `src/`.
    - `@source not` deja explícitas las tres carpetas prohibidas (defensa en
      profundidad y documentación del porqué).
@@ -14,7 +14,7 @@
    ============================================================ */
 @import "tailwindcss" source("../");
 
-@source not "../../progress";
+@source not "../../openspec";
 @source not "../../docs";
 @source not "../../template";
 
@@ -441,7 +441,7 @@
      completa (`viewport-fit: cover`), y este documento HOY no lo hace. O sea que
      esto es la mitad de la respuesta —la que corresponde a la barra— y la otra
      mitad es una decisión del caparazón entero que E14 no toma. Ver
-     `progress/reports/impl_deudas_165_166.md`. ---- */
+     `docs/historial/reports/impl_deudas_165_166.md`. ---- */
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
 }
 

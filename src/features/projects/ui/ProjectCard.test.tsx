@@ -630,7 +630,7 @@ describe("ProjectCard — tap al detalle (E1(f), resuelto en #21)", () => {
     // solapamiento. Que el puntero llegue de verdad al quick-start y no a la capa
     // del tap está verificado A MANO en navegador por el leader —clic real sobre
     // el quick-start: el cajón NO se abre y la sesión SÍ arranca— en
-    // progress/reports/verificacion_navegador_21_t2.md, sección "RESOLUCIÓN".
+    // docs/historial/reports/verificacion_navegador_21_t2.md, sección "RESOLUCIÓN".
     // No cites este aserto como evidencia de esa convivencia.
     await userEvent.click(quickStart);
     expect(onStart).toHaveBeenCalledTimes(1);

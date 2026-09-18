@@ -11,7 +11,7 @@ export default defineConfig({
     // Tope por test. El defecto de vitest (5000 ms) se queda corto en esta base:
     // medido en una pasada completa, el test genérico más lento es el axe de
     // `ProjectsView` con 3219 ms — sólo 1.5x de margen, así que una máquina algo
-    // más cargada lo tumbaba y el verde de `init.sh` pasaba a depender del ruido
+    // más cargada lo tumbaba y el verde de la verificación pasaba a depender del ruido
     // (deuda 145). 10 s = ~3x sobre ese peor caso medido, y sigue cazando un
     // cuelgue de verdad en 10 s, no en minutos.
     //

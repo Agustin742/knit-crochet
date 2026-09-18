@@ -2,7 +2,7 @@
 
 - **Alcance:** página-hub que enlaza a las funcionalidades de la app y a accesos directos de creación.
 - **Estado:** borrador. Depende de **RFC-01**.
-- **Proceso / arnés:** ver **[RFC-00](RFC-00-proceso.md)** (entorno de agentes, jerarquía de verdad, mapeo a `feature_list.json`).
+- **Proceso:** ver **[RFC-00](RFC-00-proceso.md)** (proceso SDD, jerarquía de verdad, mapeo al backlog de UI).
 - **Estética:** template adaptable.
 
 ---
@@ -42,9 +42,9 @@
 - Página `src/app/(app)/stash/`. UI en `src/features/stash/ui/` (o `shared/ui` si es puramente navegación).
 - Verificación: RTL (los accesos navegan/abren el modal correcto) + axe + smoke + build.
 
-## 8. Slice de implementación (→ `feature_list.json`)
+## 8. Slice de implementación (→ backlog de UI)
 
-ID real en `feature_list.json` (mapeo en [RFC-00 §4](RFC-00-proceso.md)):
+ID real en la tabla de [RFC-00 §4](RFC-00-proceso.md); la entrada abierta está en `docs/product/backlog-ui.md`:
 
 - **feature 30 `stash_ui`** — grilla de cards grandes con secciones + accesos de creación (que reusan
   los modales de cada página). **Bloqueada** hasta confirmar §9 (ver RFC-00 §6).

@@ -2,7 +2,7 @@
 
 - **Alcance:** lista + filtro jerárquico marca→tipo + familia de color + CRUD de lanas + gestión de catálogos (marcas/tipos).
 - **Estado:** borrador. Depende de **RFC-01**.
-- **Proceso / arnés:** ver **[RFC-00](RFC-00-proceso.md)** (entorno de agentes, jerarquía de verdad, mapeo a `feature_list.json`).
+- **Proceso:** ver **[RFC-00](RFC-00-proceso.md)** (proceso SDD, jerarquía de verdad, mapeo al backlog de UI).
 - **Estética:** template adaptable.
 
 ---
@@ -57,9 +57,9 @@
 - Página `src/app/(app)/lanas/`. UI en `src/features/yarns/ui/`.
 - Verificación: RTL (filtro árbol, swatches, stepper usedQuantity, 409 colorCode, borrado force/bloqueante) + axe + smoke + build.
 
-## 8. Slices de implementación (→ `feature_list.json`)
+## 8. Slices de implementación (→ backlog de UI)
 
-IDs reales en `feature_list.json` (mapeo en [RFC-00 §4](RFC-00-proceso.md)):
+IDs reales en la tabla de [RFC-00 §4](RFC-00-proceso.md); las entradas que siguen abiertas están en `docs/product/backlog-ui.md`:
 
 - **feature 15 `uploads_image`** (backend, **compartido** con RFC-03/05) — `POST /api/uploads/image`
   (foto de lana); **un endpoint único**, no uno por entidad.

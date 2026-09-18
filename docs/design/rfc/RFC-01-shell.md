@@ -2,7 +2,7 @@
 
 - **Alcance:** el caparazón de la app (layout global, nav, capa de fondo, base de estilos). Todo lo demás cuelga de acá.
 - **Estado:** borrador.
-- **Proceso / arnés:** ver **[RFC-00](RFC-00-proceso.md)** (entorno de agentes, jerarquía de verdad, mapeo a `feature_list.json`). No se repite acá.
+- **Proceso:** ver **[RFC-00](RFC-00-proceso.md)** (proceso SDD, jerarquía de verdad, mapeo al backlog de UI). No se repite acá.
 - **Fuente de verdad:** este RFC + el **contrato del template** (SDD-01). La estética sale del template (`template/`) como **insumo adaptable**, no como ley; lo único fijo "tal cual" es el **ovillo ASCII**.
 
 ---
@@ -62,11 +62,11 @@ Montar el shell sobre el que viven todas las páginas: base de estilos (tokens �
 | **D2** | ~~`three` + R3F + `drei` con `<AsciiRenderer />`~~ → **REVISADA (ver D2-bis)**. | Decidida cuando `template/ascii-yarn.js` no existía en el repo. |
 | **D2-bis** | **`three` puro**, portando el algoritmo de **`template/ascii-yarn.js`**: render a un `WebGLRenderTarget` de `cols × rows` (**1 píxel = 1 carácter**), `readRenderTargetPixels`, luminancia → rampa, y escritura a un `<pre>`. **No** se usa `AsciiEffect` ni `drei`. | El usuario entregó `template/ascii-yarn.js`, la implementación de referencia que faltaba. `AsciiEffect` promedia bloques a resolución completa y emite una `<table>` con `letter-spacing` propio: **por construcción no puede dar el mismo resultado**. RFC-01 l.6 dice que "lo único fijo tal cual es el ovillo ASCII", así que manda la referencia. Bonus: con `prefers-reduced-motion` no se arranca el `requestAnimationFrame` (un frame y listo), lo que **elimina la deuda del `frameloop="always"`**. |
 | **D3** | Con `prefers-reduced-motion`: se apaga la **auto-rotación** (movimiento no solicitado), **el arrastre sigue** (movimiento pedido explícitamente por la persona). | Preserva la pieza como elemento interactivo de marca sin violar la preferencia. |
-| **D4** | El `ArchiveNav` es un **stack vertical de hojas full-bleed** (modelo "fichero"), **no** una fila de pestañas solapadas. Deroga el `.kc-folder` del template para `src/**`. | Corrección de la feature **#13** tras inspeccionar **en vivo** el CSS de `softglossary.space` con el MCP de Chrome. El SDD §0 admite que esa referencia *"no respondió al fetch"* y se reconstruyó de capturas: el modelo de fila era una **inferencia equivocada**, y el template la heredó. Medición de primera mano en `progress/reports/explore_softglossary_register.md`. |
+| **D4** | El `ArchiveNav` es un **stack vertical de hojas full-bleed** (modelo "fichero"), **no** una fila de pestañas solapadas. Deroga el `.kc-folder` del template para `src/**`. | Corrección de la feature **#13** tras inspeccionar **en vivo** el CSS de `softglossary.space` con el MCP de Chrome. El SDD §0 admite que esa referencia *"no respondió al fetch"* y se reconstruyó de capturas: el modelo de fila era una **inferencia equivocada**, y el template la heredó. Medición de primera mano en `docs/historial/reports/explore_softglossary_register.md`. |
 
 ### D4 — contrato del `ArchiveNav` (modelo fichero)
 
-Mecánica medida y números exactos: **`progress/reports/explore_softglossary_register.md`**
+Mecánica medida y números exactos: **`docs/historial/reports/explore_softglossary_register.md`**
 (leer antes de implementar; manda sobre cualquier descripción en prosa de este RFC o del SDD).
 
 **Invariantes** (esto es lo que hay que cumplir; el *cómo* lo decide el implementer):
@@ -119,7 +119,7 @@ que queda por debajo del wordmark y no compite con él.
 
 ### Enmiendas a D4 (posteriores a la primera implementación)
 
-Las tres nacen de la review de `progress/reports/review_archive_nav_fichero.md`. **El texto de arriba ya
+Las tres nacen de la review de `docs/historial/reports/review_archive_nav_fichero.md`. **El texto de arriba ya
 está enmendado**; esta tabla explica el porqué para que nadie las "corrija" de vuelta.
 
 | # | Qué cambia | Por qué |
@@ -163,7 +163,7 @@ vuelta **no se puede ejecutar como estaba escrita**, porque entre E4 y E6 el arc
 presupuesto horizontal que la banda de utils ocupaba. E11 decide **con qué geometría vuelven**, que es
 justo lo que E7(b) dejó sin escribir. Sin esta enmienda, E7 quedaría contradicha sin registro.
 
-**La medida que fuerza la decisión** (de `progress/reports/explore_auth_shell_blast_radius.md`, derivada
+**La medida que fuerza la decisión** (de `docs/historial/reports/explore_auth_shell_blast_radius.md`, derivada
 de `globals.css` con los mismos tokens que usa `archive-nav.tokens.test.ts`):
 
 | magnitud | valor |
@@ -173,7 +173,7 @@ de `globals.css` con los mismos tokens que usa `archive-nav.tokens.test.ts`):
 | relleno lateral de un `Button` tamaño `md` del design system | **48px** (24 por lado) |
 
 **No cabe por ningún camino.** Recuperar los 168px exigiría subir `--bp-archive` de 1180px a ≈1317px, lo
-que **reabriría la decisión cerrada** del tamaño de etiqueta (`progress/informs/9.informe-deudas_21_17_13_04.md`):
+que **reabriría la decisión cerrada** del tamaño de etiqueta (`docs/historial/informes/9.informe-deudas_21_17_13_04.md`):
 el archivero desaparecería de los portátiles de 1280-1366px. Descartado por el usuario.
 
 | # | Qué cambia | Por qué |
@@ -197,7 +197,7 @@ el archivero desaparecería de los portátiles de 1280-1366px. Descartado por el
 > **El gate (c) sigue siendo obligatorio y sigue existiendo** — pero ahora lo que asegura es que **la banda
 > permanezca en el flujo**: deriva de las clases reales del `cva` si está en flujo o superpuesta, y exige que
 > su borde inferior quede por encima del techo del cajón. Si alguien la saca del flujo, cae en rojo.
-> Detalle y condición doble en `progress/reports/impl_account_menu.md` §4.1.
+> Detalle y condición doble en `docs/historial/reports/impl_account_menu.md` §4.1.
 > **Agujero conocido de ese gate:** sólo mira las clases **propias** de la banda, así que se la puede
 > superponer **desde fuera** (vía `className` o un contenedor posicionado en `AppShell`) y seguiría verde →
 > **deuda 52**.
@@ -209,7 +209,7 @@ pasándolas a una **rejilla de dos columnas** con el formulario en una celda y e
 El cambio es legítimo y se mantiene, pero dejó tres agujeros de registro (deudas **116**, **117**, **118**)
 y uno de método que es el que fuerza esta enmienda:
 
-> **Medido** (`progress/reports/explore_deuda118_responsive_auth.md` §5.2, discrepancia 3): **no hay ni una
+> **Medido** (`docs/historial/reports/explore_deuda118_responsive_auth.md` §5.2, discrepancia 3): **no hay ni una
 > línea en RFC-01 ni en SDD-01 que describa un layout de dos columnas para auth.** Es una decisión de
 > producto tomada a mano, **sin fuente de verdad escrita**. Consecuencia práctica: *no hay documento contra
 > el que validar cuál es el comportamiento responsive correcto*. Hay que elegirlo, y elegirlo es una
@@ -234,7 +234,7 @@ todas **[MEDIDO]**, no argumentadas):
 
 **Sobre RFC-01 §2, que quedó mintiendo.** La línea *"ovillo ASCII de fondo **solo en login** (no en
 register)"* **está derogada desde `bdb11b0`** y se corrige en el propio §2, con la reversión anotada y no
-borrada (misma política que se siguió en `feature_list.json` #31 al saldar la deuda 116). Igual quedan
+borrada (misma política que se siguió en la ficha de la feature #31 al saldar la deuda 116). Igual quedan
 derogadas, por E12(d), las dos palabras *"de fondo"*: el ovillo de auth ya no es una capa de fondo.
 
 **Lo que E12 NO decide, a propósito:** si el ovillo de auth debe seguir siendo `interactive={true}`. El
@@ -242,8 +242,8 @@ rediseño lo cambió (antes era el valor por defecto) y **nada lo vigila**; no h
 porque vive en otra columna de la rejilla, así que se deja como está y se ficha.
 
 **Deudas que cierra:** **117** (E12 d) y **118** (E12 a + c). La **116** ya estaba saldada.
-**Fuentes medidas:** `progress/reports/explore_deuda117_data_slot.md` y
-`progress/reports/explore_deuda118_responsive_auth.md`.
+**Fuentes medidas:** `docs/historial/reports/explore_deuda117_data_slot.md` y
+`docs/historial/reports/explore_deuda118_responsive_auth.md`.
 
 **Lo que NO cambia:** la paleta, las texturas, las tipografías y el lockup de etiqueta. Se porta la
 **mecánica** de la referencia, no su estética blanco-sobre-blanco — el SDD §0 es explícito en que
@@ -289,7 +289,7 @@ archivero: **el caparazón no cambia de geometría**, sólo gana un contenedor p
 **Deuda que cierra:** **154**. **Deuda que NO cierra y hay que leer aparte:** la **153** (el estado vacío
 del año es inalcanzable) es un fallo de **lógica**, no de layout, y va por su cuenta.
 **Fuente medida:** la verificación en navegador del 2026-08-20, en
-`progress/informs/25.informe-deudas_146_147_148.md` §REGLA 4.
+`docs/historial/informes/25.informe-deudas_146_147_148.md` §REGLA 4.
 
   Protegidos por `src/proxy.ts` (ya existe).
 
@@ -371,13 +371,14 @@ rótulos de la barra se solapan al ancho en el que por fin se la ve — **no la 
 `clsx`, `three` (+ `AsciiEffect`), `next/font`. Testing: `@testing-library/react` + `user-event` +
 `happy-dom` + `axe`.
 
-**Verificación (definición de done):** RTL (comportamiento/a11y) + smoke de render + `axe` + `bash ./init.sh`
-verde + `pnpm build` OK.
+**Verificación (definición de done):** RTL (comportamiento/a11y) + smoke de render + `axe` +
+`pnpm lint`, `pnpm typecheck` y `pnpm test` en verde + `pnpm build` OK.
 
-## 9. Slices de implementación (→ `feature_list.json`)
+## 9. Slices de implementación (→ backlog de UI)
 
-Cada slice es una implementación (implementer → reviewer), como el backend. IDs reales en
-`feature_list.json` (mapeo en [RFC-00 §4](RFC-00-proceso.md)):
+Cada slice es un cambio SDD, como el backend. IDs reales en la tabla de
+[RFC-00 §4](RFC-00-proceso.md); las entradas que siguen abiertas están en
+`docs/product/backlog-ui.md`:
 
 - **feature 12 `ui_foundation`** — tokens → `@theme`, fuentes `next/font`, `globals.css`, `layout.tsx`
   raíz, `cn()`, y los primitivos base portados del template (`Button`, `Field`/`Input`, `Card`).

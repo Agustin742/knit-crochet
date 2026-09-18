@@ -2,7 +2,7 @@
 
 - **Alcance:** las dos herramientas de cálculo (aumentos + regla de 3), lógica pura sin DB.
 - **Estado:** borrador. Depende de **RFC-01**.
-- **Proceso / arnés:** ver **[RFC-00](RFC-00-proceso.md)** (entorno de agentes, jerarquía de verdad, mapeo a `feature_list.json`).
+- **Proceso:** ver **[RFC-00](RFC-00-proceso.md)** (proceso SDD, jerarquía de verdad, mapeo al backlog de UI).
 - **Estética:** template adaptable.
 
 ---
@@ -42,9 +42,9 @@
 - Página `src/app/(app)/calculadoras/`. UI en `src/features/calculators/ui/` (la lógica pura ya existe).
 - Verificación: RTL (caso canónico P=40/A=6, validaciones, regla de 3 con redondeo, historial efímero) + axe + smoke + build.
 
-## 8. Slices de implementación (→ `feature_list.json`)
+## 8. Slices de implementación (→ backlog de UI)
 
-ID real en `feature_list.json` (mapeo en [RFC-00 §4](RFC-00-proceso.md)):
+ID real en la tabla de [RFC-00 §4](RFC-00-proceso.md); la entrada abierta está en `docs/product/backlog-ui.md`:
 
 - **feature 29 `calculators_ui`** — página con tabs; form + resultado (card+focusframe+desglose) de
   aumentos; form + resultado + historial efímero de regla de 3. Sin backend (reusa la lógica de feature 11).

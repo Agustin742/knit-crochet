@@ -217,7 +217,7 @@ describe("página de register", () => {
    * realidad nueva — el alta **sí** monta el ovillo, y lo monta como pieza
    * **decorativa**, fuera del árbol accesible.
    *
-   * A quien venga después: la ficha de #31 en `feature_list.json` sigue
+   * A quien venga después: la ficha de #31 en `docs/historial/` sigue
    * describiendo el criterio viejo. **No "arregles" esto al revés.** Quitar el
    * ovillo de `register/page.tsx` es un cambio de producto, y este test es
    * quien tiene que caer para avisarlo.

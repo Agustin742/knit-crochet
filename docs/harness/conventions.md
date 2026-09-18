@@ -101,7 +101,7 @@
   real en el CSS de producción, y una clase con comodines o inválida **rompe el build
   entero**. Ya pasó dos veces. En tests, armá las muestras por concatenación en
   runtime; en prosa, describí la utilidad en palabras. Detalle:
-  `progress/informs/6.informe-bugfix-tailwind_source_guardrail.md`.
+  `docs/historial/informes/6.informe-bugfix-tailwind_source_guardrail.md`.
 - **Presentación pura.** El design system (`shared/ui/`) es **solo presentación**:
   props + estado local de UI. **No** hace fetch, **no** decide rutas, **no** conoce
   el backend. Quien lo consume (`features/<x>/ui/`, páginas) le pasa datos y callbacks.

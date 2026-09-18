@@ -125,5 +125,6 @@ Postgres.
 - Guardar imágenes como blobs — solo la URL de Cloudinary.
 - Descontar stock de lana al enlazarla a un proyecto (ver PRD §4.5: `quantity`
   la gestiona el usuario; `usedQuantity` es un contador aparte).
-- Añadir una dependencia pesada sin justificarla en `feature_list.json`.
+- Añadir una dependencia pesada sin justificarla en el cambio SDD que la introduce
+  (`openspec/changes/<cambio>/proposal.md` o `design.md`).
 - Introducir capas nuevas (repos genéricos, DDD) sin razón documentada.
