@@ -85,13 +85,33 @@ context: |
   `axe-core` already installed as devDependencies — the RTL+axe UI bar above
   is executable today, not aspirational.
 
-  Harness replacement note: this repository previously ran a bespoke
-  hand-rolled multi-agent harness (`AGENTS.md`, `CHECKPOINTS.md`, `init.sh`,
-  `feature_list.json`, `progress/`, `.claude/agents/{leader,implementer,
-  reviewer}.md`, a project `CLAUDE.md` forcing a leader role, and
-  `.claude/settings.json` verification hooks). That harness is being replaced
-  by this standard gentle-ai SDD harness; do not reference or depend on the
-  old harness files — they are being removed separately.
+  Harness replacement note (completed 2026-09-18): this repository used to run
+  a bespoke hand-rolled multi-agent harness. `AGENTS.md`, `CHECKPOINTS.md`,
+  `init.sh`, `feature_list.json`, `progress/`, `.claude/agents/{leader,
+  implementer,reviewer}.md`, the project `CLAUDE.md` that forced a leader
+  role, and the `.claude/settings.json` verification hooks are all DELETED.
+  Never cite them as live process. Where things went:
+    - `feature_list.json`        -> `docs/product/backlog-ui.md` (a queue, not
+                                    a status register; in-flight state lives in
+                                    `openspec/changes/<slug>/`)
+    - `bash ./init.sh`           -> `pnpm lint`, `pnpm typecheck`, `pnpm test`,
+                                    `pnpm build`
+    - `CHECKPOINTS.md`           -> `docs/harness/verification.md` (checks) and
+                                    `architecture.md` (layering)
+    - `progress/current.md`      -> `openspec/changes/<slug>/apply-progress.md`
+    - `progress/history.md`      -> `docs/historial/bitacora.md`
+    - `progress/deudas.md`       -> `docs/historial/deuda-tecnica.md`
+    - `progress/informs/`        -> `docs/historial/informes/` (a closed
+                                    archive; the closing artifact is now the
+                                    `sdd-archive` report)
+    - `progress/reports/`        -> `docs/historial/reports/`
+    - roles leader/implementer/reviewer -> the SDD phases, `sdd-apply` and
+                                    `sdd-verify`
+
+  TRAP, and it has already caught two phases: `docs/historial/**` and the debt
+  ledger are a faithful record of the old process, so they are FULL of that
+  dead vocabulary — deliberately, because rewriting history would falsify it.
+  Read them for facts, never copy their process vocabulary into a new artifact.
 
   Language split (hard rule): all generated technical artifacts (this file,
   specs, designs, tasks, code, comments, identifiers) are written in English.

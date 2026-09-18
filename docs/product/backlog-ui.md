@@ -50,7 +50,7 @@ El detalle está en `docs/harness/verification.md` y en `SDD-01 §9`.
 
 | # | Slug | Título | RFC |
 |---|---|---|---|
-| 22 | `projects-form-ui` | Proyectos: crear/editar en modal | RFC-03 |
+| ~~22~~ | ~~`projects-form-ui`~~ | ~~Proyectos: crear/editar en modal~~ — cerrada | RFC-03 |
 | 23 | `yarns-list-ui` | Lanas: lista + filtro jerárquico | RFC-04 |
 | 24 | `yarns-detail-catalogs-ui` | Lanas: detalle + gestión de catálogos | RFC-04 |
 | 25 | `yarns-form-ui` | Lanas: crear/editar en modal con tabs | RFC-04 |
@@ -62,12 +62,12 @@ El detalle está en `docs/harness/verification.md` y en `SDD-01 §9`.
 
 ---
 
-### 22 · `projects-form-ui` — Proyectos: crear/editar en modal (form + foto + patrón)
+### ~~22 · `projects-form-ui` — Proyectos: crear/editar en modal~~ · CERRADA
 
-**RFC-03.** Estaba a medias cuando se migró el arnés: el commit `996fbe4`
-(«completar #22 y unificar el alta con el cronómetro visible») cerró el alta,
-pero la ficha nunca se marcó cerrada. **Revisar qué falta antes de abrir el
-cambio SDD** — puede que solo reste la edición.
+**RFC-03.** Cerrada por el commit `996fbe4` («completar #22 y unificar el alta
+con el cronómetro visible»), confirmado por el usuario el 2026-09-18. La ficha
+había quedado sin marcar al migrar el arnés. Se conserva el detalle abajo porque
+documenta qué se pedía.
 
 Modal de crear/editar proyecto, separado del de ver: form con nombre, foto,
 tipo, `targetRounds`, `needles` y patrón elegible de biblioteca o embebido. Los

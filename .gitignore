@@ -39,3 +39,8 @@ next-env.d.ts
 # Herramientas de terceros que se regeneran solas en cada sesión
 .atl/
 .windsurf/
+
+# Índice de CodeGraph: es local a ESTE checkout (su raíz y sus bytes son los de
+# este árbol de trabajo). Nunca se comparte ni se copia a otro worktree: cada uno
+# genera el suyo con `gentle-ai codegraph init`.
+.codegraph/
