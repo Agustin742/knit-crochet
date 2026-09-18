@@ -68,31 +68,31 @@ merges to `main`.
 
 ## Phase 2: S2 — swatch-split (PR 2, base: S1 branch)
 
-- [ ] 2.1 RED: create `src/shared/ui/primitives/swatch/Swatch.test.tsx` — RTL
+- [x] 2.1 RED: create `src/shared/ui/primitives/swatch/Swatch.test.tsx` — RTL
       renders with `color="var(--yarn-red)"` `label="Rojo"` and asserts the
       accessible name; a decorative instance (no `label`) asserts
       `aria-hidden`; one test per size variant asserts a token-driven class,
       not a literal pixel value; an `axe` assertion; a render smoke test; an
       import-inspection assertion that the file imports nothing from
       `src/shared/config/` and no `ColorFamily` type.
-- [ ] 2.2 GREEN: create `src/shared/ui/primitives/swatch/{Swatch.tsx,
+- [x] 2.2 GREEN: create `src/shared/ui/primitives/swatch/{Swatch.tsx,
       swatch.variants.ts, index.ts}` — app-agnostic, props-only (`color`,
       `label?`, `size`, `className`), no hooks, no `"use client"` (mirrors
       `EmptyState`).
-- [ ] 2.3 **Move and rename**: relocate `yarnSwatchColor` (currently
+- [x] 2.3 **Move and rename**: relocate `yarnSwatchColor` (currently
       `YarnsTab.tsx:265-294`) to `src/shared/config/yarn-swatch.ts` and
       **rename it `yarnSwatchClass`**. Keep the 13-branch exhaustive `switch`
       body unchanged; only the file, name, and return-type framing (utility
       class, not a colour value) change. Re-export from
       `src/shared/config/index.ts`.
-- [ ] 2.4 Same commit as 2.3 — RED+GREEN: create
+- [x] 2.4 Same commit as 2.3 — RED+GREEN: create
       `src/shared/config/yarn-swatch.classes.test.ts` — iterate every
       `ColorFamily` value, call `yarnSwatchClass(family)`, and assert
       `emitsRule(css, class)` using `compileGlobalsCss`/`emitsRule` from
       `src/shared/ui/testing/class-names-from-source.ts`. This is the
       compiled-CSS coverage handoff (trap #3) — it MUST land with the move,
       not as a follow-up.
-- [ ] 2.5 Same commit as 2.3/2.4 — in `docs/historial/deuda-tecnica.md`,
+- [x] 2.5 Same commit as 2.3/2.4 — in `docs/historial/deuda-tecnica.md`,
       strike entry **168**'s title through with `~~…~~` (never delete) and
       write underneath, in Spanish, per the ledger protocol: **Cómo se
       saldó** (the component was split along the portability line — `Swatch`
@@ -104,19 +104,22 @@ merges to `main`.
       report). S2 is the slice that settles 168 — nothing in S3/S4a/S4b
       contributes to it, so the strike-through must revert with S2, not
       after it.
-- [ ] 2.6 GREEN: in `src/features/projects/ui/YarnsTab.tsx`, replace the
+- [x] 2.6 GREEN: in `src/features/projects/ui/YarnsTab.tsx`, replace the
       `YarnSwatch` local component's body (`YarnsTab.tsx:241-248`, single
       call sites at `:147` and `:212`) to **compose** the new `Swatch`
       primitive with the imported `yarnSwatchClass`; delete the now-dead
       local `yarnSwatchColor` function and its `YARN_SWATCH_CLASSES`
       constant.
-- [ ] 2.7 Update `src/shared/ui/primitives/index.ts` and
+- [x] 2.7 Update `src/shared/ui/primitives/index.ts` and
       `src/shared/ui/public-api.test.ts` to anchor `Swatch` (and any exported
       size constant/`swatchVariants`) in the same commit as 2.2 — the
       literal-list test fails in both directions (trap #2).
-- [ ] 2.8 Verify: `pnpm lint && pnpm typecheck && pnpm test && pnpm build`
+- [x] 2.8 Verify: `pnpm lint && pnpm typecheck && pnpm test && pnpm build`
       green; manually confirm all 13 swatch colours render in browser
       (REGLA 4 / debt 171 note in design's Testing Strategy).
+      **Automated part done** (see apply-progress). **Manual browser check
+      of the 13 swatch colours is OUTSTANDING** — the apply executor has no
+      browser tool; the orchestrator must run it.
 
 ## Phase 3: S3 — list-cards-states (PR 3, base: S2 branch)
 

@@ -8,6 +8,7 @@ export * from "./progress-bar";
 export * from "./segmented-control";
 export * from "./select";
 export * from "./skeleton";
+export * from "./swatch";
 export * from "./tabs";
 export * from "./textarea";
 export * from "./toggle";

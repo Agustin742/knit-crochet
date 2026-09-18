@@ -51,6 +51,12 @@ const PRIMITIVES = [
   // propósito — esconder la pieza en `features/` para no tocar esta lista es
   // justo el antipatrón que la regla "el template es un SUELO" prohíbe.
   "SegmentedControl",
+  // Deuda 168 saldada (S2 `swatch-split` de #23): la muestra de color genérica
+  // que RFC-04 va a necesitar. Su mapa app-side (`yarnSwatchClass`) queda en
+  // `shared/config`, así que el ancla se paga sólo por el primitivo — igual
+  // que el resto de las piezas de esta lista.
+  "SWATCH_SIZES",
+  "Swatch",
   // Enmienda E6(b) del RFC-03: los dos controles de formulario que faltaban.
   // Son design system puro —no dependen de ninguna configuración de la app— y
   // componen con `Field` igual que `Input`. Sus listas de clases NO se exportan:
@@ -70,6 +76,7 @@ const PRIMITIVES = [
   "cardVariants",
   "clampProgress",
   "inputClasses",
+  "swatchVariants",
 ];
 
 const FEEDBACK = [

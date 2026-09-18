@@ -1,3 +1,5 @@
+export * from "./yarn-swatch";
+
 export const APP_NAME = "Knit&Crochet";
 
 // Enums globales (PRD §4). La lista de valores vive UNA sola vez aquí; los

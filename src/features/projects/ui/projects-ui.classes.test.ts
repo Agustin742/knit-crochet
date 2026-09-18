@@ -69,11 +69,16 @@ const COMPONENTS = [
  * de clase**: lo que devuelve no se puede seguir desde este fuente, así que su
  * nombre se registra igual que el de una constante importada.
  *
+ * - `swatchClass` (deuda 168, #23) — `YarnColorSwatch` en `YarnsTab.tsx`
+ *   compone `Swatch` + `yarnSwatchClass` (`shared/config`) fuera de cualquier
+ *   `className`, así que sólo expone este identificador plano. Su cobertura
+ *   real la mide `yarn-swatch.classes.test.ts`, no este barrido.
+ *
  * La lista se comprueba **exacta**: si mañana aparece otra fuente de clases que
  * este gate no sabe seguir, el test se pone rojo y obliga a decidir qué hacer
  * con ella, en vez de perderla en silencio.
  */
-const EXTERNAL_SOURCES = ["className", "inputClasses"];
+const EXTERNAL_SOURCES = ["className", "inputClasses", "swatchClass"];
 
 function componentPath(fileName: string): string {
   return fileURLToPath(new URL(`./${fileName}`, import.meta.url));

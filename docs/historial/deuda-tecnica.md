@@ -2530,12 +2530,22 @@ bloqueante **no era un bug de código**, era una frase que afirmaba que ese test
      **sólo el comentario**, a coste cero, para que ningún review futuro lo cite como evidencia.
      **La deuda de fondo permanece:** *ningún gate de este repo puede medir hit-testing*.
 
-168. **⚪ El swatch de color de lana no es reutilizable, y RFC-04 lo va a necesitar.** Fichada por el
-     implementer de T2. **No sube a `src/shared/ui/`** porque `ColorFamily` es **configuración de la
-     app** y subirlo rompería la portabilidad del template (contrato del SDD). **Escenario:** al
-     implementar #23-#25 (lanas) hará falta el mismo swatch y se copiará. **Cómo se salda:** decidir
-     dónde vive un componente que depende de config de app y no del design system — es una decisión de
-     arquitectura, no un mover-archivo.
+168. ~~**⚪ El swatch de color de lana no es reutilizable, y RFC-04 lo va a necesitar.**~~ **SALDADA**
+     (S2 `swatch-split` de #23, 2026-09-18). Fichada por el implementer de T2. **No sube a
+     `src/shared/ui/`** porque `ColorFamily` es **configuración de la app** y subirlo rompería la
+     portabilidad del template (contrato del SDD). **Escenario:** al implementar #23-#25 (lanas) hará
+     falta el mismo swatch y se copiará.
+     **Cómo se saldó:** el componente se **partió por la línea de portabilidad, no se mudó entero**.
+     `Swatch` sube a `src/shared/ui/primitives/swatch/` genérico —props únicamente (`color`, `label?`,
+     `size`, `className`), sin hooks, sin `"use client"`, sin importar `ColorFamily`—.
+     `yarnSwatchColor` (`YarnsTab.tsx:265-294`) se movió a `src/shared/config/yarn-swatch.ts` y se
+     renombró `yarnSwatchClass`: el `switch` de 13 ramas queda igual, pero devuelve una clase de
+     utilidad, que entra al primitivo por el `className` ya obligatorio en todo componente.
+     `YarnsTab.tsx` compone ahora `Swatch` + `yarnSwatchClass` en sus dos sitios de uso.
+     **Dónde quedó la prueba:** el commit de S2; `Swatch.boundary.test.ts` (lee el fuente, misma
+     técnica que `file-input.boundary.test.ts`); `yarn-swatch.classes.test.ts` (las 13 familias emiten
+     una regla real en el CSS compilado, el relevo de cobertura que perdió el barrido de AST al
+     mudarse el mapa); y el informe de archivo de este cambio.
 
 169. **⚪ Un inventario de lanas que falló no se puede reintentar sin recargar** (heredado de #20).
 
