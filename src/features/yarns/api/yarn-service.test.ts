@@ -185,6 +185,53 @@ describe("features/yarns read and filters", () => {
     expect(await listYarns("user-1", { typeId }, store)).toHaveLength(1);
     expect(await listYarns("user-1", { brandId }, store)).toHaveLength(2);
   });
+
+  // `brandId`/`typeId` son FKs NOT NULL: un inner join no puede dejar una lana
+  // fuera. Se afirma con una prueba, no de palabra: dos marcas/tipos distintos
+  // para que el join correlacione fila a fila, no un único par que un valor
+  // fijo pudiera aprobar por casualidad.
+  it("returns brandName and typeName from the joined row, one per brand/type, without dropping rows", async () => {
+    const store = createInMemoryYarnStore();
+    const brandA = await createBrand("user-1", { name: "Malabrigo" }, store);
+    const typeA = await createYarnType(
+      "user-1",
+      brandA.id,
+      { name: "Rios" },
+      store,
+    );
+    const brandB = await createBrand("user-1", { name: "Katia" }, store);
+    const typeB = await createYarnType(
+      "user-1",
+      brandB.id,
+      { name: "Merino" },
+      store,
+    );
+    await createYarn(
+      "user-1",
+      yarnInput(brandA.id, typeA.id, { colorCode: "A" }),
+      store,
+    );
+    await createYarn(
+      "user-1",
+      yarnInput(brandB.id, typeB.id, { colorCode: "B" }),
+      store,
+    );
+
+    const items = await listYarns("user-1", {}, store);
+
+    expect(items).toHaveLength(2);
+    const byColorCode = Object.fromEntries(
+      items.map((item) => [item.colorCode, item]),
+    );
+    expect(byColorCode.A).toMatchObject({
+      brandName: "Malabrigo",
+      typeName: "Rios",
+    });
+    expect(byColorCode.B).toMatchObject({
+      brandName: "Katia",
+      typeName: "Merino",
+    });
+  });
 });
 
 describe("features/yarns updateYarn", () => {

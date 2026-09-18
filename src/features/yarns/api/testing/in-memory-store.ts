@@ -11,6 +11,7 @@ import type {
   NewYarnRecord,
   NewYarnTypeRecord,
   YarnFilters,
+  YarnListItem,
   YarnPatch,
   YarnRecord,
   YarnTypeRecord,
@@ -187,6 +188,8 @@ export function createInMemoryYarnStore(
 
     async listYarns(userId, filters) {
       store.lastFilters = filters;
+      // Espeja el inner join real (`store.ts`): `brandId`/`typeId` son FKs
+      // NOT NULL, así que la marca y el tipo siempre existen en los dobles.
       return yarns
         .filter((yarn) => yarn.userId === userId)
         .filter((yarn) => {
@@ -203,6 +206,15 @@ export function createInMemoryYarnStore(
             return false;
           }
           return true;
+        })
+        .map((yarn): YarnListItem => {
+          const brand = brands.find((row) => row.id === yarn.brandId);
+          const type = types.find((row) => row.id === yarn.typeId);
+          return {
+            ...yarn,
+            brandName: brand?.name ?? "",
+            typeName: type?.name ?? "",
+          };
         })
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     },

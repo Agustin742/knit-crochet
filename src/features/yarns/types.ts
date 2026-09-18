@@ -51,3 +51,14 @@ export type YarnFilters = {
   typeId?: string;
   colorFamily?: ColorFamily;
 };
+
+/**
+ * Fila de `listYarns`: `YarnRecord` extendido de forma aditiva con los
+ * nombres de marca y tipo que trae el join (`store.ts`). `YarnRecord` no se
+ * toca — el resto de endpoints (`POST`, `GET/PATCH/DELETE /:id`,
+ * `getYarnOptions`) siguen devolviendo `YarnRecord` puro.
+ */
+export type YarnListItem = YarnRecord & {
+  brandName: string;
+  typeName: string;
+};

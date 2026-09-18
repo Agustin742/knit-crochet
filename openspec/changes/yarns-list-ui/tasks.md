@@ -38,32 +38,32 @@ merges to `main`.
 
 ## Phase 1: S1 — backend-names (PR 1, base: tracker)
 
-- [ ] 1.1 RED: extend `src/features/yarns/api/store.test.ts` (or equivalent) —
+- [x] 1.1 RED: extend `src/features/yarns/api/store.test.ts` (or equivalent) —
       `listYarns` returns items with `brandName`/`typeName` populated from a
       joined row; assert row count unchanged vs. today's fixture.
-- [ ] 1.2 GREEN: in `src/features/yarns/api/store.ts`, change `listYarns`
+- [x] 1.2 GREEN: in `src/features/yarns/api/store.ts`, change `listYarns`
       (`store.ts:234-249`) to `innerJoin(brands, …)` and
       `innerJoin(yarnTypes, …)` as `projects/api/store.ts:214` already does for
       `LinkedYarn`; select `...getTableColumns(yarns), brandName: brands.name,
       typeName: yarnTypes.name`.
-- [ ] 1.3 Add `YarnListItem` to `src/features/yarns/types.ts`:
+- [x] 1.3 Add `YarnListItem` to `src/features/yarns/types.ts`:
       `YarnRecord & { brandName: string; typeName: string }`, additive,
       `YarnRecord` untouched.
-- [ ] 1.4 Update `src/features/yarns/api/list-yarns.ts` and
+- [x] 1.4 Update `src/features/yarns/api/list-yarns.ts` and
       `src/app/api/yarns/route.ts` to propagate `YarnListItem[]`; `{ yarns }`
       wrapper and status codes unchanged.
-- [ ] 1.5 Update `src/features/yarns/api/testing/in-memory-store.ts` so the
+- [x] 1.5 Update `src/features/yarns/api/testing/in-memory-store.ts` so the
       test double's `listYarns` double mirrors the join (returns
       `brandName`/`typeName` from its seeded brand/type data).
-- [ ] 1.6 RED: extend the `GET /api/yarns` integration test — 401 with no
+- [x] 1.6 RED: extend the `GET /api/yarns` integration test — 401 with no
       session, 200 with every item carrying `brandName`/`typeName`, empty
       stash returns `{ yarns: [] }`, existing filter/AND scenarios still pass.
-- [ ] 1.7 GREEN: confirm the route test suite passes against 1.2-1.4.
-- [ ] 1.8 RED+GREEN: add/confirm a scenario asserting `POST`, `GET/:id`,
+- [x] 1.7 GREEN: confirm the route test suite passes against 1.2-1.4.
+- [x] 1.8 RED+GREEN: add/confirm a scenario asserting `POST`, `GET/:id`,
       `PATCH/:id`, `DELETE/:id` on `/api/yarns` and `getYarnOptions` are
       byte-identical (no `brandName`/`typeName` leak) — per
       `yarn-list-api/spec.md` "Other yarn endpoints unaffected".
-- [ ] 1.9 Verify: `pnpm lint && pnpm typecheck && pnpm test && pnpm build`
+- [x] 1.9 Verify: `pnpm lint && pnpm typecheck && pnpm test && pnpm build`
       green for this slice.
 
 ## Phase 2: S2 — swatch-split (PR 2, base: S1 branch)
