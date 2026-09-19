@@ -46,7 +46,7 @@ export function YarnFilterPanel({
      `axe` no lo gatea. Es la misma decisión que RFC-03 E2(b) tomó para el
      toolbar de `/proyectos`: todo el filtro vive sobre UNA superficie. */
   return (
-    <Card className="flex flex-col gap-(--space-4)">
+    <Card data-slot="yarn-filter-panel" className="flex flex-col gap-(--space-4)">
       <YarnBrandTree
         value={scopeOf(filters)}
         onValueChange={(next) =>

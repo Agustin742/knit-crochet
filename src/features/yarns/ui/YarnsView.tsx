@@ -75,11 +75,16 @@ export function YarnsView() {
   const reload = useCallback(() => setReloadToken((token) => token + 1), []);
 
   return (
-    <div className="flex flex-col gap-(--space-6) p-(--space-6) tablet:flex-row">
+    /* El `h1` encabeza la PÁGINA y queda fuera de las dos columnas: dentro de
+       la del filtro empujaba sólo a ese lado, y la rejilla de tarjetas
+       arrancaba más arriba por exactamente el alto del título. */
+    <div className="flex flex-col gap-(--space-6) p-(--space-6)">
+      <h1 className="font-display text-3xl leading-tight text-fg-inverse">
+        {PAGE_TITLE}
+      </h1>
+
+      <div className="flex flex-col gap-(--space-6) tablet:flex-row">
       <div className="flex flex-col gap-(--space-4) tablet:w-64 tablet:shrink-0">
-        <h1 className="font-display text-3xl leading-tight text-fg-inverse">
-          {PAGE_TITLE}
-        </h1>
         <YarnFilterPanel filters={filters} onFiltersChange={setFilters} />
       </div>
 
@@ -110,6 +115,7 @@ export function YarnsView() {
             ))}
           </ul>
         )}
+      </div>
       </div>
     </div>
   );

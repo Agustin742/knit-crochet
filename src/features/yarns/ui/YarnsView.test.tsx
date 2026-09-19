@@ -102,6 +102,28 @@ afterEach(() => {
 });
 
 describe("YarnsView — smoke", () => {
+
+  /**
+   * El `h1` es el título de la PÁGINA, no una etiqueta de la columna de
+   * filtros. Cuando vivía dentro de esa columna empujaba sólo al filtro hacia
+   * abajo, y la rejilla de tarjetas arrancaba más arriba: las dos columnas
+   * quedaban desalineadas por exactamente el alto del título. Lo levantó el
+   * usuario mirando la pantalla.
+   */
+  it("el título encabeza la página, no la columna del filtro", async () => {
+    const { container } = await renderReady();
+
+    const titulo = container.querySelector("h1");
+    const panel = container.querySelector('[data-slot="yarn-filter-panel"]');
+
+    expect(titulo).not.toBeNull();
+    expect(panel).not.toBeNull();
+    /* La propiedad es la contraria a la que tenía: la COLUMNA DEL FILTRO no
+       debe contener el título. Si lo contiene, el título empuja sólo a ese
+       lado y las dos columnas arrancan a alturas distintas. */
+    const columnaDelFiltro = panel?.parentElement;
+    expect(columnaDelFiltro?.contains(titulo as Node)).toBe(false);
+  });
   it("monta el título y una tarjeta por lana", async () => {
     await renderReady();
 
