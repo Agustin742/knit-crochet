@@ -197,3 +197,71 @@ What archiving this change today would accept as open, if the user/orchestrator 
 - Only a single, non-reproducible manual browser observation for type-narrowing and for triple-combined filtering (WARNING #1, #2).
 - The Enter-vs-Space preventDefault question on Disclosure remains unobserved in a real browser (WARNING #3), a known tooling failure, not a code defect, but still open.
 - Debt 192 (card tap no-op, open, correctly scoped to entry 24) and debt 193 (empty-state "Agregar lana", blocked on entry 25, not entry 24) both stay open by design, this is expected and already correctly recorded, not a gap this verify introduces.
+
+---
+
+# Re-verification — 2026-09-19
+
+The `sdd-verify` agent hit a session rate limit mid-run and could not finish
+the second pass. The orchestrator completed it directly, to the same standard:
+each new test opened and read, not taken on report.
+
+## The three CRITICAL findings are closed
+
+| # | Finding | Proof | Verdict |
+|---|---|---|---|
+| 1 | `listYarns` cross-user isolation untested | `src/features/yarns/api/yarn-service.test.ts:196-213` | **MET** |
+| 2 | AND semantics untested (service layer) | `src/features/yarns/api/yarn-service.test.ts:220-261` | **MET** |
+| 2 | AND semantics untested (route layer) | `src/app/api/yarns/yarns-routes.test.ts:319` | **MET** |
+| 3 | Colour swatch → grid wiring untested | `src/features/yarns/ui/YarnsView.test.tsx:252-291` | **MET** |
+
+Why each counts as proof rather than as a test that merely passes:
+
+1. **Isolation** seeds yarns for `user-1` and `user-2`, lists as `user-1`, and
+   asserts length 1, the expected `colorCode`, and that *every* returned row
+   belongs to the caller. The third assertion is what makes it a scoping test
+   rather than a count test.
+2. **AND** seeds three yarns: one in the intersection (`BOTH`), one matching
+   `brandId` alone (`BRAND-ONLY`), one matching `colorFamily` alone
+   (`COLOR-ONLY`), then queries with both filters and expects exactly one. OR
+   would return three, so the test discriminates between the two semantics
+   instead of merely exercising the happy path.
+3. **Colour wiring** starts with both yarns rendered, clicks the blue swatch,
+   asserts the request carried `colorFamily=blue`, and then asserts the neutral
+   yarn **left the grid** while the blue one stayed. It covers the request and
+   the visible result, not just the request.
+
+All four were triangulated by the implementing agent against deliberately
+broken production code (`userId` condition removed, `and` swapped for `or`,
+`colorFamily` forwarding made stale) and confirmed red before being trusted.
+Production files were restored byte for byte; `git diff` is clean on every one
+of them and `store.ts:258` still reads `and(...conditions)`.
+
+## Gates
+
+`pnpm lint` clean · `pnpm typecheck` clean · `pnpm test` **1965 passed / 13
+skipped**, no unhandled errors · `pnpm build` compiled.
+
+## Verdict: PASS
+
+## What archiving accepts as open
+
+Archiving this change is not a claim that nothing is left. It accepts four
+things, each recorded rather than assumed:
+
+1. **Debt 192** 🟠 — the card's tap is a documented no-op. Settled by entry 24.
+2. **Debt 193** 🟠 **blocked** — the empty state offers no way to add a yarn.
+   RFC-04 §4 asks for it, but no `POST /api/yarns` exists anywhere in the UI,
+   so the button would have nothing to open. Settled by entry 25, and
+   explicitly not by 24.
+3. **Debt 198** ⚪ — the AND tests run against the in-memory store double, so
+   swapping `and` for `or` in the real Drizzle query would leave them green.
+   The design designates that double as `YarnStore`'s test layer, so this is a
+   known architectural limit; the real query is verified by reading.
+4. **The `Disclosure` keyboard question** — whether `preventDefault` on the
+   summary's keydown cancels the native toggle, for Enter and for Space
+   separately. Browser key injection never reached the page across two
+   attempts (zero `keydown` events observed), which is a tooling failure and
+   not a finding. Reading the code, both paths converge on the same value, so
+   a double toggle appears impossible — but that is reasoning, not
+   observation, and it is listed here as unverified.
