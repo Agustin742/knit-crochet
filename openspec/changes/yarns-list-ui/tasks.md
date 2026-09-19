@@ -123,44 +123,45 @@ merges to `main`.
 
 ## Phase 3: S3 — list-cards-states (PR 3, base: S2 branch)
 
-- [ ] 3.1 RED: `src/features/yarns/ui/yarns-client.ts` test — `getYarns`
+- [x] 3.1 RED: `src/features/yarns/ui/yarns-client.ts` test — `getYarns`
       builds the querystring from filters, parses `YarnListPayload`,
       surfaces fetch failure as a typed error.
-- [ ] 3.2 GREEN: create `src/features/yarns/ui/yarns-client.ts` and
+- [x] 3.2 GREEN: create `src/features/yarns/ui/yarns-client.ts` and
       `src/features/yarns/ui/types.ts` (`SerializedYarnListItem`,
       `YarnListPayload` per design's Interfaces/Contracts).
-- [ ] 3.3 GREEN: create `src/features/yarns/ui/yarn-copy.ts` — Spanish copy
+- [x] 3.3 GREEN: create `src/features/yarns/ui/yarn-copy.ts` — Spanish copy
       constants (`"Sin lanas en el stash todavía"`, `"Se enredó la madeja"`,
       retry label).
-- [ ] 3.4 RED: `src/features/yarns/ui/YarnCard.test.tsx` — RTL renders swatch
+- [x] 3.4 RED: `src/features/yarns/ui/YarnCard.test.tsx` — RTL renders swatch
       + `"{brandName} · {typeName} · {colorName}"` + quantity; tap/activate
       triggers the documented no-op handler (no navigation, no drawer, no
       state change); render smoke; `axe`.
-- [ ] 3.5 GREEN: create `src/features/yarns/ui/YarnCard.tsx` — composes
+- [x] 3.5 GREEN: create `src/features/yarns/ui/YarnCard.tsx` — composes
       `Card` + `Swatch` (card size) tinted via `yarnSwatchClass`; no-op tap
       handler with an inline comment pointing at debt 192 / entry 24.
-- [ ] 3.6 RED: `src/features/yarns/ui/YarnsView.test.tsx` — skeleton while
+- [x] 3.6 RED: `src/features/yarns/ui/YarnsView.test.tsx` — skeleton while
       loading, cards on success, empty state message with no cards, error
       state message with a retry action that re-issues the fetch (mirrors
       `ProjectsView`'s `useState` filters + `requestKey`-derived loading
       pattern).
-- [ ] 3.7 GREEN: create `src/features/yarns/ui/YarnsView.tsx` — `useState`
+- [x] 3.7 GREEN: create `src/features/yarns/ui/YarnsView.tsx` — `useState`
       filters + `reloadToken` → `requestKey`; renders `EmptyState`/
       `ErrorState`/`Skeleton` from `src/shared/ui/feedback` or the card grid.
-- [ ] 3.8 GREEN: create `src/app/(app)/lanas/page.tsx` — thin Server
+- [x] 3.8 GREEN: create `src/app/(app)/lanas/page.tsx` — thin Server
       Component, routes and composes `YarnsView` only (mirrors
       `ProjectsPage`); create `src/features/yarns/ui/index.ts` barrel.
-- [ ] 3.9 Same commit — file debt **192** in
+- [x] 3.9 Same commit — file debt **192** in
       `docs/historial/deuda-tecnica.md` (Spanish, next sequential number,
       not recycled), severity 🟠 per the two-axis scale: the card tap is a
       documented no-op with no navigation/drawer; scenario = user taps a
       card and nothing visible happens; settled by entry 24 (drawer).
-- [ ] 3.10 GREEN: create `src/features/yarns/ui/yarns-ui.classes.test.ts`
+- [x] 3.10 GREEN: create `src/features/yarns/ui/yarns-ui.classes.test.ts`
       mirroring `src/features/projects/ui/projects-ui.classes.test.ts` — the
       compiled-CSS gate for every class emitted by `YarnCard`/`YarnsView`.
-- [ ] 3.11 Verify: `pnpm lint && pnpm typecheck && pnpm test && pnpm build`
-      green; visit `/lanas` in browser and confirm card grid, empty, error,
-      loading states render as designed (REGLA 4).
+- [x] 3.11 Verify: `pnpm lint && pnpm typecheck && pnpm test && pnpm build`
+      green (real output below). **Automated part done.** Manual browser
+      pass over `/lanas` (REGLA 4) is **OUTSTANDING** — this executor has no
+      browser tool; the orchestrator must run it before archiving.
 
 ## Phase 4: S4a — disclosure-primitive (PR 4, base: S3 branch)
 

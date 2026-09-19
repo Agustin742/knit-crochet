@@ -2882,3 +2882,31 @@ borrada y el servidor reiniciado limpio: **`200 {"sessions":[]}`** y el tab func
    63 px eran **el reloj nuevo dentro de la tarjeta**. Medir la consecuencia, no el síntoma.
 4. **Verificar contra el build de producción es una vía legítima cuando dev falla**, y hay que decir que se
    hizo así. El `201 application/json` del arranque **se midió en `pnpm start`**, no en dev.
+
+192. **🟠 La tarjeta de `/lanas` tiene un control que no hace nada.** `YarnCard` (#23, slice S3
+     `list-cards-states`) monta un tap alcanzable por teclado y con nombre accesible, pero su manejador es
+     un no-op documentado (`YarnCard.tsx`, función `noOpTap`). **Escenario de fallo:** un usuario toca o
+     activa una tarjeta esperando ver el detalle de esa lana —igual que ya puede hacerlo en `/proyectos`
+     desde #21— y no pasa nada visible: ni navega, ni abre un cajón, ni cambia ningún dato en pantalla. No
+     es un defecto de esta slice: el cajón de detalle con el stepper de `usedQuantity` y el panel de
+     gestión de marcas/tipos es la **entrada 24** (`yarns_detail_catalogs_ui`, RFC-04 §2), que todavía no
+     existe. **Cómo se salda:** cuando entre la 24, el mismo control pasa de `noOpTap` a abrir el cajón —el
+     control ya es real y ya es accesible, sólo falta cablearlo—.
+
+193. **🟠 El estado vacío de `/lanas` es un callejón sin salida: dice que no tenés lanas y no ofrece
+     ninguna forma de agregar una.** `RFC-04 §4` especifica el vacío como *"Sin lanas en el stash
+     todavía"* **+ "Agregar lana"**, y la slice S3 de #23 montó sólo la primera mitad
+     (`YarnsView.tsx`, `<EmptyState title={EMPTY_TITLE} />`, sin `action`). **Esto no es una
+     limitación del primitivo:** `EmptyState` ya tiene el slot `action` y su propio comentario dice
+     que "quien lo monta decide si ofrece 'Crear proyecto', dos botones de creación (RFC-02 §4) o
+     nada". Lo que falta es el destino. **Escenario de fallo:** un usuario nuevo —con el stash vacío,
+     que es el estado de arranque de cualquiera— entra a `/lanas`, lee que no tiene lanas, y la
+     pantalla no le da ni un botón, ni un enlace, ni una pista de por dónde cargar la primera. La
+     única salida es volver a navegar a otra sección. Es **más visible que la deuda 192**: ahí al
+     menos hay tarjetas alrededor del control muerto; acá la página entera no ofrece nada.
+     **Por qué se aceptó igual:** el modal de crear/editar lana es la **entrada 25**
+     (`yarns_form_ui`, RFC-04 §2), que todavía no existe, así que el botón no tendría a dónde abrir.
+     **Cómo se salda:** cuando entre la 25, pasarle el botón "Agregar lana" al slot `action` que ya
+     está ahí. No se salda con la 24 (el cajón de detalle) — esa no crea lanas.
+     **Fichada por:** el gate del orquestador al cerrar S3; el ejecutor la declaró como desviación en
+     su informe pero no la fichó, y una desviación que sólo vive en un informe no es una deuda.
