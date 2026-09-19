@@ -185,6 +185,127 @@ describe("features/yarns read and filters", () => {
     expect(await listYarns("user-1", { typeId }, store)).toHaveLength(1);
     expect(await listYarns("user-1", { brandId }, store)).toHaveLength(2);
   });
+
+  // Requirement "userId scoping", scenario "Cross-user isolation": ningún
+  // otro test de esta suite siembra dos usuarios y llama a listYarns para
+  // probarlo (getYarn/deleteYarn/catálogos sí lo hacen más arriba). Mismo
+  // patrón que esos: dos usuarios, cada uno con su propia lana.
+  it("keeps listYarns scoped to the caller: never returns another user's yarns", async () => {
+    const store = createInMemoryYarnStore();
+    const mine = await seedBrandAndType(store, "user-1");
+    const theirs = await seedBrandAndType(store, "user-2");
+    await createYarn(
+      "user-1",
+      yarnInput(mine.brandId, mine.typeId, { colorCode: "MINE" }),
+      store,
+    );
+    await createYarn(
+      "user-2",
+      yarnInput(theirs.brandId, theirs.typeId, { colorCode: "THEIRS" }),
+      store,
+    );
+
+    const items = await listYarns("user-1", {}, store);
+
+    expect(items).toHaveLength(1);
+    expect(items[0]?.colorCode).toBe("MINE");
+    expect(items.every((item) => item.userId === "user-1")).toBe(true);
+  });
+
+  // Requirement "Filter contract preserved", scenario "Multiple filters
+  // combine with AND": todo test de filtro existente (arriba y en
+  // yarns-routes.test.ts) manda exactamente UN filtro por llamada. Se siembran
+  // tres lanas donde solo una cae en la intersección — si el store combinara
+  // con OR en vez de AND, esta prueba devolvería 2 o 3 filas, no 1.
+  it("combines brandId and colorFamily with AND, not OR", async () => {
+    const store = createInMemoryYarnStore();
+    const { brandId, typeId } = await seedBrandAndType(store);
+    const otherBrand = await createBrand("user-1", { name: "Katia" }, store);
+    const otherType = await createYarnType(
+      "user-1",
+      otherBrand.id,
+      { name: "Merino" },
+      store,
+    );
+
+    // Cae en la intersección: brandId Y colorFamily coinciden.
+    await createYarn(
+      "user-1",
+      yarnInput(brandId, typeId, { colorCode: "BOTH", colorFamily: "blue" }),
+      store,
+    );
+    // Cumple solo brandId (otra familia de color).
+    await createYarn(
+      "user-1",
+      yarnInput(brandId, typeId, { colorCode: "BRAND-ONLY", colorFamily: "red" }),
+      store,
+    );
+    // Cumple solo colorFamily (otra marca/tipo).
+    await createYarn(
+      "user-1",
+      yarnInput(otherBrand.id, otherType.id, {
+        colorCode: "COLOR-ONLY",
+        colorFamily: "blue",
+      }),
+      store,
+    );
+
+    const result = await listYarns(
+      "user-1",
+      { brandId, colorFamily: "blue" },
+      store,
+    );
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.colorCode).toBe("BOTH");
+  });
+
+  // `brandId`/`typeId` son FKs NOT NULL: un inner join no puede dejar una lana
+  // fuera. Se afirma con una prueba, no de palabra: dos marcas/tipos distintos
+  // para que el join correlacione fila a fila, no un único par que un valor
+  // fijo pudiera aprobar por casualidad.
+  it("returns brandName and typeName from the joined row, one per brand/type, without dropping rows", async () => {
+    const store = createInMemoryYarnStore();
+    const brandA = await createBrand("user-1", { name: "Malabrigo" }, store);
+    const typeA = await createYarnType(
+      "user-1",
+      brandA.id,
+      { name: "Rios" },
+      store,
+    );
+    const brandB = await createBrand("user-1", { name: "Katia" }, store);
+    const typeB = await createYarnType(
+      "user-1",
+      brandB.id,
+      { name: "Merino" },
+      store,
+    );
+    await createYarn(
+      "user-1",
+      yarnInput(brandA.id, typeA.id, { colorCode: "A" }),
+      store,
+    );
+    await createYarn(
+      "user-1",
+      yarnInput(brandB.id, typeB.id, { colorCode: "B" }),
+      store,
+    );
+
+    const items = await listYarns("user-1", {}, store);
+
+    expect(items).toHaveLength(2);
+    const byColorCode = Object.fromEntries(
+      items.map((item) => [item.colorCode, item]),
+    );
+    expect(byColorCode.A).toMatchObject({
+      brandName: "Malabrigo",
+      typeName: "Rios",
+    });
+    expect(byColorCode.B).toMatchObject({
+      brandName: "Katia",
+      typeName: "Merino",
+    });
+  });
 });
 
 describe("features/yarns updateYarn", () => {

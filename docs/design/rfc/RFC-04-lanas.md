@@ -57,6 +57,32 @@
 - Página `src/app/(app)/lanas/`. UI en `src/features/yarns/ui/`.
 - Verificación: RTL (filtro árbol, swatches, stepper usedQuantity, 409 colorCode, borrado force/bloqueante) + axe + smoke + build.
 
+## 7-bis. Enmienda E1 — tres puntos que #23 cerró sobre lo que este RFC no fijaba (2026-09-19)
+
+> Registrada al cerrar el cambio SDD `yarns-list-ui` (entrada 23 del backlog de UI). No son decisiones
+> de producto nuevas: es el registro de cómo el código real resolvió tres huecos entre lo que este RFC
+> dice y lo que hizo falta implementar. El detalle por rebanada está en
+> `openspec/changes/yarns-list-ui/`.
+
+### E1(a) — `GET /api/yarns` devuelve `brandName`/`typeName` de forma aditiva
+
+§3 no menciona estos dos campos. El backend de #23 (slice S1) los suma con un `innerJoin` sobre `brands`
+y `yarn_types`; ningún consumidor existente cambia — `POST`, `GET/PATCH/DELETE /:id` y `getYarnOptions`
+siguen devolviendo la fila cruda, sin ellos. La extensión es puramente aditiva.
+
+### E1(b) — el «ícono» de §1/§2 es el `Swatch` genérico, no un asset nuevo
+
+§1 y §2 hablan de un «ícono coloreado con el color de la lana». No es una ilustración nueva: es el
+`Swatch` genérico del design system (deuda 168 saldada en S2), en tamaño de tarjeta, teñido por el mapa
+app-side `yarnSwatchClass` según la familia de color de la lana.
+
+### E1(c) — el tap de la card es un no-op hasta que #24 exista
+
+§2 dice "tap → drawer", pero el drawer es la entrada **24** (`yarns_detail_catalogs_ui`), que no existe
+todavía cuando se implementa #23. Igual que #20 con su propia card (RFC-03, E1(f)), la card de #23 monta
+un control real y alcanzable por teclado cuyo tap es un no-op documentado (deuda 192), no un `div`
+decorado a la espera del drawer.
+
 ## 8. Slices de implementación (→ backlog de UI)
 
 IDs reales en la tabla de [RFC-00 §4](RFC-00-proceso.md); las entradas que siguen abiertas están en `docs/product/backlog-ui.md`:

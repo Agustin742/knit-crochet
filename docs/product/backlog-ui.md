@@ -50,8 +50,8 @@ El detalle está en `docs/harness/verification.md` y en `SDD-01 §9`.
 
 | # | Slug | Título | RFC |
 |---|---|---|---|
-| 22 | `projects-form-ui` | Proyectos: crear/editar en modal | RFC-03 |
-| 23 | `yarns-list-ui` | Lanas: lista + filtro jerárquico | RFC-04 |
+| ~~22~~ | ~~`projects-form-ui`~~ | ~~Proyectos: crear/editar en modal~~ — cerrada | RFC-03 |
+| ~~23~~ | ~~`yarns-list-ui`~~ | ~~Lanas: lista + filtro jerárquico~~ — cerrada | RFC-04 |
 | 24 | `yarns-detail-catalogs-ui` | Lanas: detalle + gestión de catálogos | RFC-04 |
 | 25 | `yarns-form-ui` | Lanas: crear/editar en modal con tabs | RFC-04 |
 | 26 | `patterns-list-ui` | Patrones: lista + filtros | RFC-05 |
@@ -62,12 +62,12 @@ El detalle está en `docs/harness/verification.md` y en `SDD-01 §9`.
 
 ---
 
-### 22 · `projects-form-ui` — Proyectos: crear/editar en modal (form + foto + patrón)
+### ~~22 · `projects-form-ui` — Proyectos: crear/editar en modal~~ · CERRADA
 
-**RFC-03.** Estaba a medias cuando se migró el arnés: el commit `996fbe4`
-(«completar #22 y unificar el alta con el cronómetro visible») cerró el alta,
-pero la ficha nunca se marcó cerrada. **Revisar qué falta antes de abrir el
-cambio SDD** — puede que solo reste la edición.
+**RFC-03.** Cerrada por el commit `996fbe4` («completar #22 y unificar el alta
+con el cronómetro visible»), confirmado por el usuario el 2026-09-18. La ficha
+había quedado sin marcar al migrar el arnés. Se conserva el detalle abajo porque
+documenta qué se pedía.
 
 Modal de crear/editar proyecto, separado del de ver: form con nombre, foto,
 tipo, `targetRounds`, `needles` y patrón elegible de biblioteca o embebido. Los
@@ -81,11 +81,11 @@ dos botones de creación rápida preseleccionan el `type`.
 - Verificación SDD-01 §9: RTL (crear con type, editar, subir foto, elegir y
   embeber patrón) + axe + smoke + build.
 
-### 23 · `yarns-list-ui` — Lanas: lista + filtro jerárquico (árbol marca→tipo + swatches)
+### ~~23 · `yarns-list-ui` — Lanas: lista + filtro jerárquico (árbol marca→tipo + swatches)~~ · CERRADA
 
-**RFC-04.** Sidebar/acordeón con árbol marca→tipo más una fila de swatches de
-familia de color; grilla de cards (ícono coloreado con el color de la lana +
-marca·tipo·`colorName` + stock). El tap abre el drawer.
+**RFC-04.** Cerrada por el cambio SDD `yarns-list-ui`, archivado en `openspec/changes/archive/2026-09-19-yarns-list-ui/` el 2026-09-19. Verification PASS tras cerrar tres CRITICAL: isolation test, AND-semantics (service y route), color wiring. Se conserva el detalle abajo porque documenta qué se pedía.
+
+Sidebar/acordeón con árbol marca→tipo más una fila de swatches de familia de color; grilla de cards (ícono coloreado con el color de la lana + marca·tipo·`colorName` + stock). El tap abre el drawer.
 
 - Página en `src/app/(app)/lanas/`; UI en `src/features/yarns/ui/`.
 - Filtro = árbol marca→tipo navegable por teclado + swatches de `colorFamily`
@@ -95,6 +95,8 @@ marca·tipo·`colorName` + stock). El tap abre el drawer.
   (`quantity`); el tap abre el drawer de la entrada 24.
 - Estados: vacío («Sin lanas en el stash todavía»), error y loading (skeleton).
 - Verificación SDD-01 §9: RTL (filtro árbol, swatches) + axe + smoke + build.
+- **Debts cerrados:** 168 (split swatch), 194 (filter panel contrast), 195 (disclosure affordance), 196 (summary contrast on Card), 197 (grid alignment).
+- **Debts abiertos por diseño:** 192 (card tap es no-op, cerrado por 24), 193 (empty state "Agregar lana", bloqueado por 25, no por 24).
 
 ### 24 · `yarns-detail-catalogs-ui` — Lanas: detalle (drawer + stepper `usedQuantity`) + catálogos
 

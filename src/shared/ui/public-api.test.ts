@@ -34,6 +34,13 @@ const PRIMITIVES = [
   "DIALOG_PLACEMENTS",
   "DIALOG_SIZES",
   "Dialog",
+  // Design D5 de #23 (deuda 142): el envoltorio de `<details>`/`<summary>`
+  // nativos que la marca→tipo del filtro de lanas necesita repetir una vez
+  // por marca. Confirmado sobre un `role="tree"` a mano — la tabulación
+  // rotativa de un treeview APG saca los controles de tipo de la secuencia de
+  // tabulación, que es peor acceso por teclado, no mejor.
+  "DISCLOSURE_SIZES",
+  "Disclosure",
   // Enmienda E6(c) del RFC-03: elegir un archivo es genérico y sube al design
   // system; SUBIRLO depende de la configuración de la app y se queda en la
   // feature (frontera de la deuda 168).
@@ -51,6 +58,12 @@ const PRIMITIVES = [
   // propósito — esconder la pieza en `features/` para no tocar esta lista es
   // justo el antipatrón que la regla "el template es un SUELO" prohíbe.
   "SegmentedControl",
+  // Deuda 168 saldada (S2 `swatch-split` de #23): la muestra de color genérica
+  // que RFC-04 va a necesitar. Su mapa app-side (`yarnSwatchClass`) queda en
+  // `shared/config`, así que el ancla se paga sólo por el primitivo — igual
+  // que el resto de las piezas de esta lista.
+  "SWATCH_SIZES",
+  "Swatch",
   // Enmienda E6(b) del RFC-03: los dos controles de formulario que faltaban.
   // Son design system puro —no dependen de ninguna configuración de la app— y
   // componen con `Field` igual que `Input`. Sus listas de clases NO se exportan:
@@ -69,7 +82,9 @@ const PRIMITIVES = [
   "buttonVariants",
   "cardVariants",
   "clampProgress",
+  "disclosureVariants",
   "inputClasses",
+  "swatchVariants",
 ];
 
 const FEEDBACK = [

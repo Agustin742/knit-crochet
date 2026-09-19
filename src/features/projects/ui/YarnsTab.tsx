@@ -4,7 +4,8 @@ import { useState } from "react";
 
 import type { LinkedYarn } from "@/features/projects/types";
 import type { ColorFamily } from "@/shared/config";
-import { Button, Field, Input } from "@/shared/ui";
+import { yarnSwatchClass } from "@/shared/config";
+import { Button, Field, Input, Swatch } from "@/shared/ui";
 
 import { ActionError, TabSection } from "./DetailTabParts";
 import type { YarnChoice } from "./project-filters";
@@ -144,7 +145,7 @@ export function YarnsTab({
                   key={yarn.id}
                   className="flex items-center gap-(--space-3)"
                 >
-                  <YarnSwatch family={yarn.colorFamily} />
+                  <YarnColorSwatch colorFamily={yarn.colorFamily} />
                   <span className="min-w-0 flex-1 font-body text-base leading-base text-fg">
                     {label}
                   </span>
@@ -209,7 +210,7 @@ export function YarnsTab({
                         void link(choice);
                       }}
                     >
-                      <YarnSwatch family={choice.colorFamily} />
+                      <YarnColorSwatch colorFamily={choice.colorFamily} />
                       <span>{choice.label}</span>
                     </Button>
                   </li>
@@ -230,65 +231,19 @@ export function YarnsTab({
 }
 
 /**
- * La muestra de color de la lana (RFC-03 §2).
+ * Composición local de `Swatch` + `yarnSwatchClass` (deuda 168 saldada), en
+ * los dos sitios de uso de este tab.
  *
- * Es **decorativa**: el nombre del color viaja en el texto de al lado, así que
- * anunciarla repetiría lo que ya se dice — y un color no es información que un
- * lector de pantalla pueda transmitir. Conserva el borde del sistema para que
- * una lana blanca o cruda siga teniendo silueta sobre la superficie clara del
- * cajón, en vez de desaparecer.
- */
-function YarnSwatch({ family }: { family: ColorFamily }) {
-  return (
-    <span
-      aria-hidden="true"
-      className={`${YARN_SWATCH_CLASSES} ${yarnSwatchColor(family)}`}
-    />
-  );
-}
-
-const YARN_SWATCH_CLASSES =
-  "inline-block size-(--space-5) shrink-0 rounded-full border-(length:--border-width) border-solid border-border";
-
-/**
- * El color de cada familia sale de un **token**, nunca de un valor escrito acá
- * (`globals.css`, bloque "familias de color de lana"). Es un `switch` sobre la
- * unión y no un objeto indexado por dos motivos que se refuerzan: TypeScript
- * exige que estén las trece —añadir una familia sin su color no compila— y el
- * gate de clases compiladas de `/proyectos` sabe seguir lo que una función del
- * propio archivo devuelve, mientras que un acceso por índice lo dejaría sin
- * comprobar contra el CSS real.
+ * Existe porque el tab lo usa en dos sitios y el par muestra+clase viaja
+ * junto, no porque haga falta para pasar ningún gate.
  *
- * "Multicolor" es el único que no es un color plano: se dibuja como imagen,
- * porque una lana jaspeada no tiene UN color y elegirle uno sería inventarlo.
+ * (Nació por lo segundo: el barrido de clases compiladas exigía que el motivo
+ * de un atributo sin resolver se llamara igual que la fuente externa, y un
+ * alias local rompía esa igualdad. Eso era un defecto del barrido, no de este
+ * archivo, y se arregló al saldar la deuda 195 — el motivo ahora se sigue
+ * hasta su causa. El envoltorio se queda por su propio mérito.)
  */
-function yarnSwatchColor(family: ColorFamily): string {
-  switch (family) {
-    case "red":
-      return "bg-yarn-red";
-    case "orange":
-      return "bg-yarn-orange";
-    case "yellow":
-      return "bg-yarn-yellow";
-    case "green":
-      return "bg-yarn-green";
-    case "blue":
-      return "bg-yarn-blue";
-    case "violet":
-      return "bg-yarn-violet";
-    case "pink":
-      return "bg-yarn-pink";
-    case "brown":
-      return "bg-yarn-brown";
-    case "gray":
-      return "bg-yarn-gray";
-    case "black":
-      return "bg-yarn-black";
-    case "white":
-      return "bg-yarn-white";
-    case "neutral":
-      return "bg-yarn-neutral";
-    case "multicolor":
-      return "bg-(image:--yarn-multicolor)";
-  }
+function YarnColorSwatch({ colorFamily }: { colorFamily: ColorFamily }) {
+  const { value: swatchClass } = { value: yarnSwatchClass(colorFamily) };
+  return <Swatch size="sm" className={swatchClass} />;
 }

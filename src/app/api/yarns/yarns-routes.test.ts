@@ -7,6 +7,7 @@ import {
 } from "@/features/yarns/api/testing/in-memory-store";
 import type {
   BrandRecord,
+  YarnListItem,
   YarnRecord,
   YarnTypeRecord,
 } from "@/features/yarns/types";
@@ -187,6 +188,10 @@ describe("api/yarns route handlers", () => {
       expect(body.yarn.userId).toBe("user-1");
       expect(body.yarn.quantity).toBe(0);
       expect(store.yarns).toHaveLength(1);
+      // Requirement "Other yarn endpoints unaffected": POST never gains the
+      // list-only enrichment.
+      expect(body.yarn).not.toHaveProperty("brandName");
+      expect(body.yarn).not.toHaveProperty("typeName");
     });
 
     it("answers 404 when the brand or type does not belong to the user", async () => {
@@ -241,11 +246,24 @@ describe("api/yarns route handlers", () => {
       const response = await listYarnsRoute(
         getRequest("?brandId=&typeId=&colorFamily="),
       );
-      const body = (await response.json()) as { yarns: YarnRecord[] };
+      const body = (await response.json()) as { yarns: YarnListItem[] };
 
       expect(response.status).toBe(200);
       expect(store.lastFilters).toEqual({});
       expect(body.yarns).toHaveLength(1);
+      expect(body.yarns[0]).toMatchObject({
+        brandName: "Malabrigo",
+        typeName: "Rios",
+      });
+    });
+
+    // Requirement "Enriched yarn list response", scenario "Empty stash".
+    it("returns an empty array for an authenticated user with no yarns", async () => {
+      const response = await listYarnsRoute(getRequest());
+      const body = (await response.json()) as { yarns: YarnListItem[] };
+
+      expect(response.status).toBe(200);
+      expect(body.yarns).toEqual([]);
     });
 
     it("filters by brand, type and colorFamily", async () => {
@@ -267,14 +285,22 @@ describe("api/yarns route handlers", () => {
       );
 
       const byFamily = await listYarnsRoute(getRequest("?colorFamily=red"));
-      const byFamilyBody = (await byFamily.json()) as { yarns: YarnRecord[] };
+      const byFamilyBody = (await byFamily.json()) as { yarns: YarnListItem[] };
       expect(byFamilyBody.yarns).toHaveLength(1);
       expect(byFamilyBody.yarns[0]?.colorCode).toBe("B");
+      expect(byFamilyBody.yarns[0]).toMatchObject({
+        brandName: "Malabrigo",
+        typeName: "Gruesa",
+      });
 
       const byType = await listYarnsRoute(getRequest(`?typeId=${type.id}`));
-      const byTypeBody = (await byType.json()) as { yarns: YarnRecord[] };
+      const byTypeBody = (await byType.json()) as { yarns: YarnListItem[] };
       expect(byTypeBody.yarns).toHaveLength(1);
       expect(byTypeBody.yarns[0]?.colorCode).toBe("A");
+      expect(byTypeBody.yarns[0]).toMatchObject({
+        brandName: "Malabrigo",
+        typeName: "Rios",
+      });
     });
 
     it("answers 400 on an invalid filter", async () => {
@@ -283,6 +309,72 @@ describe("api/yarns route handlers", () => {
 
       expect(badBrand.status).toBe(400);
       expect(badFamily.status).toBe(400);
+    });
+
+    // Requirement "Filter contract preserved", scenario "Multiple filters
+    // combine with AND". Cada test de filtro arriba manda exactamente uno por
+    // llamada; se siembran tres lanas donde solo una cae en la intersección
+    // de brandId y colorFamily — si la ruta combinara con OR, la respuesta
+    // traería 2 o 3 lanas en vez de 1.
+    it("combines brandId and colorFamily with AND, not OR", async () => {
+      const brand = seedBrand("user-1");
+      const type = seedType(brand.id);
+      const otherBrand = seedBrand("user-1", "Katia");
+      const otherType = seedType(otherBrand.id, "Merino");
+
+      await createYarnRoute(
+        jsonRequest(
+          yarnBody(brand.id, type.id, {
+            colorCode: "BOTH",
+            colorFamily: "blue",
+          }),
+        ),
+      );
+      await createYarnRoute(
+        jsonRequest(
+          yarnBody(brand.id, type.id, {
+            colorCode: "BRAND-ONLY",
+            colorFamily: "red",
+          }),
+        ),
+      );
+      await createYarnRoute(
+        jsonRequest(
+          yarnBody(otherBrand.id, otherType.id, {
+            colorCode: "COLOR-ONLY",
+            colorFamily: "blue",
+          }),
+        ),
+      );
+
+      const response = await listYarnsRoute(
+        getRequest(`?brandId=${brand.id}&colorFamily=blue`),
+      );
+      const body = (await response.json()) as { yarns: YarnListItem[] };
+
+      expect(body.yarns).toHaveLength(1);
+      expect(body.yarns[0]?.colorCode).toBe("BOTH");
+    });
+  });
+
+  describe("GET /api/yarns/:id", () => {
+    // Requirement "Other yarn endpoints unaffected": the single-item route
+    // (`findYarn`, unmodified) never gains the list-only enrichment.
+    it("returns a single yarn with no brandName/typeName leak", async () => {
+      const brand = seedBrand("user-1");
+      const type = seedType(brand.id);
+      const created = await createYarnRoute(
+        jsonRequest(yarnBody(brand.id, type.id)),
+      );
+      const yarnId = ((await created.json()) as { yarn: YarnRecord }).yarn.id;
+
+      const response = await getYarnRoute(getRequest(), context(yarnId));
+      const body = (await response.json()) as { yarn: YarnRecord };
+
+      expect(response.status).toBe(200);
+      expect(body.yarn.id).toBe(yarnId);
+      expect(body.yarn).not.toHaveProperty("brandName");
+      expect(body.yarn).not.toHaveProperty("typeName");
     });
   });
 
@@ -304,6 +396,9 @@ describe("api/yarns route handlers", () => {
       expect(response.status).toBe(200);
       expect(body.yarn.colorName).toBe("Verde");
       expect(body.yarn.quantity).toBe(3);
+      // Requirement "Other yarn endpoints unaffected".
+      expect(body.yarn).not.toHaveProperty("brandName");
+      expect(body.yarn).not.toHaveProperty("typeName");
     });
 
     it("answers 409 when the update collides with an existing colorCode", async () => {

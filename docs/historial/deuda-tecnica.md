@@ -2530,12 +2530,22 @@ bloqueante **no era un bug de código**, era una frase que afirmaba que ese test
      **sólo el comentario**, a coste cero, para que ningún review futuro lo cite como evidencia.
      **La deuda de fondo permanece:** *ningún gate de este repo puede medir hit-testing*.
 
-168. **⚪ El swatch de color de lana no es reutilizable, y RFC-04 lo va a necesitar.** Fichada por el
-     implementer de T2. **No sube a `src/shared/ui/`** porque `ColorFamily` es **configuración de la
-     app** y subirlo rompería la portabilidad del template (contrato del SDD). **Escenario:** al
-     implementar #23-#25 (lanas) hará falta el mismo swatch y se copiará. **Cómo se salda:** decidir
-     dónde vive un componente que depende de config de app y no del design system — es una decisión de
-     arquitectura, no un mover-archivo.
+168. ~~**⚪ El swatch de color de lana no es reutilizable, y RFC-04 lo va a necesitar.**~~ **SALDADA**
+     (S2 `swatch-split` de #23, 2026-09-18). Fichada por el implementer de T2. **No sube a
+     `src/shared/ui/`** porque `ColorFamily` es **configuración de la app** y subirlo rompería la
+     portabilidad del template (contrato del SDD). **Escenario:** al implementar #23-#25 (lanas) hará
+     falta el mismo swatch y se copiará.
+     **Cómo se saldó:** el componente se **partió por la línea de portabilidad, no se mudó entero**.
+     `Swatch` sube a `src/shared/ui/primitives/swatch/` genérico —props únicamente (`color`, `label?`,
+     `size`, `className`), sin hooks, sin `"use client"`, sin importar `ColorFamily`—.
+     `yarnSwatchColor` (`YarnsTab.tsx:265-294`) se movió a `src/shared/config/yarn-swatch.ts` y se
+     renombró `yarnSwatchClass`: el `switch` de 13 ramas queda igual, pero devuelve una clase de
+     utilidad, que entra al primitivo por el `className` ya obligatorio en todo componente.
+     `YarnsTab.tsx` compone ahora `Swatch` + `yarnSwatchClass` en sus dos sitios de uso.
+     **Dónde quedó la prueba:** el commit de S2; `Swatch.boundary.test.ts` (lee el fuente, misma
+     técnica que `file-input.boundary.test.ts`); `yarn-swatch.classes.test.ts` (las 13 familias emiten
+     una regla real en el CSS compilado, el relevo de cobertura que perdió el barrido de AST al
+     mudarse el mapa); y el informe de archivo de este cambio.
 
 169. **⚪ Un inventario de lanas que falló no se puede reintentar sin recargar** (heredado de #20).
 
@@ -2546,7 +2556,29 @@ bloqueante **no era un bug de código**, era una frase que afirmaba que ese test
      borraron. **Bajo la moratoria no se abre**: la técnica ya está extraída en
      `shared/ui/testing/class-names-from-source.ts` y es un archivo cuando toque.
 
-171. **⚪ NO VERIFICADO por falta de datos, se declara en vez de darse por bueno:** el **contraste de los
+171. **🟡 VERIFICADO EL 2026-09-18 — la mitad del contraste ya no es sospecha, es medición.** Al cerrar
+     S3 de #23 se crearon 13 lanas de prueba (una por familia), se midió en navegador y se borraron.
+     **Resultado del contraste de los 13 swatches, relleno contra la superficie de la tarjeta
+     (`rgb(255,253,246)`):** Blanco **1.02**, Neutro **1.30**, Amarillo **1.89**, Naranja 3.08,
+     Rosa 3.13, Gris 3.67, Verde 4.83, Rojo 4.86, Azul 5.20, Violeta 5.43, y por encima Marrón, Negro
+     y Multicolor. Tres caen bajo el 3:1 que pide WCAG 1.4.11 para objetos gráficos.
+     **PERO no es un fallo de accesibilidad, y la razón importa:** los 13 llevan un borde de 1.6px a
+     **14.65:1** contra la tarjeta, que es justamente el límite perceptible que esa norma exige, y el
+     nombre del color va en texto al lado, así que nada se transmite sólo por color (WCAG 1.4.1). El
+     comentario original del `YarnSwatch` ya decía que el borde estaba puesto para que *"una lana
+     blanca o cruda siga teniendo silueta en vez de desaparecer"*: **funciona, y ahora está medido.**
+     **Confirmado además el sospechoso nombrado:** `--yarn-neutral` es `#eadfcb` y `--surface-sunken`
+     es `#eadfcb` — **literalmente el mismo color**. La consecuencia real no es invisibilidad (el
+     borde la evita) sino que **Blanco y Neutro no se distinguen entre sí por el relleno**: los dos se
+     leen como "círculo pálido con anillo oscuro". Quien tenga las dos lanas las diferencia por el
+     nombre, no por la muestra.
+     **Lo que sigue sin verificar** (no había datos para ello): la lana **multicolor** sobre otras
+     superficies, la **checklist con un patrón real** y el **buscador con inventario grande**.
+     **Cómo se salda del todo:** decidir si Blanco y Neutro merecen tokens distinguibles entre sí, y
+     medir los tres puntos que quedan cuando haya datos reales.
+
+     <!-- Ficha original, conservada porque la corrección cambia el estado, no la historia: -->
+171-bis (original). **⚪ NO VERIFICADO por falta de datos, se declara en vez de darse por bueno:** el **contraste de los
      13 swatches** de lana —con dos sospechosos nombrados: **`--yarn-neutral`, que es literalmente
      `--surface-sunken`**, y `--yarn-white`—, la lana **multicolor**, la **checklist con un patrón
      real** y el **buscador con inventario grande**. El inventario del usuario está **vacío** y el
@@ -2872,3 +2904,158 @@ borrada y el servidor reiniciado limpio: **`200 {"sessions":[]}`** y el tab func
    63 px eran **el reloj nuevo dentro de la tarjeta**. Medir la consecuencia, no el síntoma.
 4. **Verificar contra el build de producción es una vía legítima cuando dev falla**, y hay que decir que se
    hizo así. El `201 application/json` del arranque **se midió en `pnpm start`**, no en dev.
+
+192. **🟠 La tarjeta de `/lanas` tiene un control que no hace nada.** `YarnCard` (#23, slice S3
+     `list-cards-states`) monta un tap alcanzable por teclado y con nombre accesible, pero su manejador es
+     un no-op documentado (`YarnCard.tsx`, función `noOpTap`). **Escenario de fallo:** un usuario toca o
+     activa una tarjeta esperando ver el detalle de esa lana —igual que ya puede hacerlo en `/proyectos`
+     desde #21— y no pasa nada visible: ni navega, ni abre un cajón, ni cambia ningún dato en pantalla. No
+     es un defecto de esta slice: el cajón de detalle con el stepper de `usedQuantity` y el panel de
+     gestión de marcas/tipos es la **entrada 24** (`yarns_detail_catalogs_ui`, RFC-04 §2), que todavía no
+     existe. **Cómo se salda:** cuando entre la 24, el mismo control pasa de `noOpTap` a abrir el cajón —el
+     control ya es real y ya es accesible, sólo falta cablearlo—.
+
+193. **🟠 El estado vacío de `/lanas` es un callejón sin salida: dice que no tenés lanas y no ofrece
+     ninguna forma de agregar una.** `RFC-04 §4` especifica el vacío como *"Sin lanas en el stash
+     todavía"* **+ "Agregar lana"**, y la slice S3 de #23 montó sólo la primera mitad
+     (`YarnsView.tsx`, `<EmptyState title={EMPTY_TITLE} />`, sin `action`). **Esto no es una
+     limitación del primitivo:** `EmptyState` ya tiene el slot `action` y su propio comentario dice
+     que "quien lo monta decide si ofrece 'Crear proyecto', dos botones de creación (RFC-02 §4) o
+     nada". Lo que falta es el destino. **Escenario de fallo:** un usuario nuevo —con el stash vacío,
+     que es el estado de arranque de cualquiera— entra a `/lanas`, lee que no tiene lanas, y la
+     pantalla no le da ni un botón, ni un enlace, ni una pista de por dónde cargar la primera. La
+     única salida es volver a navegar a otra sección. Es **más visible que la deuda 192**: ahí al
+     menos hay tarjetas alrededor del control muerto; acá la página entera no ofrece nada.
+     **Por qué se aceptó igual:** el modal de crear/editar lana es la **entrada 25**
+     (`yarns_form_ui`, RFC-04 §2), que todavía no existe, así que el botón no tendría a dónde abrir.
+     **Cómo se salda:** cuando entre la 25, pasarle el botón "Agregar lana" al slot `action` que ya
+     está ahí. No se salda con la 24 (el cajón de detalle) — esa no crea lanas.
+     **Fichada por:** el gate del orquestador al cerrar S3; el ejecutor la declaró como desviación en
+     su informe pero no la fichó, y una desviación que sólo vive en un informe no es una deuda.
+     **BLOQUEADA, comprobado el 2026-09-18** al intentar saldarla junto con la 194 y la 195: no existe
+     **ni un solo `POST /api/yarns`** en toda la UI (`src/features/*/ui/` sólo hace `GET`). No es que
+     falte cablear un botón: **no hay nada a lo que cablearlo**. Poner uno que no abra nada repetiría
+     exactamente la deuda 192. Se salda con la entrada 25 y con ninguna otra.
+
+194. ~~**🟠 El stock de la tarjeta de `/lanas` es un número pelado: dice "3" y no dice tres de qué.**~~
+     **SALDADA** (2026-09-18, mismo día que se fichó).
+     **Cómo se saldó:** el stock se renderiza con su unidad — `stockLabel()` en
+     `src/features/yarns/ui/yarn-copy.ts` devuelve "3 ovillos", "1 ovillo", "0 ovillos".
+     La unidad es **ovillos** porque el PRD-01 §4.5 lo dice literal: `quantity` es *"stock en
+     OVILLOS"*. Va como **texto visible** y no como etiqueta oculta a propósito: el problema no
+     era sólo de lectores de pantalla, el número suelto tampoco decía nada a quien mira.
+     **Dónde quedó la prueba:** `YarnCard.test.tsx`, tres tests nuevos — la unidad presente, la
+     concordancia en singular y en cero, y que el **nombre accesible del botón termine en el
+     stock identificado** (`toHaveAccessibleName(/3 ovillos$/)`). Ese último es el que faltaba:
+     el test viejo afirmaba `getByText("3")`, o sea sobre el VALOR, no sobre si el valor estaba
+     identificado — por eso el agujero pasó todos los gates.
+     **Ficha original:**
+     `YarnCard.tsx` renderiza `{yarn.quantity}` sin etiqueta, sin unidad y sin texto para lector de
+     pantalla. **Escenario de fallo:** un usuario ve bajo el nombre de la lana un "3" suelto en
+     monoespaciada y no puede saber si son ovillos, gramos, metros o vueltas — y cuando vuelva a la
+     misma pantalla dentro de una semana, tampoco. En lector de pantalla es peor: el nombre accesible
+     del botón de la tarjeta termina en *"…Multicolor, 3"*, sin nada que lo califique.
+     **Verificado en navegador el 2026-09-18** con 13 lanas de prueba: el `<span>` del stock no tiene
+     `aria-label`, ni texto oculto, ni nodo hermano que lo etiquete. `RFC-04 §2` pide *"stock
+     (`quantity`)"*: el valor está, la palabra que lo identifica no está en ningún lado.
+     **Cómo se salda:** etiquetarlo en la tarjeta (unidad visible, o texto sólo para lectores), sin
+     esperar a la entrada 24 — no depende del cajón de detalle.
+     **Fichada por:** el gate del orquestador en la verificación de navegador de S3 (REGLA 4). Ningún
+     test lo detectó porque todos afirman sobre el valor, no sobre si el valor está identificado.
+
+195. ~~**⚪ El gate de clases compiladas ya dio forma al código de producción dos veces en la misma
+     feature.**~~ **SALDADA** (2026-09-18) — y el defecto estaba en el barrido, no en el código.
+     **La causa raíz:** `class-names-from-source.ts` nombraba el motivo de un atributo sin
+     resolver por el **alias local** (`swatchClass`) mientras registraba la dependencia por la
+     **función** (`yarnSwatchClass`). Los tests exigían que esos dos conjuntos fueran
+     **idénticos**, cosa imposible en cuanto hay una llamada de por medio. Por eso había que
+     contorsionar el fuente hasta que ambos nombraran lo mismo.
+     **Cómo se saldó, tres cambios:**
+     1. El motivo ahora **se sigue hasta su causa**: un alias local se resuelve hasta la función
+        externa de la que depende, con guarda de ciclo. Es además lo que el propio comentario
+        del barrido decía querer (*"que el rojo diga QUÉ hay que decidir"*) — un alias decía
+        dónde se usaba, no de qué dependía.
+     2. El barrido **ya entiende el acceso a propiedad** (`yarn.colorFamily`, `styles.card`):
+        denuncia la raíz en vez de caer en `unhandled`. Agujero preexistente que este trabajo
+        destapó: una clase en `styles.algo` se colaba sin comprobar.
+     3. La afirmación sobre los motivos pasó de **igualdad** a **pertenencia**. `external`
+        SIGUE comparándose exacto —esa es la garantía que importa: una fuente nueva pone el
+        gate en rojo— pero los motivos sólo tienen que estar aprobados. Los dos conjuntos miden
+        cosas distintas y exigirles igualdad era el error.
+     **Efecto en el código:** `YarnCard.tsx` recupera `const swatchClass = yarnSwatchClass(...)`
+     en vez del objeto literal desestructurado. `YarnColorSwatch` en `YarnsTab.tsx` **se queda**,
+     porque componer dos sitios de uso es mérito propio, pero su comentario ya no miente sobre
+     por qué existe.
+     **Dónde quedó la prueba:** los 5 gates de clases del repo en verde (77 tests) —
+     `yarns`, `projects`, `dashboard`, `app-shell`, `bottom-nav`.
+     **Ficha original:**
+     feature.** En S2 obligó a crear `YarnColorSwatch` en `YarnsTab.tsx`; en S3 obligó a esto en
+     `YarnCard.tsx`: `const { value: swatchClass } = { value: yarnSwatchClass(yarn.colorFamily) };`
+     — envolver una llamada en un objeto literal para desestructurarla acto seguido, cuyo único
+     propósito es que el resolvedor vea un identificador plano en vez de una llamada externa.
+     **Escenario:** quien lea ese archivo sin conocer el gate va a leer una línea sin sentido
+     aparente, y o la "simplifica" —rompiendo el gate— o la copia por imitación a la próxima tarjeta.
+     La cobertura NO está en riesgo hoy (`yarn-swatch.classes.test.ts` verifica la salida compilada
+     de las 13 familias, que es más fuerte que el barrido de AST). Lo que está en riesgo es la
+     legibilidad.
+     **Es la deuda 142 otra vez, un escalón más abajo:** allá un gate dictó la *interfaz*; acá dicta
+     la *forma del código*. Dos veces seguidas ya no es un incidente, es un patrón.
+     **Bajo la moratoria NO se abre:** ningún usuario ve esto, sólo lo ve un agente editando código.
+     Se ficha y espera. **Cómo se saldaría:** enseñarle al resolvedor a seguir una función importada,
+     o aceptar explícitamente que ciertas clases se verifican por salida compilada y sacarlas del
+     barrido sin contorsionar el fuente.
+
+196. ~~**🔴 El panel de filtro de `/lanas` era invisible: el árbol marca→tipo existía en el DOM y no se
+     veía nada.**~~ **SALDADA en el mismo pase** (2026-09-19).
+     **Cómo se encontró:** mirando la pantalla. Ningún test podía: los componentes estaban montados,
+     los nombres accesibles eran correctos, y **`axe` no gatea contraste** (`color-contrast` sale
+     `incomplete` y `vitest-axe` sólo mira `violations`).
+     **La causa, medida:** `YarnFilterPanel` se montaba como un `<div>` pelado sobre el fondo de la
+     página. Ahí **`--fg` y `--bg` son el mismo color** (`#33241a` los dos): contraste **1.00**.
+     «Todas las marcas», «QA Drops» y «QA Malabrigo» se pintaban en el color exacto del fondo.
+     **Escenario de fallo:** un usuario abría `/lanas` y no veía ningún filtro por marca — sólo un
+     puntito rosa suelto (el radio, que sí tiene color propio) flotando sobre el fondo. No podía
+     filtrar por marca ni por tipo: la mitad de la entrada 23 era inalcanzable.
+     **Lo peor:** RFC-03 **E2(b)** ya lo había medido y escrito, literal — *"`text-fg` y `--bg` son el
+     mismo color (1.00:1), así que un `Field` suelto sobre el fondo no es «poco legible»: es
+     **invisible**"*— y la tarea 4.3 de S4a había añadido un test que **obliga** al `<summary>` a usar
+     `text-fg` y nunca `text-fg-inverse`. Correcto sobre una superficie elevada; catastrófico sobre el
+     fondo. **El test fijó el fallo en su sitio.**
+     **Cómo se saldó:** el panel entero pasa a vivir sobre un `Card`, que es la misma decisión que
+     E2(b) tomó para el toolbar de `/proyectos` (`ProjectsToolbar.tsx:118`). `Card` declara fondo y
+     primer plano juntos (deuda 32), así que la superficie arrastra su propio contraste.
+     **Dónde quedó la prueba:** `YarnFilterPanel.test.tsx` afirma que la raíz lleva las clases de
+     superficie, **derivadas de `cardVariants()`** y no de literales, para que el test siga midiendo la
+     misma propiedad si mañana cambian las clases.
+
+197. ~~**🟠 El desplegable de marca no avisaba de que se desplegaba: ningún triangulito, ninguna
+     pista.**~~ **SALDADA en el mismo pase** (2026-09-19).
+     **La causa:** el `<summary>` del primitivo `Disclosure` lleva `inline-flex`, y eso **anula el
+     `display: list-item`** del que depende el marcador nativo. El estilo declaraba
+     `list-style-type: disclosure-open`, pero **no se dibujaba nunca** — una regla muerta que parecía
+     viva. El `gap-(--space-2)` del mismo estilo delata que alguien esperaba un icono ahí.
+     **Escenario de fallo:** «QA Drops» se veía como una etiqueta en negrita cualquiera. Nada decía
+     que se podía abrir para elegir un tipo, así que el nivel de tipo del árbol quedaba escondido
+     detrás de un clic que a nadie se le ocurre dar.
+     **Cómo se saldó:** el primitivo dibuja su propio marcador (`data-slot="disclosure-marker"`),
+     `aria-hidden` porque el estado abierto/cerrado ya lo anuncia el `<details>` nativo, y rota al
+     abrirse respetando `prefers-reduced-motion`.
+     **Dónde quedó la prueba:** `Disclosure.test.tsx` — el marcador existe y es `aria-hidden`.
+
+198. **⚪ La semántica AND de los filtros está probada contra el DOBLE, no contra la consulta real.**
+     Al cerrar los huecos que encontró la verificación de #23 se añadieron tests que demuestran que
+     `?brandId=&typeId=&colorFamily=` combinan con AND y no con OR — pero los tres corren contra
+     `src/features/yarns/api/testing/in-memory-store.ts`, porque este repo **no tiene arnés de DB viva
+     ni doble de SQL** para consultas `select`/`where` (el `store.test.ts` real sólo finge
+     `insert`/`update`, y sirve para traducir códigos de error de Postgres).
+     **Escenario:** si alguien cambiara `and(...conditions)` por `or(...conditions)` en
+     `src/features/yarns/api/store.ts:258`, los tests seguirían en **verde** y la lista devolvería de
+     más. La corrección del doble no prueba la corrección de la consulta; prueba que el doble y la
+     consulta *fueron escritos con la misma intención*.
+     **Por qué se acepta igual:** el `design.md` de este cambio designa explícitamente el doble en
+     memoria como la capa de prueba de `YarnStore`, así que esto es el límite conocido de una decisión
+     de arquitectura, no un olvido. Hoy la consulta real está verificada **por lectura** — `and(...)`
+     está donde tiene que estar — y eso es más débil que un test, y así queda dicho.
+     **Bajo la moratoria NO se abre:** ningún usuario ve esto. **Cómo se saldaría:** un doble de SQL o
+     un arnés de DB de test que permita ejercitar `where` de verdad; alcanza con que cubra esta forma
+     de consulta, no hace falta uno general.

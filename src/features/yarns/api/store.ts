@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq, getTableColumns } from "drizzle-orm";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 
 // `project_yarns` vive en la feature projects, pero el borrado seguro de una
@@ -15,6 +15,7 @@ import type {
   NewYarnRecord,
   NewYarnTypeRecord,
   YarnFilters,
+  YarnListItem,
   YarnPatch,
   YarnRecord,
   YarnTypeRecord,
@@ -56,7 +57,7 @@ export type YarnStore = {
   removeYarnType(brandId: string, typeId: string): Promise<boolean>;
 
   // Lanas.
-  listYarns(userId: string, filters: YarnFilters): Promise<YarnRecord[]>;
+  listYarns(userId: string, filters: YarnFilters): Promise<YarnListItem[]>;
   findYarn(userId: string, id: string): Promise<YarnRecord | undefined>;
   /** Traduce la violación de `(brandId, colorCode)` a `DuplicateColorCodeError`. */
   createYarn(input: NewYarnRecord): Promise<YarnRecord>;
@@ -231,6 +232,9 @@ export function createYarnStore(database: NeonHttpDatabase = db): YarnStore {
       return rows.length > 0;
     },
 
+    // `brandId`/`typeId` son FKs NOT NULL (schema.ts): el inner join no puede
+    // dejar una lana fuera. Mismo patrón que `projects/api/store.ts:214`
+    // (`listLinkedYarns`) para etiquetar cada fila con el nombre, no el UUID.
     async listYarns(userId, filters) {
       const conditions = [eq(yarns.userId, userId)];
       if (filters.brandId !== undefined) {
@@ -243,8 +247,14 @@ export function createYarnStore(database: NeonHttpDatabase = db): YarnStore {
         conditions.push(eq(yarns.colorFamily, filters.colorFamily));
       }
       return database
-        .select()
+        .select({
+          ...getTableColumns(yarns),
+          brandName: brands.name,
+          typeName: yarnTypes.name,
+        })
         .from(yarns)
+        .innerJoin(brands, eq(brands.id, yarns.brandId))
+        .innerJoin(yarnTypes, eq(yarnTypes.id, yarns.typeId))
         .where(and(...conditions))
         .orderBy(desc(yarns.createdAt));
     },

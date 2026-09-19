@@ -69,11 +69,16 @@ const COMPONENTS = [
  * de clase**: lo que devuelve no se puede seguir desde este fuente, así que su
  * nombre se registra igual que el de una constante importada.
  *
+ * - `swatchClass` (deuda 168, #23) — `YarnColorSwatch` en `YarnsTab.tsx`
+ *   compone `Swatch` + `yarnSwatchClass` (`shared/config`) fuera de cualquier
+ *   `className`, así que sólo expone este identificador plano. Su cobertura
+ *   real la mide `yarn-swatch.classes.test.ts`, no este barrido.
+ *
  * La lista se comprueba **exacta**: si mañana aparece otra fuente de clases que
  * este gate no sabe seguir, el test se pone rojo y obliga a decidir qué hacer
  * con ella, en vez de perderla en silencio.
  */
-const EXTERNAL_SOURCES = ["className", "inputClasses"];
+const EXTERNAL_SOURCES = ["className", "inputClasses", "swatchClass"];
 
 function componentPath(fileName: string): string {
   return fileURLToPath(new URL(`./${fileName}`, import.meta.url));
@@ -192,7 +197,20 @@ describe("el barrido de clases de /proyectos no se deja nada", () => {
        dos nombres. `inputClasses` aparece dos veces, así que se comparan
        conjuntos y no cuentas: lo que importa es que no haya ni un motivo
        distinto. */
-    expect([...new Set(empty)].sort()).toEqual([...EXTERNAL_SOURCES].sort());
+    /* `external` se compara EXACTO: una fuente nueva que el barrido no sepa
+       seguir pone el gate en rojo hasta que alguien decida qué hacer con ella.
+       Esa garantía no se toca.
+
+       Los motivos de los atributos vacíos, en cambio, se comprueban por
+       PERTENENCIA y no por igualdad (deuda 195). Los dos conjuntos miden cosas
+       distintas —uno junta TODOS los puntos externos del archivo, el otro UN
+       motivo por atributo sin resolver—, así que coinciden sólo en el caso más
+       simple. Exigirles igualdad obligaba a contorsionar el FUENTE hasta que
+       ambos nombraran lo mismo. Lo que de verdad hay que garantizar es que
+       ningún atributo quede vacío por un motivo NO aprobado: */
+    for (const reason of new Set(empty)) {
+      expect(EXTERNAL_SOURCES, `motivo sin aprobar: ${reason}`).toContain(reason);
+    }
   });
 });
 
