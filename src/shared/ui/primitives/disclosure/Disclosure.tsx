@@ -115,6 +115,24 @@ export const Disclosure = forwardRef<HTMLDetailsElement, DisclosureProps>(
           onKeyDown={handleSummaryKeyDown}
           className={disclosureSummaryVariants({ size })}
         >
+          {/* El triangulito nativo no existe acá: `inline-flex` anula el
+              `display: list-item` del que depende (deuda 197). Se dibuja a mano,
+              `aria-hidden` porque el estado ya lo anuncia el `<details>`. */}
+
+          <span
+
+            data-slot="disclosure-marker"
+
+            aria-hidden="true"
+
+            className="inline-block transition-transform motion-reduce:transition-none [details[open]>summary_&]:rotate-90"
+
+          >
+
+            ▸
+
+          </span>
+
           {summary}
         </summary>
         {resolvedOpen ? children : null}

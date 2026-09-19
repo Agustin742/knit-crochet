@@ -22,6 +22,26 @@ const NORMAL_FOREGROUND = ["text", "fg"].join("-");
 const INVERSE_FOREGROUND = ["text", "fg", "inverse"].join("-");
 
 describe("Disclosure — render y tamaños (REGLA 2a)", () => {
+
+  /**
+   * Deuda 197, encontrada mirando la pantalla: el `<summary>` lleva
+   * `inline-flex`, y eso **anula** el `display: list-item` del que depende el
+   * triangulito nativo. El `list-style-type: disclosure-open` que declaraba el
+   * estilo no se dibujaba nunca, así que el desplegable se veía como una
+   * etiqueta cualquiera: nada avisaba de que se podía abrir.
+   *
+   * El marcador va como elemento propio y `aria-hidden`, porque el estado ya
+   * lo anuncia el `<details>` nativo — dibujarlo es lo único que faltaba.
+   */
+  it("muestra un marcador que avisa de que se despliega", () => {
+    const { container } = render(
+      <Disclosure summary="Marca">contenido</Disclosure>,
+    );
+
+    const marcador = container.querySelector('[data-slot="disclosure-marker"]');
+    expect(marcador).not.toBeNull();
+    expect(marcador?.getAttribute("aria-hidden")).toBe("true");
+  });
   it("ancla los nombres de tamaño públicos", () => {
     // toEqual y no toContain: cae al añadir un tamaño Y al quitar uno.
     expect([...DISCLOSURE_SIZES].sort()).toEqual(["md", "sm"]);

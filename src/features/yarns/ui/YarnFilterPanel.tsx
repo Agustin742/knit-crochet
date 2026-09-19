@@ -1,3 +1,5 @@
+import { Card } from "@/shared/ui";
+
 import { ColorFamilyFilter } from "./ColorFamilyFilter";
 import { YarnBrandTree } from "./YarnBrandTree";
 import type { YarnFilters } from "./types";
@@ -39,8 +41,12 @@ export function YarnFilterPanel({
   filters,
   onFiltersChange,
 }: YarnFilterPanelProps) {
+  /* La superficie NO es decoración (deuda 196): sobre el fondo de la página
+     `text-fg` y `--bg` son el mismo color —1.00 de contraste, invisible—, y
+     `axe` no lo gatea. Es la misma decisión que RFC-03 E2(b) tomó para el
+     toolbar de `/proyectos`: todo el filtro vive sobre UNA superficie. */
   return (
-    <div className="flex flex-col gap-(--space-4)">
+    <Card className="flex flex-col gap-(--space-4)">
       <YarnBrandTree
         value={scopeOf(filters)}
         onValueChange={(next) =>
@@ -60,6 +66,6 @@ export function YarnFilterPanel({
           })
         }
       />
-    </div>
+    </Card>
   );
 }

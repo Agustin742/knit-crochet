@@ -6,6 +6,8 @@ import { axe } from "vitest-axe";
 
 import { COLOR_FAMILY_LABELS } from "@/shared/config";
 
+import { cardVariants } from "@/shared/ui/primitives/card/card.variants";
+
 import { YarnFilterPanel, parseScope, scopeOf } from "./YarnFilterPanel";
 import type { YarnFilters } from "./types";
 
@@ -43,6 +45,37 @@ afterEach(() => {
 });
 
 describe("scopeOf / parseScope — el único valor exclusivo del árbol (design D5-bis)", () => {
+
+  /**
+   * Deuda 196, encontrada mirando la pantalla y no por un test: el panel se
+   * montaba como un `<div>` pelado sobre el fondo de la página, y ahí
+   * `text-fg` y `--bg` son **el mismo color** — contraste medido **1.00**.
+   * El árbol estaba en el DOM, con sus nombres accesibles correctos, y era
+   * literalmente invisible. Es la trampa que RFC-03 **E2(b)** ya había medido
+   * para `/proyectos` y resuelto poniendo el toolbar entero sobre UNA
+   * superficie (`ProjectsToolbar.tsx:118`, un `Card`).
+   *
+   * `axe` no lo agarra: no gatea contraste (`color-contrast` sale
+   * `incomplete` y `vitest-axe` sólo mira `violations`). Por eso la afirmación
+   * es sobre la SUPERFICIE, que sí es observable acá.
+   */
+  it("se monta sobre una superficie, no suelto sobre el fondo", () => {
+    const { container } = render(
+      <YarnFilterPanel filters={{}} onFiltersChange={() => {}} />,
+    );
+
+    /* Derivado de `cardVariants`, no de un literal: si mañana la tarjeta
+       cambia de clases, este test sigue midiendo la misma propiedad. */
+    const raiz = container.firstElementChild;
+    const clasesDeSuperficie = cardVariants().split(" ");
+
+    expect(raiz).not.toBeNull();
+    for (const clase of clasesDeSuperficie) {
+      expect(raiz?.className, `falta la clase de superficie ${clase}`).toContain(
+        clase,
+      );
+    }
+  });
   it("sin marca ni tipo, el valor es 'all' y viceversa", () => {
     expect(scopeOf({})).toBe("all");
     expect(parseScope("all")).toEqual({});

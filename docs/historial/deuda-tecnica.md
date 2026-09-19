@@ -3004,3 +3004,40 @@ borrada y el servidor reiniciado limpio: **`200 {"sessions":[]}`** y el tab func
      Se ficha y espera. **Cómo se saldaría:** enseñarle al resolvedor a seguir una función importada,
      o aceptar explícitamente que ciertas clases se verifican por salida compilada y sacarlas del
      barrido sin contorsionar el fuente.
+
+196. ~~**🔴 El panel de filtro de `/lanas` era invisible: el árbol marca→tipo existía en el DOM y no se
+     veía nada.**~~ **SALDADA en el mismo pase** (2026-09-19).
+     **Cómo se encontró:** mirando la pantalla. Ningún test podía: los componentes estaban montados,
+     los nombres accesibles eran correctos, y **`axe` no gatea contraste** (`color-contrast` sale
+     `incomplete` y `vitest-axe` sólo mira `violations`).
+     **La causa, medida:** `YarnFilterPanel` se montaba como un `<div>` pelado sobre el fondo de la
+     página. Ahí **`--fg` y `--bg` son el mismo color** (`#33241a` los dos): contraste **1.00**.
+     «Todas las marcas», «QA Drops» y «QA Malabrigo» se pintaban en el color exacto del fondo.
+     **Escenario de fallo:** un usuario abría `/lanas` y no veía ningún filtro por marca — sólo un
+     puntito rosa suelto (el radio, que sí tiene color propio) flotando sobre el fondo. No podía
+     filtrar por marca ni por tipo: la mitad de la entrada 23 era inalcanzable.
+     **Lo peor:** RFC-03 **E2(b)** ya lo había medido y escrito, literal — *"`text-fg` y `--bg` son el
+     mismo color (1.00:1), así que un `Field` suelto sobre el fondo no es «poco legible»: es
+     **invisible**"*— y la tarea 4.3 de S4a había añadido un test que **obliga** al `<summary>` a usar
+     `text-fg` y nunca `text-fg-inverse`. Correcto sobre una superficie elevada; catastrófico sobre el
+     fondo. **El test fijó el fallo en su sitio.**
+     **Cómo se saldó:** el panel entero pasa a vivir sobre un `Card`, que es la misma decisión que
+     E2(b) tomó para el toolbar de `/proyectos` (`ProjectsToolbar.tsx:118`). `Card` declara fondo y
+     primer plano juntos (deuda 32), así que la superficie arrastra su propio contraste.
+     **Dónde quedó la prueba:** `YarnFilterPanel.test.tsx` afirma que la raíz lleva las clases de
+     superficie, **derivadas de `cardVariants()`** y no de literales, para que el test siga midiendo la
+     misma propiedad si mañana cambian las clases.
+
+197. ~~**🟠 El desplegable de marca no avisaba de que se desplegaba: ningún triangulito, ninguna
+     pista.**~~ **SALDADA en el mismo pase** (2026-09-19).
+     **La causa:** el `<summary>` del primitivo `Disclosure` lleva `inline-flex`, y eso **anula el
+     `display: list-item`** del que depende el marcador nativo. El estilo declaraba
+     `list-style-type: disclosure-open`, pero **no se dibujaba nunca** — una regla muerta que parecía
+     viva. El `gap-(--space-2)` del mismo estilo delata que alguien esperaba un icono ahí.
+     **Escenario de fallo:** «QA Drops» se veía como una etiqueta en negrita cualquiera. Nada decía
+     que se podía abrir para elegir un tipo, así que el nivel de tipo del árbol quedaba escondido
+     detrás de un clic que a nadie se le ocurre dar.
+     **Cómo se saldó:** el primitivo dibuja su propio marcador (`data-slot="disclosure-marker"`),
+     `aria-hidden` porque el estado abierto/cerrado ya lo anuncia el `<details>` nativo, y rota al
+     abrirse respetando `prefers-reduced-motion`.
+     **Dónde quedó la prueba:** `Disclosure.test.tsx` — el marcador existe y es `aria-hidden`.
