@@ -53,3 +53,18 @@ export function needleLabel(needle: { min: number; max: number }): string {
 export function thicknessLabel(thickness: number): string {
   return `${thickness} mm`;
 }
+
+/**
+ * Copy del panel de catálogo (RFC-04 §7-ter E2(c), backlog 24, slice S2a). El
+ * panel entero vive dentro de un `Disclosure` con este resumen.
+ */
+export const CATALOG_SECTION_LABEL = "Catálogos";
+export const CATALOG_LOADING_LABEL = "Cargando el catálogo de marcas y tipos.";
+export const CATALOG_LOAD_ERROR =
+  "No se pudo cargar el catálogo de marcas y tipos.";
+export const CATALOG_EMPTY_MESSAGE = "Todavía no creaste ninguna marca.";
+export const CATALOG_TYPES_EMPTY_MESSAGE = "Esta marca todavía no tiene tipos.";
+export const CATALOG_BRAND_NAME_LABEL = "Nombre de la marca";
+export const CATALOG_CREATE_BRAND_LABEL = "Crear marca";
+export const CATALOG_TYPE_NAME_LABEL = "Nombre del tipo";
+export const CATALOG_CREATE_TYPE_LABEL = "Crear tipo";

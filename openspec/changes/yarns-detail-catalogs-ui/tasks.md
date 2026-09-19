@@ -54,19 +54,19 @@ Chain strategy: feature-branch-chain
 
 ## Phase 2: S2a `catalog-read-create`
 
-- [ ] 2.1 RED: `brands-client.test.ts` — `getBrandTree` 1+N and its `failed` degradation (moved, same assertions as current `YarnBrandTree` tests); `createBrand`/`createYarnType` 201 shapes and 400/404 → `ok:false`.
-- [ ] 2.2 GREEN: `brands-client.ts` — move `fetchTree` verbatim as `getBrandTree` (+ `BrandTreeEntry`/`BrandTreeState`); add `createBrand`, `createYarnType`; import record types via `@/features/yarns/types` (never the feature barrel).
-- [ ] 2.3 Extend `YarnBrandTree.test.tsx` — passing a new `catalogToken` re-runs the fetch.
-- [ ] 2.4 GREEN: `YarnBrandTree.tsx` — delete local `fetchTree`, import `getBrandTree`, add `catalogToken?: number` (default 0) to the effect's dependency array (additive).
-- [ ] 2.5 RED: `YarnCatalogPanel.test.tsx` (read+create only) — loading (`aria-busy`)/error+retry/empty(with form mounted)/ready states; brand-create form appends on 201; type-create form (nested `Disclosure` per brand) appends on 201; both signal `onCatalogChange` exactly once on success.
-- [ ] 2.6 GREEN: `YarnCatalogPanel.tsx` — collapsible section (`Disclosure summary="Catálogos"`) inside `YarnFilterPanel`'s `Card`; brand list as nested `Disclosure`s; one brand-create `Field`+`Input`+`Button variant="primary"`; one type-create form per open brand panel.
-- [ ] 2.7 Extend `YarnFilterPanel.test.tsx` — renders the panel slot, forwards `catalogToken`, raises `onCatalogChange`.
-- [ ] 2.8 GREEN: `YarnFilterPanel.tsx` — mount `YarnCatalogPanel` as the `Card`'s last child, thread `catalogToken`/`onCatalogChange` props.
-- [ ] 2.9 Extend `YarnsView.test.tsx` — a successful create bumps `catalogToken` and the tree re-reads.
-- [ ] 2.10 GREEN: `YarnsView.tsx` — `catalogToken` state, `handleCatalogChange` incrementing it (delete/dangling-filter branch deferred to S2b).
-- [ ] 2.11 `yarns-ui.classes.test.ts` — add `YarnCatalogPanel.tsx` entry.
-- [ ] 2.12 Docs: `RFC-04-lanas.md` §7-ter — append **E2(c)** (panel placement, left column under filter tree/color row, reuses `Disclosure`), Spanish.
-- [ ] 2.13 Browser verification (REGLA 4): orchestrator creates a brand and a type on `/lanas`, confirms the tree refreshes without reload, checks contrast on the panel's `Card` surface.
+- [x] 2.1 RED: `brands-client.test.ts` — `getBrandTree` 1+N and its `failed` degradation (moved, same assertions as current `YarnBrandTree` tests); `createBrand`/`createYarnType` 201 shapes and 400/404 → `ok:false`.
+- [x] 2.2 GREEN: `brands-client.ts` — move `fetchTree` verbatim as `getBrandTree` (+ `BrandTreeEntry`/`BrandTreeState`); add `createBrand`, `createYarnType`; import record types via `@/features/yarns/types` (never the feature barrel).
+- [x] 2.3 Extend `YarnBrandTree.test.tsx` — passing a new `catalogToken` re-runs the fetch.
+- [x] 2.4 GREEN: `YarnBrandTree.tsx` — delete local `fetchTree`, import `getBrandTree`, add `catalogToken?: number` (default 0) to the effect's dependency array (additive).
+- [x] 2.5 RED: `YarnCatalogPanel.test.tsx` (read+create only) — loading (`aria-busy`)/error+retry/empty(with form mounted)/ready states; brand-create form appends on 201; type-create form (nested `Disclosure` per brand) appends on 201; both signal `onCatalogChange` exactly once on success.
+- [x] 2.6 GREEN: `YarnCatalogPanel.tsx` — collapsible section (`Disclosure summary="Catálogos"`) inside `YarnFilterPanel`'s `Card`; brand list as nested `Disclosure`s; one brand-create `Field`+`Input`+`Button variant="primary"`; one type-create form per open brand panel.
+- [x] 2.7 Extend `YarnFilterPanel.test.tsx` — renders the panel slot, forwards `catalogToken`, raises `onCatalogChange`.
+- [x] 2.8 GREEN: `YarnFilterPanel.tsx` — mount `YarnCatalogPanel` as the `Card`'s last child, thread `catalogToken`/`onCatalogChange` props.
+- [x] 2.9 Extend `YarnsView.test.tsx` — a successful create bumps `catalogToken` and the tree re-reads.
+- [x] 2.10 GREEN: `YarnsView.tsx` — `catalogToken` state, `handleCatalogChange` incrementing it (delete/dangling-filter branch deferred to S2b).
+- [x] 2.11 `yarns-ui.classes.test.ts` — add `YarnCatalogPanel.tsx` entry.
+- [x] 2.12 Docs: `RFC-04-lanas.md` §7-ter — append **E2(c)** (panel placement, left column under filter tree/color row, reuses `Disclosure`), Spanish.
+- [ ] 2.13 Browser verification (REGLA 4): orchestrator creates a brand and a type on `/lanas`, confirms the tree refreshes without reload, checks contrast on the panel's `Card` surface. **LEFT OPEN — this executor has no browser tools.**
 
 ## Phase 3: S2b `catalog-delete-409`
 

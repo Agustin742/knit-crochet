@@ -57,6 +57,15 @@ export function YarnsView() {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [usedQuantityPending, setUsedQuantityPending] = useState(false);
   const [usedQuantityError, setUsedQuantityError] = useState<string | null>(null);
+  /* Sube en cada alta/borrado exitoso del catálogo (design D5): es la única
+     dependencia nueva del efecto de `YarnBrandTree`, así que un create en el
+     panel se ve reflejado en el árbol sin recargar la página. El branch de
+     filtro colgante (borrar la marca/tipo activo) es la rebanada S2b. */
+  const [catalogToken, setCatalogToken] = useState(0);
+
+  const handleCatalogChange = useCallback(() => {
+    setCatalogToken((token) => token + 1);
+  }, []);
 
   const requestKey = requestKeyOf(filters, reloadToken);
   const loading = loaded?.key !== requestKey;
@@ -125,7 +134,12 @@ export function YarnsView() {
 
       <div className="flex flex-col gap-(--space-6) tablet:flex-row">
       <div className="flex flex-col gap-(--space-4) tablet:w-64 tablet:shrink-0">
-        <YarnFilterPanel filters={filters} onFiltersChange={setFilters} />
+        <YarnFilterPanel
+          filters={filters}
+          onFiltersChange={setFilters}
+          catalogToken={catalogToken}
+          onCatalogChange={handleCatalogChange}
+        />
       </div>
 
       <div className="flex flex-1 flex-col gap-(--space-4)">

@@ -110,6 +110,15 @@ se monta como **control real y alcanzable por teclado** cuyo manejador es un no-
 199), en vez de un `div` decorado esperando. Cuando entre la 25, el mismo control pasa a abrir el
 modal: ya está puesto y ya es accesible, sólo falta cablearlo.
 
+### E2(c) — el panel de catálogo vive en la columna del filtro, no en una pantalla propia
+
+§1 y §5 hablan del catálogo de marcas y tipos sin decir dónde se gestiona. Se resuelve como una
+sección más dentro del `Card` del panel de filtros: bajo el árbol marca→tipo y la fila de color,
+como último hijo de la MISMA superficie (deuda 196 no se repite: el panel nunca se monta suelto
+sobre el fondo de la página). Reutiliza el `Disclosure` genérico —el mismo primitivo del árbol y de
+la enmienda E1 de #22— tanto para la sección entera («Catálogos») como para cada marca dentro de
+ella, así que no suma ningún criterio visual nuevo al design system.
+
 ## 8. Slices de implementación (→ backlog de UI)
 
 IDs reales en la tabla de [RFC-00 §4](RFC-00-proceso.md); las entradas que siguen abiertas están en `docs/product/backlog-ui.md`:

@@ -301,6 +301,48 @@ describe("YarnsView — los tres estados (RFC-04 §4)", () => {
     ).toBeInTheDocument();
   });
 
+  /**
+   * Cableado de la señal de frescura (design D5, backlog 24 slice S2a): una
+   * alta exitosa en el panel de catálogo tiene que subir `catalogToken` y eso
+   * tiene que disparar un SEGUNDO `GET /api/brands` desde el árbol — no basta
+   * con que el panel muestre la marca nueva en memoria.
+   */
+  it("una alta en el panel de catálogo sube catalogToken y el árbol vuelve a pedir /api/brands", async () => {
+    const BRAND = { id: "brand-1", userId: "u", name: "Malabrigo" };
+    const NEW_BRAND = { id: "brand-new", userId: "u", name: "Cascada" };
+    let brandsGetCalls = 0;
+    fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/brands" && init?.method === "POST") {
+        return Promise.resolve(jsonResponse(201, { brand: NEW_BRAND }));
+      }
+      if (url === "/api/brands") {
+        brandsGetCalls += 1;
+        return Promise.resolve(jsonResponse(200, { brands: [BRAND] }));
+      }
+      if (url.startsWith("/api/brands/")) {
+        return Promise.resolve(jsonResponse(200, { types: [] }));
+      }
+      return Promise.resolve(jsonResponse(200, { yarns: [CRUDA] }));
+    });
+
+    render(<YarnsView />);
+    await settle();
+    await screen.findByText(BRAND.name);
+    const callsBeforeCreate = brandsGetCalls;
+
+    await userEvent.click(screen.getByText("Catálogos"));
+    const input = await screen.findByRole("textbox", {
+      name: "Nombre de la marca",
+    });
+    await userEvent.type(input, NEW_BRAND.name);
+    await userEvent.click(screen.getByRole("button", { name: "Crear marca" }));
+
+    await screen.findAllByText(NEW_BRAND.name);
+    await waitFor(() => {
+      expect(brandsGetCalls).toBeGreaterThan(callsBeforeCreate);
+    });
+  });
+
   it("no tiene violaciones de axe en ninguno de los tres estados", async () => {
     const loaded = await renderReady();
     expect(await axe(loaded.container)).toHaveNoViolations();
