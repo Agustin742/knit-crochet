@@ -4,6 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
 
+import { COLOR_FAMILY_LABELS } from "@/shared/config";
+
 import { EMPTY_TITLE, ERROR_TITLE, RETRY_LABEL } from "./yarn-copy";
 import { YARNS_ENDPOINT } from "./yarns-client";
 import {
@@ -237,6 +239,56 @@ describe("YarnsView — los tres estados (RFC-04 §4)", () => {
         expect.anything(),
       );
     });
+  });
+
+  /**
+   * Prueba de cableado para la familia de color (gap CRITICAL de verify):
+   * `ColorFamilyFilter.test.tsx` prueba el control aislado y
+   * `yarn-service.test.ts` prueba el filtro de la API por su cuenta, pero
+   * ningún test conectaba las dos puntas — elegir un swatch en `/lanas` y ver
+   * la grilla angostarse. El mock enruta por URL: sin `colorFamily` en la
+   * query devuelve las dos lanas, con `colorFamily=blue` devuelve solo AZUL.
+   */
+  it("elegir un swatch de color en el panel vuelve a pedir la lista con colorFamily y angosta la grilla", async () => {
+    fetchSpy.mockImplementation((url: string) => {
+      if (url.startsWith("/api/brands")) {
+        return Promise.resolve(jsonResponse(200, { brands: [] }));
+      }
+      if (url.includes("colorFamily=blue")) {
+        return Promise.resolve(jsonResponse(200, { yarns: [AZUL] }));
+      }
+      return Promise.resolve(jsonResponse(200, { yarns: [CRUDA, AZUL] }));
+    });
+
+    render(<YarnsView />);
+    await settle();
+    expect(
+      screen.getByText(`${CRUDA.brandName} · ${CRUDA.typeName} · ${CRUDA.colorName}`),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(`${AZUL.brandName} · ${AZUL.typeName} · ${AZUL.colorName}`),
+    ).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: COLOR_FAMILY_LABELS.blue }),
+    );
+
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledWith(
+        expect.stringContaining("colorFamily=blue"),
+        expect.anything(),
+      );
+    });
+    await waitFor(() => {
+      expect(
+        screen.queryByText(
+          `${CRUDA.brandName} · ${CRUDA.typeName} · ${CRUDA.colorName}`,
+        ),
+      ).not.toBeInTheDocument();
+    });
+    expect(
+      screen.getByText(`${AZUL.brandName} · ${AZUL.typeName} · ${AZUL.colorName}`),
+    ).toBeInTheDocument();
   });
 
   it("no tiene violaciones de axe en ninguno de los tres estados", async () => {

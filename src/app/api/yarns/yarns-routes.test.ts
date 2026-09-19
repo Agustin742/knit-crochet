@@ -310,6 +310,51 @@ describe("api/yarns route handlers", () => {
       expect(badBrand.status).toBe(400);
       expect(badFamily.status).toBe(400);
     });
+
+    // Requirement "Filter contract preserved", scenario "Multiple filters
+    // combine with AND". Cada test de filtro arriba manda exactamente uno por
+    // llamada; se siembran tres lanas donde solo una cae en la intersección
+    // de brandId y colorFamily — si la ruta combinara con OR, la respuesta
+    // traería 2 o 3 lanas en vez de 1.
+    it("combines brandId and colorFamily with AND, not OR", async () => {
+      const brand = seedBrand("user-1");
+      const type = seedType(brand.id);
+      const otherBrand = seedBrand("user-1", "Katia");
+      const otherType = seedType(otherBrand.id, "Merino");
+
+      await createYarnRoute(
+        jsonRequest(
+          yarnBody(brand.id, type.id, {
+            colorCode: "BOTH",
+            colorFamily: "blue",
+          }),
+        ),
+      );
+      await createYarnRoute(
+        jsonRequest(
+          yarnBody(brand.id, type.id, {
+            colorCode: "BRAND-ONLY",
+            colorFamily: "red",
+          }),
+        ),
+      );
+      await createYarnRoute(
+        jsonRequest(
+          yarnBody(otherBrand.id, otherType.id, {
+            colorCode: "COLOR-ONLY",
+            colorFamily: "blue",
+          }),
+        ),
+      );
+
+      const response = await listYarnsRoute(
+        getRequest(`?brandId=${brand.id}&colorFamily=blue`),
+      );
+      const body = (await response.json()) as { yarns: YarnListItem[] };
+
+      expect(body.yarns).toHaveLength(1);
+      expect(body.yarns[0]?.colorCode).toBe("BOTH");
+    });
   });
 
   describe("GET /api/yarns/:id", () => {

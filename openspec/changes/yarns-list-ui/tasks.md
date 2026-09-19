@@ -251,3 +251,30 @@ merges to `main`.
       apply-progress for the literal per-criterion verdict. All met except
       "keyboard-operable", which is met by RTL/axe evidence and pending only
       the outstanding browser confirmation from 5.9.
+
+## Phase 6: verify-gap-closure (test-only, no new PR slice)
+
+`sdd-verify`'s report (`openspec/changes/yarns-list-ui/verify-report.md`) found
+3 CRITICAL gaps: 3 spec scenarios with no covering runtime test despite green
+lint/typecheck/test/build. This phase closes them with tests only — zero
+production-code lines changed. See apply-progress for full triangulation
+evidence (each test confirmed RED against temporarily-broken production code,
+then the code restored byte-for-byte).
+
+- [x] 6.1 `src/features/yarns/api/yarn-service.test.ts` — cross-user isolation
+      test for `listYarns` (yarn-list-api spec, "userId scoping" requirement,
+      "Cross-user isolation" scenario).
+- [x] 6.2 `src/features/yarns/api/yarn-service.test.ts` — AND-not-OR test for
+      combined `brandId`+`colorFamily` filters at the service/store-double
+      layer (yarn-list-api spec, "Filter contract preserved" requirement,
+      "Multiple filters combine with AND" scenario).
+- [x] 6.3 `src/app/api/yarns/yarns-routes.test.ts` — the same AND-not-OR
+      scenario at the route/HTTP layer.
+- [x] 6.4 `src/features/yarns/ui/YarnsView.test.tsx` — colour-swatch wiring
+      test: clicking a colour family swatch re-fetches with `colorFamily` in
+      the querystring and narrows the rendered card grid
+      (yarn-inventory-browsing spec, "Brand-type filter tree and colour row"
+      requirement, "Selecting a color family filters the list" scenario).
+- [x] 6.5 Verify: `pnpm lint && pnpm typecheck && pnpm test && pnpm build`
+      green. Tests: 1965 passed | 13 skipped (was 1961/13) — exactly the 4 new
+      tests, 0 failed. Non-test changed lines: 0.

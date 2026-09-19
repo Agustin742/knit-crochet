@@ -3041,3 +3041,21 @@ borrada y el servidor reiniciado limpio: **`200 {"sessions":[]}`** y el tab func
      `aria-hidden` porque el estado abierto/cerrado ya lo anuncia el `<details>` nativo, y rota al
      abrirse respetando `prefers-reduced-motion`.
      **Dónde quedó la prueba:** `Disclosure.test.tsx` — el marcador existe y es `aria-hidden`.
+
+198. **⚪ La semántica AND de los filtros está probada contra el DOBLE, no contra la consulta real.**
+     Al cerrar los huecos que encontró la verificación de #23 se añadieron tests que demuestran que
+     `?brandId=&typeId=&colorFamily=` combinan con AND y no con OR — pero los tres corren contra
+     `src/features/yarns/api/testing/in-memory-store.ts`, porque este repo **no tiene arnés de DB viva
+     ni doble de SQL** para consultas `select`/`where` (el `store.test.ts` real sólo finge
+     `insert`/`update`, y sirve para traducir códigos de error de Postgres).
+     **Escenario:** si alguien cambiara `and(...conditions)` por `or(...conditions)` en
+     `src/features/yarns/api/store.ts:258`, los tests seguirían en **verde** y la lista devolvería de
+     más. La corrección del doble no prueba la corrección de la consulta; prueba que el doble y la
+     consulta *fueron escritos con la misma intención*.
+     **Por qué se acepta igual:** el `design.md` de este cambio designa explícitamente el doble en
+     memoria como la capa de prueba de `YarnStore`, así que esto es el límite conocido de una decisión
+     de arquitectura, no un olvido. Hoy la consulta real está verificada **por lectura** — `and(...)`
+     está donde tiene que estar — y eso es más débil que un test, y así queda dicho.
+     **Bajo la moratoria NO se abre:** ningún usuario ve esto. **Cómo se saldaría:** un doble de SQL o
+     un arnés de DB de test que permita ejercitar `where` de verdad; alcanza con que cubra esta forma
+     de consulta, no hace falta uno general.
