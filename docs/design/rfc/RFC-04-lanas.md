@@ -102,6 +102,14 @@ El piso en `0` y la **ausencia de techo** son decisión de quien lo consume, no 
 que el PRD-01 §4.5 define `usedQuantity` como **independiente** de `quantity` —enlazar una lana a un
 proyecto no descuenta stock—, así que el consumo no tiene tope contra el inventario.
 
+### E2(b) — el botón «Editar» del cajón es un no-op hasta que exista la entrada 25
+
+§2 pone un botón «Editar» en el cajón que abre el modal de edición, pero ese modal es la entrada **25**
+(`yarns_form_ui`), que no existe cuando entra la 24. Igual que el tap de la tarjeta en E1(c), el botón
+se monta como **control real y alcanzable por teclado** cuyo manejador es un no-op documentado (deuda
+199), en vez de un `div` decorado esperando. Cuando entre la 25, el mismo control pasa a abrir el
+modal: ya está puesto y ya es accesible, sólo falta cablearlo.
+
 ## 8. Slices de implementación (→ backlog de UI)
 
 IDs reales en la tabla de [RFC-00 §4](RFC-00-proceso.md); las entradas que siguen abiertas están en `docs/product/backlog-ui.md`:

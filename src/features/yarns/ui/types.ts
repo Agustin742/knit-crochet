@@ -1,4 +1,8 @@
-import type { YarnFilters, YarnListItem } from "@/features/yarns/types";
+import type {
+  YarnFilters,
+  YarnListItem,
+  YarnRecord,
+} from "@/features/yarns/types";
 
 export type { YarnFilters };
 
@@ -17,3 +21,18 @@ export type SerializedYarnListItem = Omit<YarnListItem, SerializedYarnDates> & {
 };
 
 export type YarnListPayload = { yarns: SerializedYarnListItem[] };
+
+/**
+ * La forma exacta de `PATCH /api/yarns/:id` (design D2): la fila cruda, sin
+ * `brandName`/`typeName` — a diferencia de `SerializedYarnListItem`, que sí
+ * los trae porque `GET /api/yarns` los suma con un join (E1(a)). Nombrarla
+ * aparte es lo que vuelve `return patched` en `mergeYarnPatch` un error de
+ * tipos: la trampa de la mezcla es un error de compilación, no una prueba.
+ */
+export type SerializedYarnRecord = Omit<YarnRecord, SerializedYarnDates> & {
+  lot: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type YarnDetailPayload = { yarn: SerializedYarnRecord };

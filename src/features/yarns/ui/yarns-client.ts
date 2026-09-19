@@ -1,6 +1,11 @@
 import type { YarnFilters } from "@/features/yarns/types";
 
-import type { SerializedYarnListItem, YarnListPayload } from "./types";
+import type {
+  SerializedYarnListItem,
+  SerializedYarnRecord,
+  YarnDetailPayload,
+  YarnListPayload,
+} from "./types";
 
 /**
  * Costura HTTP de `/lanas` (RFC-04). Cuarto clon del mismo patrón que ya
@@ -63,6 +68,48 @@ export async function getYarns(
     return { ok: true, data: body.yarns };
   } catch {
     // Un 200 con cuerpo ilegible es tan inservible como un 500.
+    return { ok: false, message: UNEXPECTED_ERROR_MESSAGE };
+  }
+}
+
+/**
+ * `PATCH /api/yarns/:id` (design D2). El cuerpo lleva **sólo** `usedQuantity`
+ * — eso es lo que le permite a `YarnsView` conservar `brandName`/`typeName`
+ * sin refrescar la lista: `brandId`/`typeId` provadamente no pueden cambiar.
+ *
+ * **`data` es `SerializedYarnRecord`, no `SerializedYarnListItem`**: tiparlo
+ * como la lista compilaría, pero entregaría `brandName`/`typeName`
+ * `undefined` en el primer render tras la mezcla — la única jugada prohibida
+ * de este cambio (`design.md` D2).
+ */
+export type YarnPatchResult =
+  | { ok: true; data: SerializedYarnRecord }
+  | { ok: false; message: string };
+
+export async function patchYarnUsedQuantity(
+  id: string,
+  usedQuantity: number,
+): Promise<YarnPatchResult> {
+  let response: Response;
+  try {
+    response = await fetch(`${YARNS_ENDPOINT}/${id}`, {
+      method: "PATCH",
+      credentials: "same-origin",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ usedQuantity }),
+    });
+  } catch {
+    return { ok: false, message: NETWORK_ERROR_MESSAGE };
+  }
+
+  if (!response.ok) {
+    return { ok: false, message: UNEXPECTED_ERROR_MESSAGE };
+  }
+
+  try {
+    const body = (await response.json()) as YarnDetailPayload;
+    return { ok: true, data: body.yarn };
+  } catch {
     return { ok: false, message: UNEXPECTED_ERROR_MESSAGE };
   }
 }

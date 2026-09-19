@@ -2905,7 +2905,17 @@ borrada y el servidor reiniciado limpio: **`200 {"sessions":[]}`** y el tab func
 4. **Verificar contra el build de producción es una vía legítima cuando dev falla**, y hay que decir que se
    hizo así. El `201 application/json` del arranque **se midió en `pnpm start`**, no en dev.
 
-192. **🟠 La tarjeta de `/lanas` tiene un control que no hace nada.** `YarnCard` (#23, slice S3
+192. ~~**🟠 La tarjeta de `/lanas` tiene un control que no hace nada.**~~ **SALDADA** (2026-09-20,
+     rebanada S1 `yarn-detail-drawer` de #24).
+     **Cómo se saldó:** el `noOpTap` desapareció. `YarnCard` recibe ahora un `onOpen` que
+     `YarnsView` cablea a un `detailId`, y ese id resuelve la lana contra la lista viva
+     (`find(id) ?? null`) para alimentar el `YarnDetailDrawer`. Tocar una tarjeta abre el cajón
+     con los datos de esa lana — el control que ya era real y alcanzable por teclado ahora
+     además lleva a algún lado, que era exactamente lo que faltaba.
+     **Dónde quedó la prueba:** el commit de S1; `YarnCard.test.tsx` (el tap llama a `onOpen`,
+     reemplazando la vieja aserción de no-op), `YarnsView.test.tsx` (abre el cajón y conserva
+     `marca · tipo · colorName` tras un cambio del stepper) y `YarnDetailDrawer.test.tsx`.
+     **Ficha original:** `YarnCard` (#23, slice S3
      `list-cards-states`) monta un tap alcanzable por teclado y con nombre accesible, pero su manejador es
      un no-op documentado (`YarnCard.tsx`, función `noOpTap`). **Escenario de fallo:** un usuario toca o
      activa una tarjeta esperando ver el detalle de esa lana —igual que ya puede hacerlo en `/proyectos`
@@ -3059,3 +3069,15 @@ borrada y el servidor reiniciado limpio: **`200 {"sessions":[]}`** y el tab func
      **Bajo la moratoria NO se abre:** ningún usuario ve esto. **Cómo se saldaría:** un doble de SQL o
      un arnés de DB de test que permita ejercitar `where` de verdad; alcanza con que cubra esta forma
      de consulta, no hace falta uno general.
+
+199. **🟠 El botón «Editar» del cajón de detalle de una lana no hace nada.** `YarnDetailDrawer` (#24,
+     rebanada S1) monta un botón «Editar» real, enfocable y activable por teclado, cuyo manejador es un
+     no-op documentado. **Escenario de fallo:** un usuario abre el detalle de una lana, ve «Editar»,
+     lo pulsa esperando corregir el color o la ficha técnica, y no pasa nada visible: ni se abre un
+     modal, ni cambia la pantalla, ni aparece un aviso. **No es un defecto de esta rebanada:** el modal
+     de crear/editar lana es la entrada **25** (`yarns_form_ui`, RFC-04 §2), que todavía no existe.
+     **Por qué se monta igual:** es el criterio que el usuario ya fijó para el tap de la tarjeta
+     (deuda 192) y que RFC-03 E1(f) había establecido antes — un control real desde el día uno, nunca
+     un `div` decorado esperando, para que la entrega siguiente sólo tenga que cablearlo.
+     **Cómo se salda:** cuando entre la 25, el mismo botón pasa de su no-op a abrir el modal.
+     Registrado también como RFC-04 §7-ter, enmienda **E2(b)**.

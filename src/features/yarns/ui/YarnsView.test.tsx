@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
@@ -14,7 +14,7 @@ import {
   PAGE_TITLE,
   YarnsView,
 } from "./YarnsView";
-import type { SerializedYarnListItem } from "./types";
+import type { SerializedYarnListItem, SerializedYarnRecord } from "./types";
 
 const fetchSpy = vi.fn();
 
@@ -52,6 +52,16 @@ function yarn(patch: Partial<SerializedYarnListItem> = {}): SerializedYarnListIt
 
 const CRUDA = yarn();
 const AZUL = yarn({ id: "azul", colorName: "Azul", colorFamily: "blue" });
+
+function patchedRecordFrom(
+  item: SerializedYarnListItem,
+  patch: Partial<SerializedYarnRecord> = {},
+): SerializedYarnRecord {
+  const { brandName, typeName, ...record } = item;
+  return { ...record, ...patch };
+}
+
+const CRUDA_LABEL = `${CRUDA.brandName} · ${CRUDA.typeName} · ${CRUDA.colorName}`;
 
 type Scenario = { yarns?: SerializedYarnListItem[]; status?: number; failNetwork?: boolean };
 
@@ -302,5 +312,82 @@ describe("YarnsView — los tres estados (RFC-04 §4)", () => {
 
     const failed = await renderReady({ status: 500 });
     expect(await axe(failed.container)).toHaveNoViolations();
+  });
+});
+
+describe("YarnsView — el cajón de detalle (backlog 24, slice S1, deuda 192)", () => {
+  it("tocar una tarjeta abre el cajón con la lana tocada", async () => {
+    await renderReady();
+
+    await userEvent.click(screen.getByText(CRUDA_LABEL));
+
+    const dialog = screen.getByRole("dialog");
+    expect(
+      within(dialog).getByRole("heading", { name: CRUDA_LABEL }),
+    ).toBeInTheDocument();
+  });
+
+  it(
+    "un cambio del stepper conserva marca · tipo · colorName en la tarjeta y no muestra skeleton",
+    async () => {
+      fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
+        if (url.startsWith("/api/brands")) {
+          return Promise.resolve(jsonResponse(200, { brands: [] }));
+        }
+        if (init?.method === "PATCH") {
+          return Promise.resolve(
+            jsonResponse(200, {
+              yarn: patchedRecordFrom(CRUDA, { usedQuantity: 1 }),
+            }),
+          );
+        }
+        return Promise.resolve(jsonResponse(200, { yarns: [CRUDA, AZUL] }));
+      });
+
+      render(<YarnsView />);
+      await settle();
+
+      await userEvent.click(screen.getByText(CRUDA_LABEL));
+      await userEvent.click(screen.getByRole("button", { name: "Sumar" }));
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole("status", { name: "Ovillos usados" }),
+        ).toHaveTextContent("1");
+      });
+
+      // La grilla sigue siendo la lista real: ningún skeleton la reemplazó.
+      const grid = screen.getByRole("list");
+      expect(within(grid).getByText(CRUDA_LABEL)).toBeInTheDocument();
+      expect(
+        screen.getByRole("status", { name: LOADING_REGION_LABEL }).textContent,
+      ).toBe("");
+    },
+  );
+
+  it("un refetch que llega sin la lana abierta cierra el cajón", async () => {
+    fetchSpy.mockImplementation((url: string) => {
+      if (url.startsWith("/api/brands")) {
+        return Promise.resolve(jsonResponse(200, { brands: [] }));
+      }
+      if (url.includes("colorFamily=blue")) {
+        return Promise.resolve(jsonResponse(200, { yarns: [AZUL] }));
+      }
+      return Promise.resolve(jsonResponse(200, { yarns: [CRUDA, AZUL] }));
+    });
+
+    render(<YarnsView />);
+    await settle();
+
+    await userEvent.click(screen.getByText(CRUDA_LABEL));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: COLOR_FAMILY_LABELS.blue }),
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
   });
 });

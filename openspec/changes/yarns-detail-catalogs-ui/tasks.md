@@ -30,26 +30,26 @@ Chain strategy: feature-branch-chain
 
 ## Phase 1: S1 `yarn-detail-drawer`
 
-- [ ] 1.1 RED: `Stepper.test.tsx` — `+`/`-` call `onChange(value±step)`; at `min` the `-` is `disabled` and emits nothing; no `max` → `+` never stops; `<output>` is `role="status"`; Enter/Space on both buttons; group named; axe clean.
-- [ ] 1.2 RED: `Stepper.boundary.test.ts` — reads own source (mirror `Swatch.boundary.test.ts`), asserts no `shared/config` import, no `yarn`/`usedQuantity`/`ovillo` literal.
-- [ ] 1.3 GREEN: `src/shared/ui/primitives/stepper/{Stepper.tsx,stepper.variants.ts,index.ts}` — controlled-only, optional `min`/`max`, `Button variant="secondary" size="icon"` composition, tokens only.
-- [ ] 1.4 Wire barrel: `primitives/index.ts` re-exports `./stepper`.
-- [ ] 1.5 Update `public-api.test.ts` `PRIMITIVES` anchor — add `Stepper`, `STEPPER_SIZES`, `stepperVariants`, `STEPPER_DECREMENT_LABEL`, `STEPPER_INCREMENT_LABEL` (fails both directions until this lands).
-- [ ] 1.6 RED: `merge-yarn.test.ts` — names survive a `usedQuantity`-only patch; unknown id no-op; dates stay strings.
-- [ ] 1.7 GREEN: `merge-yarn.ts` — `mergeYarnPatch(current: SerializedYarnListItem, patched: SerializedYarnRecord): SerializedYarnListItem`. **Forbidden move**: do not widen the return type to accept a raw `SerializedYarnRecord` return — `return patched` must fail typecheck.
-- [ ] 1.8 `types.ts` — add `SerializedYarnRecord`, `YarnDetailPayload`. **`patchYarnUsedQuantity` MUST NOT be typed as returning `SerializedYarnListItem`.**
-- [ ] 1.9 RED: `yarns-client.test.ts` (patch) — body is exactly `{ usedQuantity }`; 200 shape; 400/404/network → `ok:false`.
-- [ ] 1.10 GREEN: `yarns-client.ts` — `patchYarnUsedQuantity(id, usedQuantity): Promise<YarnPatchResult>`.
-- [ ] 1.11 RED: `YarnDetailDrawer.test.tsx` — all 11 fields render; close returns focus to opener; stepper change calls back once; `usedQuantityPending` disables; error renders; «Editar» focusable/activatable, changes nothing.
-- [ ] 1.12 GREEN: `YarnDetailDrawer.tsx` — `<Dialog open onClose title placement="side" size="lg">`, prop-driven, no fetch.
-- [ ] 1.13 RED (extend `YarnCard.test.tsx`): tap/activation calls `onOpen` (replaces `noOpTap` assertion).
-- [ ] 1.14 GREEN: `YarnCard.tsx` — `onOpen: () => void` replaces `noOpTap`.
-- [ ] 1.15 RED (extend `YarnsView.test.tsx`): tap opens drawer for tapped id; **after a stepper change the card still reads `marca · tipo · colorName` and no skeleton appears**; a refetch without the yarn closes the drawer.
-- [ ] 1.16 GREEN: `YarnsView.tsx` — `detailId` state, `find(y => y.id === detailId) ?? null`, PATCH merge via `mergeYarnPatch` keyed by id (never index, never `loaded.key`).
-- [ ] 1.17 Export `YarnDetailDrawer` from `features/yarns/ui/index.ts`.
-- [ ] 1.18 `yarns-ui.classes.test.ts` — add `YarnDetailDrawer.tsx` entry.
-- [ ] 1.19 Docs: `RFC-04-lanas.md` — add `## 7-ter. Enmienda E2` (between §7-bis and §8) with **E2(a)** (Stepper genérico, piso 0 sin techo) and **E2(b)** («Editar» no-op), Spanish, matching E1's heading format. Attribute to this SDD change — never to `leader`.
-- [ ] 1.20 Docs: `deuda-tecnica.md` — strike `192` with `~~…~~`, add **Cómo se saldó** / **Dónde quedó la prueba** underneath (Spanish, cite `YarnCard.tsx`/`YarnsView.tsx` + the RTL test). File new debt **199** (next free number after 198, never recycled) at 🟠, Spanish, for the drawer's «Editar» no-op. Leave 193 untouched.
+- [x] 1.1 RED: `Stepper.test.tsx` — `+`/`-` call `onChange(value±step)`; at `min` the `-` is `disabled` and emits nothing; no `max` → `+` never stops; `<output>` is `role="status"`; Enter/Space on both buttons; group named; axe clean.
+- [x] 1.2 RED: `Stepper.boundary.test.ts` — reads own source (mirror `Swatch.boundary.test.ts`), asserts no `shared/config` import, no `yarn`/`usedQuantity`/`ovillo` literal.
+- [x] 1.3 GREEN: `src/shared/ui/primitives/stepper/{Stepper.tsx,stepper.variants.ts,index.ts}` — controlled-only, optional `min`/`max`, `Button variant="secondary" size="icon"` composition, tokens only.
+- [x] 1.4 Wire barrel: `primitives/index.ts` re-exports `./stepper`.
+- [x] 1.5 Update `public-api.test.ts` `PRIMITIVES` anchor — add `Stepper`, `STEPPER_SIZES`, `stepperVariants`, `STEPPER_DECREMENT_LABEL`, `STEPPER_INCREMENT_LABEL` (fails both directions until this lands).
+- [x] 1.6 RED: `merge-yarn.test.ts` — names survive a `usedQuantity`-only patch; unknown id no-op; dates stay strings.
+- [x] 1.7 GREEN: `merge-yarn.ts` — `mergeYarnPatch(current: SerializedYarnListItem, patched: SerializedYarnRecord): SerializedYarnListItem`. **Forbidden move**: do not widen the return type to accept a raw `SerializedYarnRecord` return — `return patched` must fail typecheck.
+- [x] 1.8 `types.ts` — add `SerializedYarnRecord`, `YarnDetailPayload`. **`patchYarnUsedQuantity` MUST NOT be typed as returning `SerializedYarnListItem`.**
+- [x] 1.9 RED: `yarns-client.test.ts` (patch) — body is exactly `{ usedQuantity }`; 200 shape; 400/404/network → `ok:false`.
+- [x] 1.10 GREEN: `yarns-client.ts` — `patchYarnUsedQuantity(id, usedQuantity): Promise<YarnPatchResult>`.
+- [x] 1.11 RED: `YarnDetailDrawer.test.tsx` — all 11 fields render; close returns focus to opener; stepper change calls back once; `usedQuantityPending` disables; error renders; «Editar» focusable/activatable, changes nothing.
+- [x] 1.12 GREEN: `YarnDetailDrawer.tsx` — `<Dialog open onClose title placement="side" size="lg">`, prop-driven, no fetch.
+- [x] 1.13 RED (extend `YarnCard.test.tsx`): tap/activation calls `onOpen` (replaces `noOpTap` assertion).
+- [x] 1.14 GREEN: `YarnCard.tsx` — `onOpen: () => void` replaces `noOpTap`.
+- [x] 1.15 RED (extend `YarnsView.test.tsx`): tap opens drawer for tapped id; **after a stepper change the card still reads `marca · tipo · colorName` and no skeleton appears**; a refetch without the yarn closes the drawer.
+- [x] 1.16 GREEN: `YarnsView.tsx` — `detailId` state, `find(y => y.id === detailId) ?? null`, PATCH merge via `mergeYarnPatch` keyed by id (never index, never `loaded.key`).
+- [x] 1.17 Export `YarnDetailDrawer` from `features/yarns/ui/index.ts`.
+- [x] 1.18 `yarns-ui.classes.test.ts` — add `YarnDetailDrawer.tsx` entry.
+- [x] 1.19 Docs: `RFC-04-lanas.md` — add `## 7-ter. Enmienda E2` (between §7-bis and §8) with **E2(a)** (Stepper genérico, piso 0 sin techo) and **E2(b)** («Editar» no-op), Spanish, matching E1's heading format. Attribute to this SDD change — never to `leader`.
+- [x] 1.20 Docs: `deuda-tecnica.md` — strike `192` with `~~…~~`, add **Cómo se saldó** / **Dónde quedó la prueba** underneath (Spanish, cite `YarnCard.tsx`/`YarnsView.tsx` + the RTL test). File new debt **199** (next free number after 198, never recycled) at 🟠, Spanish, for the drawer's «Editar» no-op. Leave 193 untouched.
 - [ ] 1.21 Browser verification (REGLA 4): orchestrator opens `/lanas`, taps a card, exercises the stepper round trip, checks focus return — no gate measures this.
 
 ## Phase 2: S2a `catalog-read-create`
