@@ -11,15 +11,21 @@ import {
 } from "@/shared/ui/testing/class-names-from-source";
 
 /**
- * Gate de CSS COMPILADO para los dos componentes de `/lanas` (deuda 170,
- * mitad `features/yarns/ui/`). Mismo mecanismo que
- * `projects-ui.classes.test.ts`: la técnica vive en
- * `shared/ui/testing/class-names-from-source.ts`, este archivo sólo dice qué
- * componentes cubre y qué fuentes externas se les admiten.
+ * Gate de CSS COMPILADO para los componentes de `/lanas` (deuda 170, mitad
+ * `features/yarns/ui/`). Mismo mecanismo que `projects-ui.classes.test.ts`:
+ * la técnica vive en `shared/ui/testing/class-names-from-source.ts`, este
+ * archivo sólo dice qué componentes cubre y qué fuentes externas se les
+ * admiten.
  */
 const COMPILE_TIMEOUT_MS = 120_000;
 
-const COMPONENTS = ["YarnCard.tsx", "YarnsView.tsx"];
+const COMPONENTS = [
+  "YarnCard.tsx",
+  "YarnsView.tsx",
+  "YarnBrandTree.tsx",
+  "ColorFamilyFilter.tsx",
+  "YarnFilterPanel.tsx",
+];
 
 /**
  * Los únicos identificadores que un atributo de clase puede traer de fuera
@@ -34,12 +40,19 @@ const COMPONENTS = ["YarnCard.tsx", "YarnsView.tsx"];
  * - `yarn` (deuda 195) — el argumento de esa llamada (`yarn.colorFamily`) es un
  *   dato que viene por props, no una fuente de clases. Se declara igual porque
  *   el barrido denuncia la raíz de todo acceso a propiedad en vez de ignorarla.
+ * - `family` (S4b, #23) — mismo trato que `yarn`, pero del otro lado de la
+ *   llamada: `ColorFamilyFilter` recorre `COLOR_FAMILIES` con `.map((family) =>
+ *   …)` y pasa ese parámetro de vuelta a `yarnSwatchClass(family)`. El barrido
+ *   no rastrea parámetros de función como declaraciones propias del archivo
+ *   (sólo `const`/`function` de nivel de módulo), así que `family` es, para
+ *   él, tan "de fuera" como `yarn` — aunque las dos nazcan del todo dentro de
+ *   este mismo archivo.
  * - (histórico) `swatchClass` — `YarnCard` componía `Swatch` +
  *   `yarnSwatchClass` (`shared/config`) fuera de cualquier `className`, igual
  *   que `YarnColorSwatch` en `YarnsTab.tsx`; su cobertura real la mide
  *   `yarn-swatch.classes.test.ts`, no este barrido.
  */
-const EXTERNAL_SOURCES = ["className", "yarn", "yarnSwatchClass"];
+const EXTERNAL_SOURCES = ["className", "family", "yarn", "yarnSwatchClass"];
 
 function componentPath(fileName: string): string {
   return fileURLToPath(new URL(`./${fileName}`, import.meta.url));

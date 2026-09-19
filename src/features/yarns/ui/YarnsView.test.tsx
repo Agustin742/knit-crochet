@@ -53,14 +53,27 @@ const AZUL = yarn({ id: "azul", colorName: "Azul", colorFamily: "blue" });
 
 type Scenario = { yarns?: SerializedYarnListItem[]; status?: number; failNetwork?: boolean };
 
+/**
+ * `YarnFilterPanel` (S4b) trae su propio pedido en paralelo (`GET
+ * /api/brands`, design D7), así que el mock de `fetch` tiene que enrutar por
+ * URL y devolver un `Response` FRESCO por llamada — uno compartido entre las
+ * dos peticiones concurrentes rompía porque un cuerpo de `Response` sólo se
+ * lee una vez (`.json()` de la segunda petición fallaba con el cuerpo ya
+ * consumido por la primera). El árbol de marcas no es lo que este archivo
+ * prueba: se lo deja vacío a propósito.
+ */
 function serve(next: Scenario = {}) {
-  if (next.failNetwork === true) {
-    fetchSpy.mockRejectedValue(new Error("sin red"));
-    return;
-  }
-  fetchSpy.mockResolvedValue(
-    jsonResponse(next.status ?? 200, { yarns: next.yarns ?? [CRUDA, AZUL] }),
-  );
+  fetchSpy.mockImplementation((url: string) => {
+    if (url.startsWith("/api/brands")) {
+      return Promise.resolve(jsonResponse(200, { brands: [] }));
+    }
+    if (next.failNetwork === true) {
+      return Promise.reject(new Error("sin red"));
+    }
+    return Promise.resolve(
+      jsonResponse(next.status ?? 200, { yarns: next.yarns ?? [CRUDA, AZUL] }),
+    );
+  });
 }
 
 async function settle() {
@@ -133,7 +146,10 @@ describe("YarnsView — los tres estados (RFC-04 §4)", () => {
     await renderReady({ yarns: [] });
 
     expect(screen.getByText(EMPTY_TITLE)).toBeInTheDocument();
-    expect(screen.queryAllByRole("button")).toHaveLength(0);
+    // Ningún `<ul>` de grilla: el panel de filtros (S4b) sigue montado al
+    // lado, así que "ninguna tarjeta" se prueba por la ausencia de la
+    // lista, no por cero botones en toda la pantalla.
+    expect(screen.queryByRole("list")).not.toBeInTheDocument();
   });
 
   it("un fallo del servidor muestra el error fijo y ofrece reintentar", async () => {
@@ -164,6 +180,41 @@ describe("YarnsView — los tres estados (RFC-04 §4)", () => {
     expect(
       screen.getByText(`${CRUDA.brandName} · ${CRUDA.typeName} · ${CRUDA.colorName}`),
     ).toBeInTheDocument();
+  });
+
+  /**
+   * Prueba de cableado (tarea 5.6): elegir algo en `YarnFilterPanel` tiene
+   * que volver a pedir la lista con ese filtro en la URL — no sólo que el
+   * árbol dispare su propio callback, que ya cubren `YarnFilterPanel.test.tsx`
+   * y `YarnBrandTree.test.tsx` por su cuenta.
+   */
+  it("elegir una marca en el panel vuelve a pedir la lista con brandId (design D6)", async () => {
+    const BRAND = { id: "brand-1", userId: "u", name: "Malabrigo" };
+    fetchSpy.mockImplementation((url: string) => {
+      if (url === "/api/brands") {
+        return Promise.resolve(jsonResponse(200, { brands: [BRAND] }));
+      }
+      if (url === `/api/brands/${BRAND.id}/types`) {
+        return Promise.resolve(jsonResponse(200, { types: [] }));
+      }
+      return Promise.resolve(jsonResponse(200, { yarns: [CRUDA] }));
+    });
+
+    render(<YarnsView />);
+    await settle();
+    await screen.findByText(BRAND.name);
+
+    await userEvent.click(screen.getByText(BRAND.name));
+    await userEvent.click(
+      await screen.findByRole("radio", { name: "Toda la marca" }),
+    );
+
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledWith(
+        expect.stringContaining(`brandId=${BRAND.id}`),
+        expect.anything(),
+      );
+    });
   });
 
   it("no tiene violaciones de axe en ninguno de los tres estados", async () => {

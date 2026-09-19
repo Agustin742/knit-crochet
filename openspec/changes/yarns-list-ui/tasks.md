@@ -194,34 +194,34 @@ merges to `main`.
 
 ## Phase 5: S4b — yarn-filter-tree (PR 5, base: S4a branch, tip of tracker)
 
-- [ ] 5.1 RED: `src/features/yarns/ui/YarnBrandTree.test.tsx` — selecting a
+- [x] 5.1 RED: `src/features/yarns/ui/YarnBrandTree.test.tsx` — selecting a
       brand's "Toda la marca" radio sets `brandId` with no `typeId`;
       selecting a type sets both `brandId` and `typeId`; selecting "Todas
       las marcas" clears both; one radio group (`name="yarn-scope"`) spans
       the whole tree; a brand holding the active selection stays marked when
       its panel is closed; failed tree fetch degrades to a disabled panel,
       list stays populated.
-- [ ] 5.2 GREEN: create `src/features/yarns/ui/YarnBrandTree.tsx` — wraps
+- [x] 5.2 GREEN: create `src/features/yarns/ui/YarnBrandTree.tsx` — wraps
       `Disclosure` per brand; eager `GET /api/brands` then `Promise.all`
       over `GET /api/brands/:id/types` (design D7), one effect, filter
       independent.
-- [ ] 5.3 RED: `src/features/yarns/ui/ColorFamilyFilter.test.tsx` —
+- [x] 5.3 RED: `src/features/yarns/ui/ColorFamilyFilter.test.tsx` —
       `aria-pressed` swatch buttons, re-clicking the active one clears
       `colorFamily`; keyboard operable (Tab, Enter/Space); render smoke;
       `axe`.
-- [ ] 5.4 GREEN: create `src/features/yarns/ui/ColorFamilyFilter.tsx` — row
+- [x] 5.4 GREEN: create `src/features/yarns/ui/ColorFamilyFilter.tsx` — row
       of `Swatch` instances per `ColorFamily`, tinted via `yarnSwatchClass`.
-- [ ] 5.5 RED: `src/features/yarns/ui/YarnFilterPanel.test.tsx` — composes
+- [x] 5.5 RED: `src/features/yarns/ui/YarnFilterPanel.test.tsx` — composes
       tree + colour row; combined brand+type+colorFamily selections AND
       together against the list; full keyboard pass (Tab/Enter/Space only)
       reaches every brand, type, and swatch control.
-- [ ] 5.6 GREEN: create `src/features/yarns/ui/YarnFilterPanel.tsx`;
+- [x] 5.6 GREEN: create `src/features/yarns/ui/YarnFilterPanel.tsx`;
       wire into `YarnsView.tsx` — filter state stays React `useState`, not
       the URL (design D6); `yarns-client.ts` still builds
       `?brandId=&typeId=&colorFamily=` for the API call.
-- [ ] 5.7 Update `src/features/yarns/ui/yarns-ui.classes.test.ts` to cover
+- [x] 5.7 Update `src/features/yarns/ui/yarns-ui.classes.test.ts` to cover
       classes emitted by the new tree/colour-row components.
-- [ ] 5.8 Same commit — in `docs/design/rfc/RFC-04-lanas.md`, add
+- [x] 5.8 Same commit — in `docs/design/rfc/RFC-04-lanas.md`, add
       `## 7-bis. Enmienda E1` (Spanish, matching the RFC-03 amendment
       heading format `## 7-bis. Enmienda E1 — <title> (<date>)`) stating:
       §3's `GET /api/yarns` now returns `brandName`/`typeName` additively,
@@ -239,8 +239,15 @@ merges to `main`.
 > haber doble conmutación. **Compruébese con Enter Y con Espacio por separado**:
 > difieren en qué evento dispara la activación por defecto.
 
-- [ ] 5.9 Verify: `pnpm lint && pnpm typecheck && pnpm test && pnpm build`
-      green; browser keyboard-only pass over `/lanas` filters (Tab, Enter,
-      Space reach every brand/type/swatch control) — REGLA 4.
-- [ ] 5.10 Confirm all Success Criteria in `proposal.md` are met; this is
-      the tracker's final child PR.
+- [x] 5.9 Verify: `pnpm lint && pnpm typecheck && pnpm test && pnpm build`
+      green (real output in apply-progress). **Automated part done.**
+      Browser keyboard-only pass over `/lanas` filters — **OUTSTANDING**,
+      this executor has no browser tool; the orchestrator must run it
+      (REGLA 4), including the S4a-inherited `preventDefault` question above
+      and the discovery below that plain `Tab` alone does not reach an
+      unselected radio inside the tree — real browsers need `ArrowDown`/
+      `ArrowRight` there too, matching design D5-bis's own text.
+- [x] 5.10 Confirmed all Success Criteria in `proposal.md` — see
+      apply-progress for the literal per-criterion verdict. All met except
+      "keyboard-operable", which is met by RTL/axe evidence and pending only
+      the outstanding browser confirmation from 5.9.

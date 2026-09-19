@@ -7,6 +7,7 @@ import { Card, EmptyState, ErrorState, Skeleton } from "@/shared/ui";
 import { EMPTY_TITLE, ERROR_TITLE, RETRY_LABEL } from "./yarn-copy";
 import { getYarns } from "./yarns-client";
 import { YarnCard } from "./YarnCard";
+import { YarnFilterPanel } from "./YarnFilterPanel";
 import type { SerializedYarnListItem, YarnFilters } from "./types";
 
 export const PAGE_TITLE = "Lanas";
@@ -37,13 +38,13 @@ function requestKeyOf(filters: YarnFilters, reloadToken: number): string {
  * detalle del fallo, y `getYarns` ya lo tipa por si una vista futura lo
  * necesita.
  *
- * **`filters` nace vacío y sin control que lo cambie** (S4b lo conecta al
- * árbol marca→tipo y a la fila de swatches, design D6): existe ya para que
- * `requestKey` y la llamada a `getYarns` no tengan que reescribirse cuando
- * llegue el filtro.
+ * **`filters` es `useState`, nunca la URL** (design D6): `YarnFilterPanel`
+ * traduce el árbol marca→tipo y la fila de swatches a este único objeto, que
+ * sube por `setFilters` y de ahí a `requestKey` y a `getYarns` sin que
+ * ninguno de los dos necesite saber cómo se construyó.
  */
 export function YarnsView() {
-  const [filters] = useState<YarnFilters>({});
+  const [filters, setFilters] = useState<YarnFilters>({});
   const [reloadToken, setReloadToken] = useState(0);
   const [loaded, setLoaded] = useState<LoadedState | null>(null);
 
@@ -74,33 +75,42 @@ export function YarnsView() {
   const reload = useCallback(() => setReloadToken((token) => token + 1), []);
 
   return (
-    <div className="flex flex-col gap-(--space-6) p-(--space-6)">
-      <h1 className="font-display text-3xl leading-tight text-fg-inverse">
-        {PAGE_TITLE}
-      </h1>
+    <div className="flex flex-col gap-(--space-6) p-(--space-6) tablet:flex-row">
+      <div className="flex flex-col gap-(--space-4) tablet:w-64 tablet:shrink-0">
+        <h1 className="font-display text-3xl leading-tight text-fg-inverse">
+          {PAGE_TITLE}
+        </h1>
+        <YarnFilterPanel filters={filters} onFiltersChange={setFilters} />
+      </div>
 
-      <p role="status" aria-label={LOADING_REGION_LABEL} className="sr-only">
-        {loading ? LOADING_MESSAGE : ""}
-      </p>
+      <div className="flex flex-1 flex-col gap-(--space-4)">
+        <p role="status" aria-label={LOADING_REGION_LABEL} className="sr-only">
+          {loading ? LOADING_MESSAGE : ""}
+        </p>
 
-      {failed ? (
-        <ErrorState title={ERROR_TITLE} onRetry={reload} retryLabel={RETRY_LABEL} />
-      ) : yarns === null ? (
-        <YarnGridSkeleton />
-      ) : yarns.length === 0 ? (
-        <EmptyState title={EMPTY_TITLE} />
-      ) : (
-        <ul
-          aria-busy={loading}
-          className="grid grid-cols-1 gap-(--space-4) tablet:grid-cols-2 desktop:grid-cols-3"
-        >
-          {yarns.map((yarn) => (
-            <li key={yarn.id}>
-              <YarnCard yarn={yarn} />
-            </li>
-          ))}
-        </ul>
-      )}
+        {failed ? (
+          <ErrorState
+            title={ERROR_TITLE}
+            onRetry={reload}
+            retryLabel={RETRY_LABEL}
+          />
+        ) : yarns === null ? (
+          <YarnGridSkeleton />
+        ) : yarns.length === 0 ? (
+          <EmptyState title={EMPTY_TITLE} />
+        ) : (
+          <ul
+            aria-busy={loading}
+            className="grid grid-cols-1 gap-(--space-4) tablet:grid-cols-2 desktop:grid-cols-3"
+          >
+            {yarns.map((yarn) => (
+              <li key={yarn.id}>
+                <YarnCard yarn={yarn} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
