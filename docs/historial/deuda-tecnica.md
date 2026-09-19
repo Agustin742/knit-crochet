@@ -2556,7 +2556,29 @@ bloqueante **no era un bug de código**, era una frase que afirmaba que ese test
      borraron. **Bajo la moratoria no se abre**: la técnica ya está extraída en
      `shared/ui/testing/class-names-from-source.ts` y es un archivo cuando toque.
 
-171. **⚪ NO VERIFICADO por falta de datos, se declara en vez de darse por bueno:** el **contraste de los
+171. **🟡 VERIFICADO EL 2026-09-18 — la mitad del contraste ya no es sospecha, es medición.** Al cerrar
+     S3 de #23 se crearon 13 lanas de prueba (una por familia), se midió en navegador y se borraron.
+     **Resultado del contraste de los 13 swatches, relleno contra la superficie de la tarjeta
+     (`rgb(255,253,246)`):** Blanco **1.02**, Neutro **1.30**, Amarillo **1.89**, Naranja 3.08,
+     Rosa 3.13, Gris 3.67, Verde 4.83, Rojo 4.86, Azul 5.20, Violeta 5.43, y por encima Marrón, Negro
+     y Multicolor. Tres caen bajo el 3:1 que pide WCAG 1.4.11 para objetos gráficos.
+     **PERO no es un fallo de accesibilidad, y la razón importa:** los 13 llevan un borde de 1.6px a
+     **14.65:1** contra la tarjeta, que es justamente el límite perceptible que esa norma exige, y el
+     nombre del color va en texto al lado, así que nada se transmite sólo por color (WCAG 1.4.1). El
+     comentario original del `YarnSwatch` ya decía que el borde estaba puesto para que *"una lana
+     blanca o cruda siga teniendo silueta en vez de desaparecer"*: **funciona, y ahora está medido.**
+     **Confirmado además el sospechoso nombrado:** `--yarn-neutral` es `#eadfcb` y `--surface-sunken`
+     es `#eadfcb` — **literalmente el mismo color**. La consecuencia real no es invisibilidad (el
+     borde la evita) sino que **Blanco y Neutro no se distinguen entre sí por el relleno**: los dos se
+     leen como "círculo pálido con anillo oscuro". Quien tenga las dos lanas las diferencia por el
+     nombre, no por la muestra.
+     **Lo que sigue sin verificar** (no había datos para ello): la lana **multicolor** sobre otras
+     superficies, la **checklist con un patrón real** y el **buscador con inventario grande**.
+     **Cómo se salda del todo:** decidir si Blanco y Neutro merecen tokens distinguibles entre sí, y
+     medir los tres puntos que quedan cuando haya datos reales.
+
+     <!-- Ficha original, conservada porque la corrección cambia el estado, no la historia: -->
+171-bis (original). **⚪ NO VERIFICADO por falta de datos, se declara en vez de darse por bueno:** el **contraste de los
      13 swatches** de lana —con dos sospechosos nombrados: **`--yarn-neutral`, que es literalmente
      `--surface-sunken`**, y `--yarn-white`—, la lana **multicolor**, la **checklist con un patrón
      real** y el **buscador con inventario grande**. El inventario del usuario está **vacío** y el
@@ -2910,3 +2932,34 @@ borrada y el servidor reiniciado limpio: **`200 {"sessions":[]}`** y el tab func
      está ahí. No se salda con la 24 (el cajón de detalle) — esa no crea lanas.
      **Fichada por:** el gate del orquestador al cerrar S3; el ejecutor la declaró como desviación en
      su informe pero no la fichó, y una desviación que sólo vive en un informe no es una deuda.
+
+194. **🟠 El stock de la tarjeta de `/lanas` es un número pelado: dice "3" y no dice tres de qué.**
+     `YarnCard.tsx` renderiza `{yarn.quantity}` sin etiqueta, sin unidad y sin texto para lector de
+     pantalla. **Escenario de fallo:** un usuario ve bajo el nombre de la lana un "3" suelto en
+     monoespaciada y no puede saber si son ovillos, gramos, metros o vueltas — y cuando vuelva a la
+     misma pantalla dentro de una semana, tampoco. En lector de pantalla es peor: el nombre accesible
+     del botón de la tarjeta termina en *"…Multicolor, 3"*, sin nada que lo califique.
+     **Verificado en navegador el 2026-09-18** con 13 lanas de prueba: el `<span>` del stock no tiene
+     `aria-label`, ni texto oculto, ni nodo hermano que lo etiquete. `RFC-04 §2` pide *"stock
+     (`quantity`)"*: el valor está, la palabra que lo identifica no está en ningún lado.
+     **Cómo se salda:** etiquetarlo en la tarjeta (unidad visible, o texto sólo para lectores), sin
+     esperar a la entrada 24 — no depende del cajón de detalle.
+     **Fichada por:** el gate del orquestador en la verificación de navegador de S3 (REGLA 4). Ningún
+     test lo detectó porque todos afirman sobre el valor, no sobre si el valor está identificado.
+
+195. **⚪ El gate de clases compiladas ya dio forma al código de producción dos veces en la misma
+     feature.** En S2 obligó a crear `YarnColorSwatch` en `YarnsTab.tsx`; en S3 obligó a esto en
+     `YarnCard.tsx`: `const { value: swatchClass } = { value: yarnSwatchClass(yarn.colorFamily) };`
+     — envolver una llamada en un objeto literal para desestructurarla acto seguido, cuyo único
+     propósito es que el resolvedor vea un identificador plano en vez de una llamada externa.
+     **Escenario:** quien lea ese archivo sin conocer el gate va a leer una línea sin sentido
+     aparente, y o la "simplifica" —rompiendo el gate— o la copia por imitación a la próxima tarjeta.
+     La cobertura NO está en riesgo hoy (`yarn-swatch.classes.test.ts` verifica la salida compilada
+     de las 13 familias, que es más fuerte que el barrido de AST). Lo que está en riesgo es la
+     legibilidad.
+     **Es la deuda 142 otra vez, un escalón más abajo:** allá un gate dictó la *interfaz*; acá dicta
+     la *forma del código*. Dos veces seguidas ya no es un incidente, es un patrón.
+     **Bajo la moratoria NO se abre:** ningún usuario ve esto, sólo lo ve un agente editando código.
+     Se ficha y espera. **Cómo se saldaría:** enseñarle al resolvedor a seguir una función importada,
+     o aceptar explícitamente que ciertas clases se verifican por salida compilada y sacarlas del
+     barrido sin contorsionar el fuente.
