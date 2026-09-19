@@ -234,12 +234,14 @@ export function YarnsTab({
  * Composición local de `Swatch` + `yarnSwatchClass` (deuda 168 saldada), en
  * los dos sitios de uso de este tab.
  *
- * El envoltorio de una sola pieza no es cosmético: `projects-ui.classes.test.ts`
- * sigue los argumentos de una llamada a una función de otro archivo (pueden
- * ser clases), así que pasar `colorFamily` directo a `yarnSwatchClass` DENTRO
- * de un `className` dejaría ese identificador como fuente externa sin ancla.
- * Resuelto acá, fuera de cualquier `className`, el barrido sólo ve el
- * identificador plano de la desestructuración — igual que `inputClasses`.
+ * Existe porque el tab lo usa en dos sitios y el par muestra+clase viaja
+ * junto, no porque haga falta para pasar ningún gate.
+ *
+ * (Nació por lo segundo: el barrido de clases compiladas exigía que el motivo
+ * de un atributo sin resolver se llamara igual que la fuente externa, y un
+ * alias local rompía esa igualdad. Eso era un defecto del barrido, no de este
+ * archivo, y se arregló al saldar la deuda 195 — el motivo ahora se sigue
+ * hasta su causa. El envoltorio se queda por su propio mérito.)
  */
 function YarnColorSwatch({ colorFamily }: { colorFamily: ColorFamily }) {
   const { value: swatchClass } = { value: yarnSwatchClass(colorFamily) };

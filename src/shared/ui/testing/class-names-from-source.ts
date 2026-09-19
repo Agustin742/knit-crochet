@@ -434,6 +434,23 @@ export function extractClassNames(filePath: string): Extraction {
       }
       return returned;
     }
+    /* Acceso a propiedad (`yarn.colorFamily`, `styles.card`). El barrido no
+       entra en la forma del objeto —sería medio compilador—, así que se
+       denuncia la RAÍZ: si el objeto se declara en el archivo se sigue, y si
+       viene de fuera su nombre entra en `external` y la lista exacta obliga a
+       decidir. Nunca se devuelve vacío en silencio, que es como se colaba una
+       clase inerte en `styles.algo`. */
+    if (ts.isPropertyAccessExpression(node)) {
+      let root: ts.Node = node;
+      while (ts.isPropertyAccessExpression(root)) {
+        root = root.expression;
+      }
+      if (ts.isIdentifier(root)) {
+        return resolve(root, seen);
+      }
+      unhandled.add(ts.SyntaxKind[node.kind]);
+      return [];
+    }
     if (ts.isCallExpression(node)) {
       /* Método sobre algo (una unión de array, por ejemplo): las clases están en
          el receptor, y el receptor se resuelve como cualquier otra expresión —si
@@ -512,15 +529,47 @@ export function extractClassNames(filePath: string): Extraction {
           : undefined;
         /* El motivo se nombra por el identificador del que dependía —la
            referencia directa o la función llamada— para que el mensaje del rojo
-           diga QUÉ hay que decidir, y no sólo "una expresión". */
-        const named =
-          inner === undefined
-            ? undefined
-            : ts.isIdentifier(inner)
-              ? inner.text
-              : ts.isCallExpression(inner) && ts.isIdentifier(inner.expression)
-                ? inner.expression.text
-                : undefined;
+           diga QUÉ hay que decidir, y no sólo "una expresión".
+        
+           Un alias local NO es esa respuesta (deuda 195). Con
+           `const c = fnDeOtroArchivo(x)` y `className={c}`, nombrar el motivo
+           "c" decía dónde se usaba, no de qué dependía: `external` registraba
+           `fnDeOtroArchivo` y este conjunto registraba `c`, así que los dos
+           nombraban el mismo hecho distinto y la igualdad que afirma el gate
+           era imposible de satisfacer. Eso obligaba a contorsionar el FUENTE
+           —envolver la llamada para que el alias fuera el nombre externo— en
+           vez de arreglar el barrido. Ahora el alias se sigue hasta su causa. */
+        const reasonFor = (
+          expression: ts.Node | undefined,
+          seen: Set<string>,
+        ): string | undefined => {
+          if (expression === undefined) {
+            return undefined;
+          }
+          if (
+            ts.isCallExpression(expression) &&
+            ts.isIdentifier(expression.expression) &&
+            !locals.has(expression.expression.text)
+          ) {
+            return expression.expression.text;
+          }
+          if (ts.isIdentifier(expression)) {
+            /* Un ciclo de alias se nombra por donde se lo encontró, en vez de
+               colgar el barrido. */
+            if (seen.has(expression.text)) {
+              return expression.text;
+            }
+            seen.add(expression.text);
+            const declaration = locals.get(expression.text);
+            /* Sin declaración local, el nombre YA es el de fuera del archivo. */
+            if (declaration === undefined) {
+              return expression.text;
+            }
+            return reasonFor(declaration, seen) ?? expression.text;
+          }
+          return undefined;
+        };
+        const named = reasonFor(inner, new Set());
         emptyAttributes.push(named ?? ts.SyntaxKind[node.initializer.kind]);
       }
       for (const className of found) {

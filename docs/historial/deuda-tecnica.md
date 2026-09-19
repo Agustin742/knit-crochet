@@ -2932,8 +2932,24 @@ borrada y el servidor reiniciado limpio: **`200 {"sessions":[]}`** y el tab func
      está ahí. No se salda con la 24 (el cajón de detalle) — esa no crea lanas.
      **Fichada por:** el gate del orquestador al cerrar S3; el ejecutor la declaró como desviación en
      su informe pero no la fichó, y una desviación que sólo vive en un informe no es una deuda.
+     **BLOQUEADA, comprobado el 2026-09-18** al intentar saldarla junto con la 194 y la 195: no existe
+     **ni un solo `POST /api/yarns`** en toda la UI (`src/features/*/ui/` sólo hace `GET`). No es que
+     falte cablear un botón: **no hay nada a lo que cablearlo**. Poner uno que no abra nada repetiría
+     exactamente la deuda 192. Se salda con la entrada 25 y con ninguna otra.
 
-194. **🟠 El stock de la tarjeta de `/lanas` es un número pelado: dice "3" y no dice tres de qué.**
+194. ~~**🟠 El stock de la tarjeta de `/lanas` es un número pelado: dice "3" y no dice tres de qué.**~~
+     **SALDADA** (2026-09-18, mismo día que se fichó).
+     **Cómo se saldó:** el stock se renderiza con su unidad — `stockLabel()` en
+     `src/features/yarns/ui/yarn-copy.ts` devuelve "3 ovillos", "1 ovillo", "0 ovillos".
+     La unidad es **ovillos** porque el PRD-01 §4.5 lo dice literal: `quantity` es *"stock en
+     OVILLOS"*. Va como **texto visible** y no como etiqueta oculta a propósito: el problema no
+     era sólo de lectores de pantalla, el número suelto tampoco decía nada a quien mira.
+     **Dónde quedó la prueba:** `YarnCard.test.tsx`, tres tests nuevos — la unidad presente, la
+     concordancia en singular y en cero, y que el **nombre accesible del botón termine en el
+     stock identificado** (`toHaveAccessibleName(/3 ovillos$/)`). Ese último es el que faltaba:
+     el test viejo afirmaba `getByText("3")`, o sea sobre el VALOR, no sobre si el valor estaba
+     identificado — por eso el agujero pasó todos los gates.
+     **Ficha original:**
      `YarnCard.tsx` renderiza `{yarn.quantity}` sin etiqueta, sin unidad y sin texto para lector de
      pantalla. **Escenario de fallo:** un usuario ve bajo el nombre de la lana un "3" suelto en
      monoespaciada y no puede saber si son ovillos, gramos, metros o vueltas — y cuando vuelva a la
@@ -2947,7 +2963,32 @@ borrada y el servidor reiniciado limpio: **`200 {"sessions":[]}`** y el tab func
      **Fichada por:** el gate del orquestador en la verificación de navegador de S3 (REGLA 4). Ningún
      test lo detectó porque todos afirman sobre el valor, no sobre si el valor está identificado.
 
-195. **⚪ El gate de clases compiladas ya dio forma al código de producción dos veces en la misma
+195. ~~**⚪ El gate de clases compiladas ya dio forma al código de producción dos veces en la misma
+     feature.**~~ **SALDADA** (2026-09-18) — y el defecto estaba en el barrido, no en el código.
+     **La causa raíz:** `class-names-from-source.ts` nombraba el motivo de un atributo sin
+     resolver por el **alias local** (`swatchClass`) mientras registraba la dependencia por la
+     **función** (`yarnSwatchClass`). Los tests exigían que esos dos conjuntos fueran
+     **idénticos**, cosa imposible en cuanto hay una llamada de por medio. Por eso había que
+     contorsionar el fuente hasta que ambos nombraran lo mismo.
+     **Cómo se saldó, tres cambios:**
+     1. El motivo ahora **se sigue hasta su causa**: un alias local se resuelve hasta la función
+        externa de la que depende, con guarda de ciclo. Es además lo que el propio comentario
+        del barrido decía querer (*"que el rojo diga QUÉ hay que decidir"*) — un alias decía
+        dónde se usaba, no de qué dependía.
+     2. El barrido **ya entiende el acceso a propiedad** (`yarn.colorFamily`, `styles.card`):
+        denuncia la raíz en vez de caer en `unhandled`. Agujero preexistente que este trabajo
+        destapó: una clase en `styles.algo` se colaba sin comprobar.
+     3. La afirmación sobre los motivos pasó de **igualdad** a **pertenencia**. `external`
+        SIGUE comparándose exacto —esa es la garantía que importa: una fuente nueva pone el
+        gate en rojo— pero los motivos sólo tienen que estar aprobados. Los dos conjuntos miden
+        cosas distintas y exigirles igualdad era el error.
+     **Efecto en el código:** `YarnCard.tsx` recupera `const swatchClass = yarnSwatchClass(...)`
+     en vez del objeto literal desestructurado. `YarnColorSwatch` en `YarnsTab.tsx` **se queda**,
+     porque componer dos sitios de uso es mérito propio, pero su comentario ya no miente sobre
+     por qué existe.
+     **Dónde quedó la prueba:** los 5 gates de clases del repo en verde (77 tests) —
+     `yarns`, `projects`, `dashboard`, `app-shell`, `bottom-nav`.
+     **Ficha original:**
      feature.** En S2 obligó a crear `YarnColorSwatch` en `YarnsTab.tsx`; en S3 obligó a esto en
      `YarnCard.tsx`: `const { value: swatchClass } = { value: yarnSwatchClass(yarn.colorFamily) };`
      — envolver una llamada en un objeto literal para desestructurarla acto seguido, cuyo único

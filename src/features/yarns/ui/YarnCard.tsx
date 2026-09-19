@@ -1,6 +1,7 @@
 import { yarnSwatchClass } from "@/shared/config";
 import { Card, Swatch } from "@/shared/ui";
 
+import { stockLabel } from "./yarn-copy";
 import type { SerializedYarnListItem } from "./types";
 
 export interface YarnCardProps {
@@ -29,10 +30,7 @@ function noOpTap(): void {
  * llegaron con S2.
  */
 export function YarnCard({ yarn, className }: YarnCardProps) {
-  /* Resolución FUERA del atributo de clase, igual que `YarnColorSwatch` en
-     `YarnsTab.tsx`: el resolvedor del gate de CSS compilado sigue una llamada
-     externa como identificador plano, no como propiedad de una llamada. */
-  const { value: swatchClass } = { value: yarnSwatchClass(yarn.colorFamily) };
+  const swatchClass = yarnSwatchClass(yarn.colorFamily);
 
   return (
     <Card className={className}>
@@ -47,7 +45,7 @@ export function YarnCard({ yarn, className }: YarnCardProps) {
             {yarnCardLabel(yarn)}
           </span>
           <span className="font-mono text-sm leading-base text-fg-muted">
-            {yarn.quantity}
+            {stockLabel(yarn.quantity)}
           </span>
         </span>
       </button>

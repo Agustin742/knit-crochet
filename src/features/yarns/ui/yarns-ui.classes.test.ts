@@ -26,12 +26,20 @@ const COMPONENTS = ["YarnCard.tsx", "YarnsView.tsx"];
  * del archivo:
  *
  * - `className` — la prop que `YarnCard` recibe de quien la monta.
- * - `swatchClass` (deuda 168/170, #23) — `YarnCard` compone `Swatch` +
+ * - `yarnSwatchClass` (deuda 168, #23) — devuelve la clase de la familia de
+ *   color desde `shared/config`. Su cobertura real la mide
+ *   `yarn-swatch.classes.test.ts` contra el CSS compilado, que es más fuerte
+ *   que este barrido: recorre las 13 familias y exige que cada clase emita una
+ *   regla de verdad.
+ * - `yarn` (deuda 195) — el argumento de esa llamada (`yarn.colorFamily`) es un
+ *   dato que viene por props, no una fuente de clases. Se declara igual porque
+ *   el barrido denuncia la raíz de todo acceso a propiedad en vez de ignorarla.
+ * - (histórico) `swatchClass` — `YarnCard` componía `Swatch` +
  *   `yarnSwatchClass` (`shared/config`) fuera de cualquier `className`, igual
  *   que `YarnColorSwatch` en `YarnsTab.tsx`; su cobertura real la mide
  *   `yarn-swatch.classes.test.ts`, no este barrido.
  */
-const EXTERNAL_SOURCES = ["className", "swatchClass"];
+const EXTERNAL_SOURCES = ["className", "yarn", "yarnSwatchClass"];
 
 function componentPath(fileName: string): string {
   return fileURLToPath(new URL(`./${fileName}`, import.meta.url));
@@ -103,7 +111,20 @@ describe("el barrido de clases de /lanas no se deja nada", () => {
     }
 
     expect([...external].sort()).toEqual([...EXTERNAL_SOURCES].sort());
-    expect([...new Set(empty)].sort()).toEqual([...EXTERNAL_SOURCES].sort());
+    /* `external` se compara EXACTO: una fuente nueva que el barrido no sepa
+       seguir pone el gate en rojo hasta que alguien decida qué hacer con ella.
+       Esa garantía no se toca.
+
+       Los motivos de los atributos vacíos, en cambio, se comprueban por
+       PERTENENCIA y no por igualdad (deuda 195). Los dos conjuntos miden cosas
+       distintas —uno junta TODOS los puntos externos del archivo, el otro UN
+       motivo por atributo sin resolver—, así que coinciden sólo en el caso más
+       simple. Exigirles igualdad obligaba a contorsionar el FUENTE hasta que
+       ambos nombraran lo mismo. Lo que de verdad hay que garantizar es que
+       ningún atributo quede vacío por un motivo NO aprobado: */
+    for (const reason of new Set(empty)) {
+      expect(EXTERNAL_SOURCES, `motivo sin aprobar: ${reason}`).toContain(reason);
+    }
   });
 });
 

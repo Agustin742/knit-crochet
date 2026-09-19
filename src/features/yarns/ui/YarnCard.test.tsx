@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 import { axe } from "vitest-axe";
 
+import { stockLabel } from "./yarn-copy";
 import { YarnCard } from "./YarnCard";
 import type { SerializedYarnListItem } from "./types";
 
@@ -38,7 +39,37 @@ describe("YarnCard", () => {
     expect(
       screen.getByText(`${CRUDA.brandName} · ${CRUDA.typeName} · ${CRUDA.colorName}`),
     ).toBeInTheDocument();
-    expect(screen.getByText(String(CRUDA.quantity))).toBeInTheDocument();
+    expect(screen.getByText(stockLabel(CRUDA.quantity))).toBeInTheDocument();
+  });
+
+  /**
+   * Deuda 194: el stock se renderizaba como un número pelado —"3"—, así que ni
+   * en pantalla ni en el nombre accesible del control había nada que dijera
+   * TRES DE QUÉ. El test viejo afirmaba sobre el valor, no sobre si el valor
+   * estaba identificado, y por eso no lo vio. La unidad es **ovillos**
+   * (PRD-01 §4.5: `quantity` es "stock en OVILLOS").
+   */
+  it("identifica el stock con su unidad, no lo deja como un número suelto", () => {
+    render(<YarnCard yarn={CRUDA} />);
+
+    expect(screen.getByText("3 ovillos")).toBeInTheDocument();
+    expect(screen.queryByText("3")).not.toBeInTheDocument();
+  });
+
+  it("concuerda la unidad en singular y en cero", () => {
+    render(<YarnCard yarn={{ ...CRUDA, quantity: 1 }} />);
+    expect(screen.getByText("1 ovillo")).toBeInTheDocument();
+    cleanup();
+
+    render(<YarnCard yarn={{ ...CRUDA, quantity: 0 }} />);
+    expect(screen.getByText("0 ovillos")).toBeInTheDocument();
+  });
+
+  it("el nombre accesible del control termina en el stock identificado", () => {
+    render(<YarnCard yarn={CRUDA} />);
+
+    const control = screen.getByRole("button");
+    expect(control).toHaveAccessibleName(/3 ovillos$/);
   });
 
   it("monta exactamente un control, y ninguno más", () => {
