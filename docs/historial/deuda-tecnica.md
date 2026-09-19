@@ -3079,5 +3079,11 @@ borrada y el servidor reiniciado limpio: **`200 {"sessions":[]}`** y el tab func
      **Por qué se monta igual:** es el criterio que el usuario ya fijó para el tap de la tarjeta
      (deuda 192) y que RFC-03 E1(f) había establecido antes — un control real desde el día uno, nunca
      un `div` decorado esperando, para que la entrega siguiente sólo tenga que cablearlo.
-     **Cómo se salda:** cuando entre la 25, el mismo botón pasa de su no-op a abrir el modal.
-     Registrado también como RFC-04 §7-ter, enmienda **E2(b)**.
+     **Jerarquía corregida en la verificación de navegador (2026-09-20):** el botón salió como
+     `variant="primary"` y medía **627px de ancho** —el control más grande del cajón, contra 100px
+     del siguiente— en rosa lleno. Aceptar un control muerto no es aceptar que sea la llamada a la
+     acción más prominente del panel, así que pasa a `secondary` mientras no haga nada. **El
+     control sigue montado, real y alcanzable por teclado**: lo que se bajó es su peso visual, no
+     su existencia.
+     **Cómo se salda:** cuando entre la 25, el mismo botón pasa de su no-op a abrir el modal, y
+     ahí recupera `primary`. Registrado también como RFC-04 §7-ter, enmienda **E2(b)**.

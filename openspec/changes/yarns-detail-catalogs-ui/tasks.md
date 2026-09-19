@@ -50,7 +50,7 @@ Chain strategy: feature-branch-chain
 - [x] 1.18 `yarns-ui.classes.test.ts` — add `YarnDetailDrawer.tsx` entry.
 - [x] 1.19 Docs: `RFC-04-lanas.md` — add `## 7-ter. Enmienda E2` (between §7-bis and §8) with **E2(a)** (Stepper genérico, piso 0 sin techo) and **E2(b)** («Editar» no-op), Spanish, matching E1's heading format. Attribute to this SDD change — never to `leader`.
 - [x] 1.20 Docs: `deuda-tecnica.md` — strike `192` with `~~…~~`, add **Cómo se saldó** / **Dónde quedó la prueba** underneath (Spanish, cite `YarnCard.tsx`/`YarnsView.tsx` + the RTL test). File new debt **199** (next free number after 198, never recycled) at 🟠, Spanish, for the drawer's «Editar» no-op. Leave 193 untouched.
-- [ ] 1.21 Browser verification (REGLA 4): orchestrator opens `/lanas`, taps a card, exercises the stepper round trip, checks focus return — no gate measures this.
+- [x] 1.21 Browser verification (REGLA 4): orchestrator opens `/lanas`, taps a card, exercises the stepper round trip, checks focus return — no gate measures this.
 
 ## Phase 2: S2a `catalog-read-create`
 

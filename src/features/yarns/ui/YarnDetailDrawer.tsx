@@ -141,7 +141,14 @@ export function YarnDetailDrawer({
           )}
         </div>
 
-        <Button variant="primary" onClick={() => onEdit?.()}>
+        {/* `secondary` y no `primary` mientras el manejador sea un no-op
+            (deuda 199, con la medición del navegador anotada allí): como
+            primario era el control más ancho del cajón con diferencia, o sea
+            la llamada a la acción más prominente del panel era la única que no
+            hacía nada. El control se monta igual, real y alcanzable por
+            teclado; lo que no corresponde todavía es su jerarquía. La entrada
+            25 lo sube a `primary` cuando lo cablee. */}
+        <Button variant="secondary" onClick={() => onEdit?.()}>
           {EDIT_YARN_LABEL}
         </Button>
       </div>
