@@ -83,6 +83,25 @@ todavía cuando se implementa #23. Igual que #20 con su propia card (RFC-03, E1(
 un control real y alcanzable por teclado cuyo tap es un no-op documentado (deuda 192), no un `div`
 decorado a la espera del drawer.
 
+## 7-ter. Enmienda E2 — el detalle de una lana, y dónde vive el catálogo (2026-09-20)
+
+> Registrada al cerrar las rebanadas del cambio SDD `yarns-detail-catalogs-ui` (entrada 24 del backlog
+> de UI). Las letras se escriben **en el orden en que entran las rebanadas**, no agrupadas por tema,
+> para que este documento nunca describa código que todavía no existe. El detalle por rebanada está en
+> `openspec/changes/yarns-detail-catalogs-ui/`.
+
+### E2(a) — el stepper de `usedQuantity` es un primitivo genérico, no una pieza de lanas
+
+§2 pide «stepper de `usedQuantity`» en el cajón de detalle. Se resuelve con un primitivo `Stepper` del
+design system: controlado, sin estado propio y sin saber qué cuenta. **Controlado a propósito:** un
+valor que se persiste en el servidor no puede tener una segunda fuente de verdad, porque un `PATCH`
+rechazado dejaría el número mostrando algo que nunca se guardó. El `Disclosure` sí puede ser dual,
+porque abierto/cerrado es efímero; esto no.
+
+El piso en `0` y la **ausencia de techo** son decisión de quien lo consume, no del primitivo: salen de
+que el PRD-01 §4.5 define `usedQuantity` como **independiente** de `quantity` —enlazar una lana a un
+proyecto no descuenta stock—, así que el consumo no tiene tope contra el inventario.
+
 ## 8. Slices de implementación (→ backlog de UI)
 
 IDs reales en la tabla de [RFC-00 §4](RFC-00-proceso.md); las entradas que siguen abiertas están en `docs/product/backlog-ui.md`:
