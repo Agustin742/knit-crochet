@@ -2,6 +2,7 @@ export * from "./button";
 export * from "./card";
 export * from "./confirm-dialog";
 export * from "./dialog";
+export * from "./disclosure";
 export * from "./field";
 export * from "./file-input";
 export * from "./progress-bar";

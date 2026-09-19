@@ -34,6 +34,13 @@ const PRIMITIVES = [
   "DIALOG_PLACEMENTS",
   "DIALOG_SIZES",
   "Dialog",
+  // Design D5 de #23 (deuda 142): el envoltorio de `<details>`/`<summary>`
+  // nativos que la marca→tipo del filtro de lanas necesita repetir una vez
+  // por marca. Confirmado sobre un `role="tree"` a mano — la tabulación
+  // rotativa de un treeview APG saca los controles de tipo de la secuencia de
+  // tabulación, que es peor acceso por teclado, no mejor.
+  "DISCLOSURE_SIZES",
+  "Disclosure",
   // Enmienda E6(c) del RFC-03: elegir un archivo es genérico y sube al design
   // system; SUBIRLO depende de la configuración de la app y se queda en la
   // feature (frontera de la deuda 168).
@@ -75,6 +82,7 @@ const PRIMITIVES = [
   "buttonVariants",
   "cardVariants",
   "clampProgress",
+  "disclosureVariants",
   "inputClasses",
   "swatchVariants",
 ];

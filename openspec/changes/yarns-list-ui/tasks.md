@@ -165,28 +165,32 @@ merges to `main`.
 
 ## Phase 4: S4a — disclosure-primitive (PR 4, base: S3 branch)
 
-- [ ] 4.1 RED: `src/shared/ui/primitives/disclosure/Disclosure.test.tsx` —
+- [x] 4.1 RED: `src/shared/ui/primitives/disclosure/Disclosure.test.tsx` —
       Enter/Space on `<summary>` toggles open state; `onOpenChange` fires;
       a closed panel holds no Tab stop; `open`/`defaultOpen` controlled vs.
-      uncontrolled; render smoke; `axe`.
-- [ ] 4.2 GREEN: create
+      uncontrolled; render smoke; `axe`. Also
+      `Disclosure.boundary.test.ts` (portability boundary, Node env, mirrors
+      `Swatch.boundary.test.ts`). Both written first and confirmed failing
+      (missing module) before any production code.
+- [x] 4.2 GREEN: create
       `src/shared/ui/primitives/disclosure/{Disclosure.tsx,
       disclosure.variants.ts, index.ts}` per design D5 — native
       `<details>`/`<summary>` wrapper, `"use client"` (forwards a toggle
       event), `size: "sm" | "md"`, focus ring from `--focus`, hit area
       `--touch-target`.
-- [ ] 4.3 Same commit as 4.2 — a test asserting the primitive's own
+- [x] 4.3 Same commit as 4.2 — a test asserting the primitive's own
       `<summary>` styling never applies `text-fg-inverse` on a `raised`
       surface (inherited contrast constraint from RFC-03 E2(b),
       `RFC-03-proyectos.md:275-278`: crema on `raised` measured 1.14:1); if
       the primitive ships a default surface-aware style, it MUST resolve to
       `text-fg` — write this as an explicit assertion, not a comment (trap
       #5).
-- [ ] 4.4 Update `src/shared/ui/primitives/index.ts` and
+- [x] 4.4 Update `src/shared/ui/primitives/index.ts` and
       `src/shared/ui/public-api.test.ts` to anchor `Disclosure` (and
       `disclosureVariants` if exported) in this same commit (trap #2).
-- [ ] 4.5 Verify: `pnpm lint && pnpm typecheck && pnpm test && pnpm build`
-      green for this slice.
+- [x] 4.5 Verify: `pnpm lint && pnpm typecheck && pnpm test && pnpm build`
+      green for this slice. **Done, real output recorded in
+      apply-progress.**
 
 ## Phase 5: S4b — yarn-filter-tree (PR 5, base: S4a branch, tip of tracker)
 
@@ -225,6 +229,16 @@ merges to `main`.
       generic `Swatch` at card size tinted by the app-side colour-family
       map, not a new asset; in entry 23 the card's tap is a no-op until
       entry 24 ships the drawer.
+> **Pendiente heredado de S4a, verificar en el pase de teclado de 5.9:** el
+> `<summary>` de `Disclosure` lleva un `onKeyDown` propio que llama a
+> `preventDefault()` para cancelar la activación nativa. No se pudo comprobar en
+> navegador (la inyección de teclas no llegó a la página: cero eventos `keydown`
+> observados, o sea fallo de herramienta, no hallazgo). Razonando sobre el
+> código los dos caminos convergen en el mismo valor —el handler pone
+> `!resolvedOpen` y `onToggle` sincroniza desde el DOM—, así que no debería
+> haber doble conmutación. **Compruébese con Enter Y con Espacio por separado**:
+> difieren en qué evento dispara la activación por defecto.
+
 - [ ] 5.9 Verify: `pnpm lint && pnpm typecheck && pnpm test && pnpm build`
       green; browser keyboard-only pass over `/lanas` filters (Tab, Enter,
       Space reach every brand/type/swatch control) — REGLA 4.
