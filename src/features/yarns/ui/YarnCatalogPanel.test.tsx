@@ -1,18 +1,21 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
 
 import {
+  CATALOG_ADD_TYPE_TRIGGER_LABEL,
   CATALOG_BRAND_NAME_LABEL,
   CATALOG_CREATE_BRAND_LABEL,
   CATALOG_CREATE_TYPE_LABEL,
   CATALOG_EMPTY_MESSAGE,
   CATALOG_LOAD_ERROR,
+  CATALOG_NEW_BRAND_TRIGGER_LABEL,
   CATALOG_SECTION_LABEL,
   CATALOG_TYPE_NAME_LABEL,
   RETRY_LABEL,
+  catalogCreateTypeModalTitle,
 } from "./yarn-copy";
 import { YarnCatalogPanel } from "./YarnCatalogPanel";
 
@@ -99,7 +102,7 @@ describe("YarnCatalogPanel — estados de carga (SDD-01 §9)", () => {
     expect(await screen.findByText(BRAND_A.name)).toBeInTheDocument();
   });
 
-  it("empty muestra el mensaje propio Y sigue montando el formulario de creación", async () => {
+  it("empty muestra el mensaje propio, y el botón de alta sigue disponible fuera del acordeón", async () => {
     fetchSpy.mockImplementation(emptyFetch);
 
     render(<YarnCatalogPanel />);
@@ -107,10 +110,7 @@ describe("YarnCatalogPanel — estados de carga (SDD-01 §9)", () => {
 
     expect(await screen.findByText(CATALOG_EMPTY_MESSAGE)).toBeInTheDocument();
     expect(
-      screen.getByRole("textbox", { name: CATALOG_BRAND_NAME_LABEL }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: CATALOG_CREATE_BRAND_LABEL }),
+      screen.getByRole("button", { name: CATALOG_NEW_BRAND_TRIGGER_LABEL }),
     ).toBeInTheDocument();
   });
 
@@ -124,8 +124,48 @@ describe("YarnCatalogPanel — estados de carga (SDD-01 §9)", () => {
   });
 });
 
-describe("YarnCatalogPanel — crear marca (design D4)", () => {
-  it("un 201 agrega la marca a la lista, limpia el campo y avisa una vez", async () => {
+describe("YarnCatalogPanel — el alta sale del acordeón a un modal (2026-09-20)", () => {
+  it("el botón para crear una marca está visible sin desplegar «Catálogos»", () => {
+    render(<YarnCatalogPanel />);
+
+    expect(
+      screen.getByRole("button", { name: CATALOG_NEW_BRAND_TRIGGER_LABEL }),
+    ).toBeVisible();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(
+      screen.queryByRole("textbox", { name: CATALOG_BRAND_NAME_LABEL }),
+    ).toBeNull();
+  });
+
+  it("abrirlo abre un modal con el campo de nombre enfocado", async () => {
+    render(<YarnCatalogPanel />);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: CATALOG_NEW_BRAND_TRIGGER_LABEL }),
+    );
+
+    const modal = screen.getByRole("dialog");
+    const input = within(modal).getByRole("textbox", {
+      name: CATALOG_BRAND_NAME_LABEL,
+    });
+    await waitFor(() => {
+      expect(input).toHaveFocus();
+    });
+  });
+
+  it("el acordeón «Catálogos» ya no monta ningún campo de alta", async () => {
+    render(<YarnCatalogPanel />);
+    await openPanel();
+    await screen.findByText(BRAND_A.name);
+
+    expect(
+      screen.queryByRole("textbox", { name: CATALOG_BRAND_NAME_LABEL }),
+    ).toBeNull();
+  });
+});
+
+describe("YarnCatalogPanel — crear marca desde el modal (design D4)", () => {
+  it("un 201 agrega la marca a la lista, cierra el modal, limpia el campo y avisa una vez", async () => {
     const onCatalogChange = vi.fn();
     fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
       if (url === "/api/brands" && init?.method === "POST") {
@@ -135,8 +175,9 @@ describe("YarnCatalogPanel — crear marca (design D4)", () => {
     });
 
     render(<YarnCatalogPanel onCatalogChange={onCatalogChange} />);
-    await openPanel();
-    await screen.findByText(BRAND_A.name);
+    await userEvent.click(
+      screen.getByRole("button", { name: CATALOG_NEW_BRAND_TRIGGER_LABEL }),
+    );
 
     const input = screen.getByRole("textbox", { name: CATALOG_BRAND_NAME_LABEL });
     await userEvent.type(input, NEW_BRAND.name);
@@ -144,12 +185,24 @@ describe("YarnCatalogPanel — crear marca (design D4)", () => {
       screen.getByRole("button", { name: CATALOG_CREATE_BRAND_LABEL }),
     );
 
-    expect(await screen.findByText(NEW_BRAND.name)).toBeInTheDocument();
-    expect(input).toHaveValue("");
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
     expect(onCatalogChange).toHaveBeenCalledTimes(1);
+
+    await openPanel();
+    expect(await screen.findByText(NEW_BRAND.name)).toBeInTheDocument();
+
+    // Reabrir el modal confirma que el campo no arrastró lo anterior.
+    await userEvent.click(
+      screen.getByRole("button", { name: CATALOG_NEW_BRAND_TRIGGER_LABEL }),
+    );
+    expect(
+      screen.getByRole("textbox", { name: CATALOG_BRAND_NAME_LABEL }),
+    ).toHaveValue("");
   });
 
-  it("un 400 muestra el error, no agrega nada y no avisa", async () => {
+  it("un 400 muestra el error dentro del modal, que sigue abierto, y no avisa", async () => {
     const onCatalogChange = vi.fn();
     fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
       if (url === "/api/brands" && init?.method === "POST") {
@@ -159,8 +212,9 @@ describe("YarnCatalogPanel — crear marca (design D4)", () => {
     });
 
     render(<YarnCatalogPanel onCatalogChange={onCatalogChange} />);
-    await openPanel();
-    await screen.findByText(BRAND_A.name);
+    await userEvent.click(
+      screen.getByRole("button", { name: CATALOG_NEW_BRAND_TRIGGER_LABEL }),
+    );
 
     const input = screen.getByRole("textbox", { name: CATALOG_BRAND_NAME_LABEL });
     await userEvent.type(input, "x");
@@ -169,13 +223,43 @@ describe("YarnCatalogPanel — crear marca (design D4)", () => {
     );
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.queryByText(NEW_BRAND.name)).toBeNull();
     expect(onCatalogChange).not.toHaveBeenCalled();
   });
 });
 
-describe("YarnCatalogPanel — crear tipo bajo una marca (design D4)", () => {
-  it("un 201 agrega el tipo al panel anidado de esa marca y avisa una vez", async () => {
+describe("YarnCatalogPanel — crear tipo: un modal por marca (design D4, 2026-09-20)", () => {
+  it("cada marca listada ofrece un control que abre SU propio modal", async () => {
+    render(<YarnCatalogPanel />);
+    await openPanel();
+    await screen.findByText(BRAND_A.name);
+    await userEvent.click(screen.getByText(BRAND_A.name));
+    await screen.findByText(TYPE_A1.name);
+
+    const brandPanel = screen.getByRole("group", { name: BRAND_A.name });
+    expect(
+      within(brandPanel).queryByRole("textbox", { name: CATALOG_TYPE_NAME_LABEL }),
+    ).toBeNull();
+
+    await userEvent.click(
+      within(brandPanel).getByRole("button", {
+        name: CATALOG_ADD_TYPE_TRIGGER_LABEL,
+      }),
+    );
+
+    const modal = screen.getByRole("dialog");
+    expect(
+      within(modal).getByRole("heading", {
+        name: catalogCreateTypeModalTitle(BRAND_A.name),
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(modal).getByRole("textbox", { name: CATALOG_TYPE_NAME_LABEL }),
+    ).toBeInTheDocument();
+  });
+
+  it("un 201 agrega el tipo al panel anidado de esa marca, cierra el modal y avisa una vez", async () => {
     const onCatalogChange = vi.fn();
     fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
       if (url === `/api/brands/${BRAND_A.id}/types` && init?.method === "POST") {
@@ -191,19 +275,26 @@ describe("YarnCatalogPanel — crear tipo bajo una marca (design D4)", () => {
     await screen.findByText(TYPE_A1.name);
 
     const brandPanel = screen.getByRole("group", { name: BRAND_A.name });
-    const input = within(brandPanel).getByRole("textbox", {
-      name: CATALOG_TYPE_NAME_LABEL,
-    });
-    await userEvent.type(input, NEW_TYPE.name);
     await userEvent.click(
-      within(brandPanel).getByRole("button", { name: CATALOG_CREATE_TYPE_LABEL }),
+      within(brandPanel).getByRole("button", {
+        name: CATALOG_ADD_TYPE_TRIGGER_LABEL,
+      }),
     );
 
-    expect(await within(brandPanel).findByText(NEW_TYPE.name)).toBeInTheDocument();
+    const input = screen.getByRole("textbox", { name: CATALOG_TYPE_NAME_LABEL });
+    await userEvent.type(input, NEW_TYPE.name);
+    await userEvent.click(
+      screen.getByRole("button", { name: CATALOG_CREATE_TYPE_LABEL }),
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
     expect(onCatalogChange).toHaveBeenCalledTimes(1);
+    expect(await within(brandPanel).findByText(NEW_TYPE.name)).toBeInTheDocument();
   });
 
-  it("un 404 (marca borrada por otro) muestra el error y no avisa", async () => {
+  it("un 404 (marca borrada por otro) muestra el error dentro del modal y no avisa", async () => {
     const onCatalogChange = vi.fn();
     fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
       if (url === `/api/brands/${BRAND_A.id}/types` && init?.method === "POST") {
@@ -219,15 +310,20 @@ describe("YarnCatalogPanel — crear tipo bajo una marca (design D4)", () => {
     await screen.findByText(TYPE_A1.name);
 
     const brandPanel = screen.getByRole("group", { name: BRAND_A.name });
-    const input = within(brandPanel).getByRole("textbox", {
-      name: CATALOG_TYPE_NAME_LABEL,
-    });
-    await userEvent.type(input, "Sock");
     await userEvent.click(
-      within(brandPanel).getByRole("button", { name: CATALOG_CREATE_TYPE_LABEL }),
+      within(brandPanel).getByRole("button", {
+        name: CATALOG_ADD_TYPE_TRIGGER_LABEL,
+      }),
     );
 
-    expect(await within(brandPanel).findByRole("alert")).toBeInTheDocument();
+    const input = screen.getByRole("textbox", { name: CATALOG_TYPE_NAME_LABEL });
+    await userEvent.type(input, "Sock");
+    await userEvent.click(
+      screen.getByRole("button", { name: CATALOG_CREATE_TYPE_LABEL }),
+    );
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(onCatalogChange).not.toHaveBeenCalled();
   });
 });
@@ -239,5 +335,14 @@ describe("YarnCatalogPanel — accesibilidad", () => {
     await screen.findByText(BRAND_A.name);
 
     expect(await axe(container)).toHaveNoViolations();
+  });
+
+  it("no tiene violaciones de axe con el modal de alta de marca abierto", async () => {
+    const { baseElement } = render(<YarnCatalogPanel />);
+    await userEvent.click(
+      screen.getByRole("button", { name: CATALOG_NEW_BRAND_TRIGGER_LABEL }),
+    );
+
+    expect(await axe(baseElement)).toHaveNoViolations();
   });
 });

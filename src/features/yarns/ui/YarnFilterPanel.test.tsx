@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
@@ -250,7 +250,10 @@ describe("YarnFilterPanel — monta el panel de catálogo dentro del mismo Card 
       />,
     );
     await screen.findByText(BRAND.name);
-    await userEvent.click(screen.getByText("Catálogos"));
+
+    /* El alta de marca vive en un modal, alcanzable sin desplegar «Catálogos»
+       (RFC-04 §7-ter E2(d), 2026-09-20). */
+    await userEvent.click(screen.getByRole("button", { name: "Nueva marca" }));
 
     const input = await screen.findByRole("textbox", {
       name: "Nombre de la marca",
@@ -258,7 +261,12 @@ describe("YarnFilterPanel — monta el panel de catálogo dentro del mismo Card 
     await userEvent.type(input, "Cascada");
     await userEvent.click(screen.getByRole("button", { name: "Crear marca" }));
 
-    await screen.findByText("Cascada");
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
     expect(onCatalogChange).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(screen.getByText("Catálogos"));
+    await screen.findByText("Cascada");
   });
 });

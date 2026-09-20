@@ -330,14 +330,24 @@ describe("YarnsView — los tres estados (RFC-04 §4)", () => {
     await screen.findByText(BRAND.name);
     const callsBeforeCreate = brandsGetCalls;
 
-    await userEvent.click(screen.getByText("Catálogos"));
+    /* El alta de marca vive en un modal, alcanzable sin desplegar «Catálogos»
+       (RFC-04 §7-ter E2(d), 2026-09-20). */
+    await userEvent.click(screen.getByRole("button", { name: "Nueva marca" }));
     const input = await screen.findByRole("textbox", {
       name: "Nombre de la marca",
     });
     await userEvent.type(input, NEW_BRAND.name);
     await userEvent.click(screen.getByRole("button", { name: "Crear marca" }));
 
-    await screen.findAllByText(NEW_BRAND.name);
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    /* La marca nueva vive en memoria dentro del panel de catálogo, que
+       recién la muestra al desplegar «Catálogos» (el `Disclosure` sólo monta
+       su panel abierto). */
+    await userEvent.click(screen.getByText("Catálogos"));
+    await screen.findByText(NEW_BRAND.name);
     await waitFor(() => {
       expect(brandsGetCalls).toBeGreaterThan(callsBeforeCreate);
     });

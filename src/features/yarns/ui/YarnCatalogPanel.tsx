@@ -1,8 +1,8 @@
 "use client";
 
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, type RefObject, useEffect, useRef, useState } from "react";
 
-import { Button, Disclosure, Field, Input, Skeleton } from "@/shared/ui";
+import { Button, Dialog, Disclosure, Field, Input, Skeleton } from "@/shared/ui";
 
 import {
   type BrandTreeEntry,
@@ -12,15 +12,19 @@ import {
   getBrandTree,
 } from "./brands-client";
 import {
+  CATALOG_ADD_TYPE_TRIGGER_LABEL,
   CATALOG_BRAND_NAME_LABEL,
   CATALOG_CREATE_BRAND_LABEL,
+  CATALOG_CREATE_BRAND_TITLE,
   CATALOG_CREATE_TYPE_LABEL,
   CATALOG_EMPTY_MESSAGE,
   CATALOG_LOAD_ERROR,
+  CATALOG_NEW_BRAND_TRIGGER_LABEL,
   CATALOG_SECTION_LABEL,
   CATALOG_TYPES_EMPTY_MESSAGE,
   CATALOG_TYPE_NAME_LABEL,
   RETRY_LABEL,
+  catalogCreateTypeModalTitle,
 } from "./yarn-copy";
 
 export interface YarnCatalogPanelProps {
@@ -34,7 +38,7 @@ export interface YarnCatalogPanelProps {
 
 /**
  * Sección de catálogo dentro del `Card` de `YarnFilterPanel` (RFC-04 §7-ter
- * E2(c), design D4): sólo lectura y creación en este slice — borrar y su
+ * E2(d), design D4): sólo lectura y creación en este slice — borrar y su
  * bloqueo 409 son la rebanada siguiente (S2b).
  *
  * **Pide su propio árbol**, independiente del de `YarnBrandTree` (SDD-01 §9):
@@ -42,10 +46,25 @@ export interface YarnCatalogPanelProps {
  * vez de recibir los datos por props. Un alta exitosa se agrega EN MEMORIA a
  * la lista ya cargada — no dispara un refetch propio — porque ya tiene el
  * objeto que el servidor devolvió.
+ *
+ * **El alta vive en modales, no dentro del `Disclosure` (enmienda E2(d)):** la
+ * primera versión (S2a) colgaba los dos formularios de alta adentro del
+ * acordeón «Catálogos», y crear una marca exigía desplegarlo para llegar al
+ * campo — el usuario lo vio en pantalla y lo rechazó. Ahora el botón de alta
+ * de marca es un hermano del `Disclosure`, siempre visible, y cada marca
+ * listada ofrece su propio control para abrir el modal de alta de TIPO de
+ * esa marca (un modal por marca, no un formulario inline repetido). El
+ * `Disclosure` se queda sólo con listas — es lo único que tiene sentido
+ * seguir plegando — y de paso acorta la columna izquierda, que ya obligaba a
+ * scrollear con el filtro, los 13 swatches y el catálogo apilados.
  */
 export function YarnCatalogPanel({ onCatalogChange }: YarnCatalogPanelProps) {
   const [state, setState] = useState<BrandTreeState>({ status: "loading" });
   const [retryToken, setRetryToken] = useState(0);
+  const [brandModalOpen, setBrandModalOpen] = useState(false);
+  const [typeModalBrandId, setTypeModalBrandId] = useState<string | null>(null);
+  const brandNameRef = useRef<HTMLInputElement>(null);
+  const typeNameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,128 +101,111 @@ export function YarnCatalogPanel({ onCatalogChange }: YarnCatalogPanelProps) {
     );
   }
 
-  return (
-    <Disclosure summary={CATALOG_SECTION_LABEL}>
-      <div
-        role="group"
-        aria-label={CATALOG_SECTION_LABEL}
-        aria-busy={state.status === "loading"}
-        className="flex flex-col gap-(--space-4) pl-(--space-4)"
-      >
-        {state.status === "loading" ? (
-          <div className="flex flex-col gap-(--space-2)">
-            <Skeleton className="w-full" />
-            <Skeleton className="w-full" />
-          </div>
-        ) : state.status === "failed" ? (
-          <div role="alert" className="flex flex-col gap-(--space-2)">
-            <p className="font-body text-sm leading-base text-fg">
-              {CATALOG_LOAD_ERROR}
-            </p>
-            <Button
-              variant="secondary"
-              className="self-start"
-              onClick={() => setRetryToken((token) => token + 1)}
-            >
-              {RETRY_LABEL}
-            </Button>
-          </div>
-        ) : (
-          <>
-            {state.entries.length === 0 ? (
-              <p className="font-body text-sm leading-base text-fg-muted">
-                {CATALOG_EMPTY_MESSAGE}
-              </p>
-            ) : (
-              state.entries.map((entry) => (
-                <BrandPanel
-                  key={entry.brand.id}
-                  entry={entry}
-                  onTypeCreated={(type) => {
-                    appendType(entry.brand.id, type);
-                    onCatalogChange?.();
-                  }}
-                />
-              ))
-            )}
-            <BrandCreateForm
-              onCreated={(brand) => {
-                appendBrand({ brand, types: [] });
-                onCatalogChange?.();
-              }}
-            />
-          </>
-        )}
-      </div>
-    </Disclosure>
-  );
-}
-
-function BrandCreateForm({
-  onCreated,
-}: {
-  onCreated: (brand: BrandTreeEntry["brand"]) => void;
-}) {
-  const [name, setName] = useState("");
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const trimmed = name.trim();
-    if (trimmed === "") {
-      return;
-    }
-    setPending(true);
-    setError(null);
-    const result = await createBrand(trimmed);
-    setPending(false);
-    if (!result.ok) {
-      setError(result.message);
-      return;
-    }
-    onCreated(result.data);
-    setName("");
-  }
+  /* Se guarda el ID de la marca y no la marca entera (mismo criterio que
+     `ProjectFormDialog`, #21): así el modal siempre lee la versión más
+     reciente de esa marca en `state` en vez de arrastrar un objeto viejo. */
+  const typeModalEntry =
+    state.status === "ready"
+      ? (state.entries.find((entry) => entry.brand.id === typeModalBrandId) ?? null)
+      : null;
 
   return (
-    <form
-      noValidate
-      method="post"
-      onSubmit={handleSubmit}
-      className="flex flex-col gap-(--space-3)"
-    >
-      {error === null ? null : (
-        <p role="alert" className="font-body text-sm leading-base text-danger">
-          {error}
-        </p>
-      )}
-      <Field label={CATALOG_BRAND_NAME_LABEL}>
-        <Input
-          autoComplete="off"
-          value={name}
-          disabled={pending}
-          onChange={(event) => setName(event.target.value)}
-        />
-      </Field>
+    <div className="flex flex-col gap-(--space-4)">
       <Button
-        type="submit"
-        variant="primary"
-        loading={pending}
+        variant="secondary"
         className="self-start"
+        onClick={() => setBrandModalOpen(true)}
       >
-        {CATALOG_CREATE_BRAND_LABEL}
+        {CATALOG_NEW_BRAND_TRIGGER_LABEL}
       </Button>
-    </form>
+
+      <Disclosure summary={CATALOG_SECTION_LABEL}>
+        <div
+          role="group"
+          aria-label={CATALOG_SECTION_LABEL}
+          aria-busy={state.status === "loading"}
+          className="flex flex-col gap-(--space-4) pl-(--space-4)"
+        >
+          {state.status === "loading" ? (
+            <div className="flex flex-col gap-(--space-2)">
+              <Skeleton className="w-full" />
+              <Skeleton className="w-full" />
+            </div>
+          ) : state.status === "failed" ? (
+            <div role="alert" className="flex flex-col gap-(--space-2)">
+              <p className="font-body text-sm leading-base text-fg">
+                {CATALOG_LOAD_ERROR}
+              </p>
+              <Button
+                variant="secondary"
+                className="self-start"
+                onClick={() => setRetryToken((token) => token + 1)}
+              >
+                {RETRY_LABEL}
+              </Button>
+            </div>
+          ) : state.entries.length === 0 ? (
+            <p className="font-body text-sm leading-base text-fg-muted">
+              {CATALOG_EMPTY_MESSAGE}
+            </p>
+          ) : (
+            state.entries.map((entry) => (
+              <BrandPanel
+                key={entry.brand.id}
+                entry={entry}
+                onAddType={() => setTypeModalBrandId(entry.brand.id)}
+              />
+            ))
+          )}
+        </div>
+      </Disclosure>
+
+      <Dialog
+        open={brandModalOpen}
+        onClose={() => setBrandModalOpen(false)}
+        title={CATALOG_CREATE_BRAND_TITLE}
+        initialFocusRef={brandNameRef}
+      >
+        <BrandCreateForm
+          nameRef={brandNameRef}
+          onCreated={(brand) => {
+            appendBrand({ brand, types: [] });
+            setBrandModalOpen(false);
+            onCatalogChange?.();
+          }}
+        />
+      </Dialog>
+
+      <Dialog
+        open={typeModalEntry !== null}
+        onClose={() => setTypeModalBrandId(null)}
+        title={
+          typeModalEntry === null ? "" : catalogCreateTypeModalTitle(typeModalEntry.brand.name)
+        }
+        initialFocusRef={typeNameRef}
+      >
+        {typeModalEntry === null ? null : (
+          <TypeCreateForm
+            brandId={typeModalEntry.brand.id}
+            nameRef={typeNameRef}
+            onCreated={(type) => {
+              appendType(typeModalEntry.brand.id, type);
+              setTypeModalBrandId(null);
+              onCatalogChange?.();
+            }}
+          />
+        )}
+      </Dialog>
+    </div>
   );
 }
 
 function BrandPanel({
   entry,
-  onTypeCreated,
+  onAddType,
 }: {
   entry: BrandTreeEntry;
-  onTypeCreated: (type: BrandTreeEntry["types"][number]) => void;
+  onAddType: () => void;
 }) {
   return (
     <Disclosure summary={entry.brand.name}>
@@ -225,17 +227,82 @@ function BrandPanel({
             ))}
           </ul>
         )}
-        <TypeCreateForm brandId={entry.brand.id} onCreated={onTypeCreated} />
+        <Button variant="secondary" className="self-start" onClick={onAddType}>
+          {CATALOG_ADD_TYPE_TRIGGER_LABEL}
+        </Button>
       </div>
     </Disclosure>
   );
 }
 
+function BrandCreateForm({
+  nameRef,
+  onCreated,
+}: {
+  nameRef: RefObject<HTMLInputElement | null>;
+  onCreated: (brand: BrandTreeEntry["brand"]) => void;
+}) {
+  const [name, setName] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmed = name.trim();
+    if (trimmed === "") {
+      return;
+    }
+    setPending(true);
+    setError(null);
+    const result = await createBrand(trimmed);
+    setPending(false);
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+    onCreated(result.data);
+  }
+
+  return (
+    <form
+      noValidate
+      method="post"
+      onSubmit={handleSubmit}
+      className="flex flex-col gap-(--space-3)"
+    >
+      {error === null ? null : (
+        <p role="alert" className="font-body text-sm leading-base text-danger">
+          {error}
+        </p>
+      )}
+      <Field label={CATALOG_BRAND_NAME_LABEL}>
+        <Input
+          ref={nameRef}
+          autoComplete="off"
+          value={name}
+          disabled={pending}
+          onChange={(event) => setName(event.target.value)}
+        />
+      </Field>
+      <Button
+        type="submit"
+        variant="primary"
+        loading={pending}
+        className="self-start"
+      >
+        {CATALOG_CREATE_BRAND_LABEL}
+      </Button>
+    </form>
+  );
+}
+
 function TypeCreateForm({
   brandId,
+  nameRef,
   onCreated,
 }: {
   brandId: string;
+  nameRef: RefObject<HTMLInputElement | null>;
   onCreated: (type: BrandTreeEntry["types"][number]) => void;
 }) {
   const [name, setName] = useState("");
@@ -257,7 +324,6 @@ function TypeCreateForm({
       return;
     }
     onCreated(result.data);
-    setName("");
   }
 
   return (
@@ -274,6 +340,7 @@ function TypeCreateForm({
       )}
       <Field label={CATALOG_TYPE_NAME_LABEL}>
         <Input
+          ref={nameRef}
           autoComplete="off"
           value={name}
           disabled={pending}

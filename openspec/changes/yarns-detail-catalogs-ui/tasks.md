@@ -76,22 +76,32 @@ reemplazo.**
 Lo que no gustó: crear una marca hoy exige **desplegar** «Catálogos», y el formulario vive colgado
 dentro del acordeón. Lo pedido:
 
-- [ ] Crear marca: un **botón que no se colapse** —visible sin desplegar nada— que abre un **modal**
-      con el campo. Sale de adentro del `Disclosure`.
-- [ ] Crear tipo: desde **donde se ven las marcas**, cada marca ofrece entrar a **su propio modal**
+- [x] Crear marca: un **botón que no se colapse** —visible sin desplegar nada— que abre un **modal**
+      con el campo. Sale de adentro del `Disclosure`. (`YarnCatalogPanel.tsx`: botón
+      `CATALOG_NEW_BRAND_TRIGGER_LABEL` hermano del `Disclosure`, abre un `Dialog`.)
+- [x] Crear tipo: desde **donde se ven las marcas**, cada marca ofrece entrar a **su propio modal**
       para agregarle un tipo. Un modal por marca, no un formulario inline por marca.
-- [ ] Revisar qué queda del `Disclosure` «Catálogos» una vez que los dos formularios se van a modales:
-      si sólo queda la lista, quizá deje de tener sentido como acordeón.
+      (`BrandPanel` ofrece `CATALOG_ADD_TYPE_TRIGGER_LABEL`, que abre un `Dialog` con el
+      `brandId` de esa entrada — el modal se comparte pero se resuelve por `typeModalBrandId`.)
+- [x] Revisar qué queda del `Disclosure` «Catálogos» una vez que los dos formularios se van a modales:
+      si sólo queda la lista, quizá deje de tener sentido como acordeón. Decisión: se queda como
+      acordeón — sigue plegando listas potencialmente largas (marcas y, dentro, tipos), que es
+      distinto de esconder la acción de alta. Ver RFC-04 E2(d).
 - [ ] Consecuencia de layout, medida en navegador: la columna izquierda ya obliga a scrollear con
       filtro + 13 swatches + catálogos. Sacar los formularios a modales la acorta, que juega a favor.
+      **LEFT OPEN — este ejecutor no tiene herramientas de navegador** (mismo motivo que 2.13).
 
 **Ojo con lo que NO cambia:** la señal `onCatalogChange` sigue disparando sólo con 201, y el árbol de
 filtro se sigue refrescando sin recargar. Eso quedó verificado en navegador y no se toca — lo que
-cambia es por dónde entra el dato, no qué pasa después.
+cambia es por dónde entra el dato, no qué pasa después. Confirmado sin tocar `onCatalogChange` ni
+`appendBrand`/`appendType`: siguen agregando en memoria, sin refetch propio.
 
 **Amerita enmienda de RFC-04:** E2(c) acaba de fijar que el panel es una sección plegable con sus
 formularios dentro. Si los formularios pasan a modales, esa enmienda queda desactualizada el mismo
 día que se escribió. Corresponde E2(d) — o corregir la (c), decidiéndolo explícitamente.
+**Resuelto:** se agregó **E2(d)** en `RFC-04-lanas.md` §7-ter (no se tocó la (c)) registrando el
+alta por modales, el botón siempre visible fuera del acordeón, un modal por marca para tipos, el
+acordeón limitado a listas, y el motivo de layout.
 
 ## Phase 3: S2b `catalog-delete-409`
 

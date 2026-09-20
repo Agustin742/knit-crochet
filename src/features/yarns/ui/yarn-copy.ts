@@ -68,3 +68,19 @@ export const CATALOG_BRAND_NAME_LABEL = "Nombre de la marca";
 export const CATALOG_CREATE_BRAND_LABEL = "Crear marca";
 export const CATALOG_TYPE_NAME_LABEL = "Nombre del tipo";
 export const CATALOG_CREATE_TYPE_LABEL = "Crear tipo";
+
+/**
+ * Copy de la enmienda E2(d) (RFC-04 §7-ter, 2026-09-20): el alta se sale del
+ * `Disclosure` hacia un modal. El botón que lo abre necesita su propia
+ * etiqueta —distinta del botón de ENVÍO dentro del modal (`CATALOG_CREATE_BRAND_LABEL`
+ * arriba)— porque los dos conviven en pantallas distintas del mismo flujo.
+ */
+export const CATALOG_NEW_BRAND_TRIGGER_LABEL = "Nueva marca";
+export const CATALOG_CREATE_BRAND_TITLE = "Crear marca";
+export const CATALOG_ADD_TYPE_TRIGGER_LABEL = "Agregar tipo";
+
+/** Título del modal de alta de tipo (E2(d)): nombra la marca destino, porque hay
+ *  un modal por marca y quien lo ve tiene que saber a cuál está entrando. */
+export function catalogCreateTypeModalTitle(brandName: string): string {
+  return `Agregar tipo a ${brandName}`;
+}

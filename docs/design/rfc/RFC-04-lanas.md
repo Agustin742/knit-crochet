@@ -119,6 +119,30 @@ sobre el fondo de la página). Reutiliza el `Disclosure` genérico —el mismo p
 la enmienda E1 de #22— tanto para la sección entera («Catálogos») como para cada marca dentro de
 ella, así que no suma ningún criterio visual nuevo al design system.
 
+### E2(d) — el alta se sale del `Disclosure` hacia modales (2026-09-20)
+
+E2(c) fijó el panel de catálogo como una sección plegable **con sus dos formularios de alta
+adentro**. El usuario vio esa versión (S2a) en pantalla y la rechazó: crear una marca exigía
+**desplegar** «Catálogos» para llegar a un campo escondido dentro del acordeón. No se corrige (c) —
+la enmienda queda para que se entienda por qué cambió— y se agrega esta:
+
+- **Crear marca** pasa a un botón siempre visible, hermano del `Disclosure` y no un hijo suyo:
+  alcanzable sin desplegar nada. Abre un modal (`Dialog`) con el campo de nombre.
+- **Crear tipo** deja de ser un formulario inline repetido bajo cada marca. Cada marca listada
+  ofrece un control que abre **su propio modal**, uno por marca, en vez de uno por marca montado
+  siempre en el DOM.
+- El `Disclosure` «Catálogos» se queda, pero ahora sólo contiene **listas** —marcas y sus tipos—.
+  Es la decisión asentada: un acordeón sirve para esconder listas largas, no para esconder la
+  acción de alta.
+- **Motivo de layout, medido en navegador:** la columna izquierda del panel de filtros ya obligaba
+  a scrollear con el filtro, los 13 swatches de color y el catálogo apilados. Sacar los dos
+  formularios a modales la acorta, en la misma dirección que pedía el usuario.
+
+Lo que NO cambió: la señal `onCatalogChange` (design D5) sigue disparando una sola vez, sólo tras
+un `201`, y el árbol marca→tipo del panel de filtro se sigue refrescando sin recargar la página —
+verificado en navegador antes y después de este cambio. Lo que cambia es por dónde entra el dato
+(un modal en vez de un formulario dentro del acordeón), no qué pasa después de un alta exitosa.
+
 ## 8. Slices de implementación (→ backlog de UI)
 
 IDs reales en la tabla de [RFC-00 §4](RFC-00-proceso.md); las entradas que siguen abiertas están en `docs/product/backlog-ui.md`:
