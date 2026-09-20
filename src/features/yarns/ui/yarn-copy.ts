@@ -55,10 +55,15 @@ export function thicknessLabel(thickness: number): string {
 }
 
 /**
- * Copy del panel de catálogo (RFC-04 §7-ter E2(c), backlog 24, slice S2a). El
- * panel entero vive dentro de un `Disclosure` con este resumen.
+ * Copy del panel de catálogo (RFC-04 §7-ter E2(c)/E2(d), backlog 24, slice
+ * S2a). "Catálogos" encabeza la SECCIÓN entera (un `<h2>`, hermano del botón
+ * de alta) — el `Disclosure` ya no lleva esa etiqueta, porque sólo pliega la
+ * LISTA de marcas y tipos y necesita la suya propia
+ * (`CATALOG_LIST_SUMMARY_LABEL`) para no repetir el mismo texto en dos
+ * controles distintos de la misma pantalla.
  */
 export const CATALOG_SECTION_LABEL = "Catálogos";
+export const CATALOG_LIST_SUMMARY_LABEL = "Marcas y tipos";
 export const CATALOG_LOADING_LABEL = "Cargando el catálogo de marcas y tipos.";
 export const CATALOG_LOAD_ERROR =
   "No se pudo cargar el catálogo de marcas y tipos.";

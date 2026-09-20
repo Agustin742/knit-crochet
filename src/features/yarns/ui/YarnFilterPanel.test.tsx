@@ -266,7 +266,7 @@ describe("YarnFilterPanel — monta el panel de catálogo dentro del mismo Card 
     });
     expect(onCatalogChange).toHaveBeenCalledTimes(1);
 
-    await userEvent.click(screen.getByText("Catálogos"));
+    await userEvent.click(screen.getByText("Marcas y tipos"));
     await screen.findByText("Cascada");
   });
 });

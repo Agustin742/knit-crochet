@@ -18,6 +18,7 @@ import {
   CATALOG_CREATE_BRAND_TITLE,
   CATALOG_CREATE_TYPE_LABEL,
   CATALOG_EMPTY_MESSAGE,
+  CATALOG_LIST_SUMMARY_LABEL,
   CATALOG_LOAD_ERROR,
   CATALOG_NEW_BRAND_TRIGGER_LABEL,
   CATALOG_SECTION_LABEL,
@@ -26,6 +27,8 @@ import {
   RETRY_LABEL,
   catalogCreateTypeModalTitle,
 } from "./yarn-copy";
+
+const CATALOG_SECTION_TITLE_ID = "yarn-catalog-title";
 
 export interface YarnCatalogPanelProps {
   /**
@@ -43,20 +46,28 @@ export interface YarnCatalogPanelProps {
  *
  * **Pide su propio árbol**, independiente del de `YarnBrandTree` (SDD-01 §9):
  * por eso tiene sus cuatro estados propios (`loading`/`failed`/vacío/listo) en
- * vez de recibir los datos por props. Un alta exitosa se agrega EN MEMORIA a
- * la lista ya cargada — no dispara un refetch propio — porque ya tiene el
- * objeto que el servidor devolvió.
+ * vez de recibir los datos por props. Con el árbol `ready`, un alta exitosa se
+ * agrega EN MEMORIA a la lista ya cargada — no dispara un refetch propio —
+ * porque ya tiene el objeto que el servidor devolvió. Si todavía NO está
+ * `ready` (`loading` o `failed`, R3-001), agregar una sola entrada a mano
+ * sería mentir: no hay lista real que completar, así que dispara un refetch
+ * (`retryToken`) en su lugar — el POST ya se comprometió en el servidor, así
+ * que el GET fresco ya trae la marca nueva.
  *
  * **El alta vive en modales, no dentro del `Disclosure` (enmienda E2(d)):** la
  * primera versión (S2a) colgaba los dos formularios de alta adentro del
  * acordeón «Catálogos», y crear una marca exigía desplegarlo para llegar al
- * campo — el usuario lo vio en pantalla y lo rechazó. Ahora el botón de alta
- * de marca es un hermano del `Disclosure`, siempre visible, y cada marca
- * listada ofrece su propio control para abrir el modal de alta de TIPO de
- * esa marca (un modal por marca, no un formulario inline repetido). El
- * `Disclosure` se queda sólo con listas — es lo único que tiene sentido
- * seguir plegando — y de paso acorta la columna izquierda, que ya obligaba a
- * scrollear con el filtro, los 13 swatches y el catálogo apilados.
+ * campo — el usuario lo vio en pantalla y lo rechazó. Ahora «Catálogos»
+ * encabeza su propia sección (`<h2>`), con el botón de alta de marca en la
+ * misma fila, siempre visible — nunca colgado del `Disclosure`, ni antes ni
+ * después de este cambio. Cada marca listada ofrece además su propio control
+ * para abrir el modal de alta de TIPO de esa marca (un modal por marca, no un
+ * formulario inline repetido). El `Disclosure`, con su propio resumen
+ * («Marcas y tipos»), se queda sólo con listas — es lo único que tiene
+ * sentido seguir plegando. Medido en navegador (2026-09-20, corrección de la
+ * primera versión de esta nota, que afirmaba lo mismo sin haberlo mirado):
+ * sacar los dos formularios a modales acorta la columna izquierda, pero sólo
+ * en parte — con el acordeón desplegado, la columna TODAVÍA scrollea.
  */
 export function YarnCatalogPanel({ onCatalogChange }: YarnCatalogPanelProps) {
   const [state, setState] = useState<BrandTreeState>({ status: "loading" });
@@ -82,8 +93,11 @@ export function YarnCatalogPanel({ onCatalogChange }: YarnCatalogPanelProps) {
     setState((current) =>
       current.status === "ready"
         ? { status: "ready", entries: [...current.entries, entry] }
-        : { status: "ready", entries: [entry] },
+        : current,
     );
+    if (state.status !== "ready") {
+      setRetryToken((token) => token + 1);
+    }
   }
 
   function appendType(brandId: string, type: BrandTreeEntry["types"][number]) {
@@ -99,6 +113,9 @@ export function YarnCatalogPanel({ onCatalogChange }: YarnCatalogPanelProps) {
           }
         : current,
     );
+    if (state.status !== "ready") {
+      setRetryToken((token) => token + 1);
+    }
   }
 
   /* Se guarda el ID de la marca y no la marca entera (mismo criterio que
@@ -110,19 +127,26 @@ export function YarnCatalogPanel({ onCatalogChange }: YarnCatalogPanelProps) {
       : null;
 
   return (
-    <div className="flex flex-col gap-(--space-4)">
-      <Button
-        variant="secondary"
-        className="self-start"
-        onClick={() => setBrandModalOpen(true)}
-      >
-        {CATALOG_NEW_BRAND_TRIGGER_LABEL}
-      </Button>
+    <section
+      aria-labelledby={CATALOG_SECTION_TITLE_ID}
+      className="flex flex-col gap-(--space-4)"
+    >
+      <div className="flex flex-col items-start gap-(--space-2)">
+        <h2
+          id={CATALOG_SECTION_TITLE_ID}
+          className="font-body text-sm font-semibold text-fg"
+        >
+          {CATALOG_SECTION_LABEL}
+        </h2>
+        <Button variant="secondary" onClick={() => setBrandModalOpen(true)}>
+          {CATALOG_NEW_BRAND_TRIGGER_LABEL}
+        </Button>
+      </div>
 
-      <Disclosure summary={CATALOG_SECTION_LABEL}>
+      <Disclosure summary={CATALOG_LIST_SUMMARY_LABEL}>
         <div
           role="group"
-          aria-label={CATALOG_SECTION_LABEL}
+          aria-label={CATALOG_LIST_SUMMARY_LABEL}
           aria-busy={state.status === "loading"}
           className="flex flex-col gap-(--space-4) pl-(--space-4)"
         >
@@ -196,7 +220,7 @@ export function YarnCatalogPanel({ onCatalogChange }: YarnCatalogPanelProps) {
           />
         )}
       </Dialog>
-    </div>
+    </section>
   );
 }
 

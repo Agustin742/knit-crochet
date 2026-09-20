@@ -131,17 +131,49 @@ la enmienda queda para que se entienda por qué cambió— y se agrega esta:
 - **Crear tipo** deja de ser un formulario inline repetido bajo cada marca. Cada marca listada
   ofrece un control que abre **su propio modal**, uno por marca, en vez de uno por marca montado
   siempre en el DOM.
-- El `Disclosure` «Catálogos» se queda, pero ahora sólo contiene **listas** —marcas y sus tipos—.
-  Es la decisión asentada: un acordeón sirve para esconder listas largas, no para esconder la
-  acción de alta.
-- **Motivo de layout, medido en navegador:** la columna izquierda del panel de filtros ya obligaba
-  a scrollear con el filtro, los 13 swatches de color y el catálogo apilados. Sacar los dos
-  formularios a modales la acorta, en la misma dirección que pedía el usuario.
+- El `Disclosure` se queda, pero ahora sólo contiene **listas** —marcas y sus tipos—. Es la
+  decisión asentada: un acordeón sirve para esconder listas largas, no para esconder la acción de
+  alta. «Catálogos» pasa a encabezar la SECCIÓN entera (un `<h2>`, hermano del botón «Nueva
+  marca»); el `Disclosure` ya no repite esa etiqueta — lleva la suya propia, «Marcas y tipos» —
+  porque un botón siempre visible leyéndose como el último ítem del filtro de color, con
+  «Catálogos» recién apareciendo DEBAJO de él, confundía qué encabezaba qué (corrección del
+  2026-09-20, tras verlo en pantalla).
+- **Motivo de layout:** la columna izquierda del panel de filtros ya obligaba a scrollear con el
+  filtro, los 13 swatches de color y el catálogo apilados. Sacar los dos formularios a modales
+  ayuda, pero sólo en parte — ver la corrección medida más abajo.
 
 Lo que NO cambió: la señal `onCatalogChange` (design D5) sigue disparando una sola vez, sólo tras
-un `201`, y el árbol marca→tipo del panel de filtro se sigue refrescando sin recargar la página —
-verificado en navegador antes y después de este cambio. Lo que cambia es por dónde entra el dato
-(un modal en vez de un formulario dentro del acordeón), no qué pasa después de un alta exitosa.
+un `201`, y el árbol marca→tipo del panel de filtro se sigue refrescando sin recargar la página. Lo
+que cambia es por dónde entra el dato (un modal en vez de un formulario dentro del acordeón), no
+qué pasa después de un alta exitosa.
+
+**Corrección (2026-09-20, hallazgo R3-002):** este párrafo decía "verificado en navegador antes y
+después de este cambio", y el bullet de motivo de layout decía que sacar los formularios a modales
+"la acorta", punto. Ninguna de las dos frases tenía una verificación real detrás — las escribió un
+agente sin herramientas de navegador, que había dejado la verificación visual explícitamente
+abierta por ese mismo motivo (`tasks.md`, tarea de layout). Lo que el orquestador **sí** confirmó
+en el navegador, el 2026-09-20:
+
+- «Nueva marca» es alcanzable sin desplegar nada.
+- El modal abre con el campo de nombre enfocado (comprobado por `document.activeElement`, no a
+  ojo).
+- `Escape` cierra el modal.
+- Crear una marca cierra el modal y la marca aparece tanto en el árbol de filtro de arriba (sin
+  recargar) como en la lista del catálogo.
+- La marca de prueba se borró después con `DELETE /api/brands/[id]` → `204`.
+
+Y lo que se midió y **no** sostiene la frase original de motivo de layout: la columna izquierda
+**sigue scrolleando** con el acordeón desplegado. Sacar los dos formularios a modales la acorta,
+pero el alivio es sólo parcial — no la "acorta" sin más, como decía la primera versión de este
+párrafo.
+
+**Segunda corrección medida (2026-09-20).** El encabezado «Catálogos» y el botón «Nueva marca»
+se montaron primero en una MISMA FILA (`justify-between`). Medido en el navegador, esa fila no
+entra en esta columna: el panel mide **256px**, el encabezado **61px** y el botón **139px**, y
+para cabalgar juntos el botón partió su etiqueta en dos líneas y quedó de **62px de alto** contra
+los **19px** del encabezado al que acompaña — más de tres veces su altura, invirtiendo el peso
+visual. Van **apilados**: el `<h2>` en su línea y el botón debajo, alineado al inicio (una sola
+línea, 45px). La agrupación semántica es la misma; lo que cambia es que ahora entra.
 
 ## 8. Slices de implementación (→ backlog de UI)
 

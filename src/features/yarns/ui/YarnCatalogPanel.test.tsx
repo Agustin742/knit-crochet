@@ -10,6 +10,7 @@ import {
   CATALOG_CREATE_BRAND_LABEL,
   CATALOG_CREATE_TYPE_LABEL,
   CATALOG_EMPTY_MESSAGE,
+  CATALOG_LIST_SUMMARY_LABEL,
   CATALOG_LOAD_ERROR,
   CATALOG_NEW_BRAND_TRIGGER_LABEL,
   CATALOG_SECTION_LABEL,
@@ -62,7 +63,7 @@ afterEach(() => {
 });
 
 async function openPanel() {
-  await userEvent.click(screen.getByText(CATALOG_SECTION_LABEL));
+  await userEvent.click(screen.getByText(CATALOG_LIST_SUMMARY_LABEL));
 }
 
 describe("YarnCatalogPanel — estados de carga (SDD-01 §9)", () => {
@@ -78,10 +79,9 @@ describe("YarnCatalogPanel — estados de carga (SDD-01 §9)", () => {
     render(<YarnCatalogPanel />);
     await openPanel();
 
-    expect(screen.getByRole("group", { name: CATALOG_SECTION_LABEL })).toHaveAttribute(
-      "aria-busy",
-      "true",
-    );
+    expect(
+      screen.getByRole("group", { name: CATALOG_LIST_SUMMARY_LABEL }),
+    ).toHaveAttribute("aria-busy", "true");
 
     resolveBrands(jsonResponse(200, { brands: [BRAND_A] }));
     await screen.findByText(BRAND_A.name);
@@ -135,6 +135,31 @@ describe("YarnCatalogPanel — el alta sale del acordeón a un modal (2026-09-20
     expect(
       screen.queryByRole("textbox", { name: CATALOG_BRAND_NAME_LABEL }),
     ).toBeNull();
+  });
+
+  it("«Catálogos» encabeza su propia sección, con «Nueva marca» en la misma fila, y el acordeón sólo pliega la lista", () => {
+    render(<YarnCatalogPanel />);
+
+    const heading = screen.getByRole("heading", {
+      name: CATALOG_SECTION_LABEL,
+      level: 2,
+    });
+    const trigger = screen.getByRole("button", {
+      name: CATALOG_NEW_BRAND_TRIGGER_LABEL,
+    });
+    expect(heading).toBeVisible();
+    expect(trigger).toBeVisible();
+    // El botón va DESPUÉS del encabezado en el DOM (misma fila, a la derecha).
+    expect(
+      heading.compareDocumentPosition(trigger) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    // El acordeón lleva su propia etiqueta — no repite «Catálogos», que ya
+    // es el encabezado de la sección.
+    expect(screen.getByText(CATALOG_LIST_SUMMARY_LABEL)).toBeInTheDocument();
+    expect(
+      screen.queryAllByText(CATALOG_SECTION_LABEL, { selector: "summary *, summary" }),
+    ).toHaveLength(0);
   });
 
   it("abrirlo abre un modal con el campo de nombre enfocado", async () => {
@@ -325,6 +350,117 @@ describe("YarnCatalogPanel — crear tipo: un modal por marca (design D4, 2026-0
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(onCatalogChange).not.toHaveBeenCalled();
+  });
+});
+
+describe("YarnCatalogPanel — crear con el árbol todavía no listo (R3-001, 2026-09-20)", () => {
+  it("crear una marca mientras el árbol sigue \"loading\" no la reemplaza: termina mostrando la lista completa del servidor, marca nueva incluida", async () => {
+    const onCatalogChange = vi.fn();
+    let resolveFirstGet: (response: Response) => void = () => {};
+    let brandsGetCalls = 0;
+
+    fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/brands" && init?.method === "POST") {
+        return Promise.resolve(jsonResponse(201, { brand: NEW_BRAND }));
+      }
+      if (url === "/api/brands") {
+        brandsGetCalls += 1;
+        if (brandsGetCalls === 1) {
+          // El GET inicial se queda en vuelo: es el que estaba pendiente
+          // cuando se disparó el alta.
+          return new Promise((resolve) => {
+            resolveFirstGet = resolve;
+          });
+        }
+        // El refetch que dispara el alta (retryToken) ve el estado real del
+        // servidor: las dos marcas.
+        return Promise.resolve(
+          jsonResponse(200, { brands: [BRAND_A, NEW_BRAND] }),
+        );
+      }
+      if (url === `/api/brands/${BRAND_A.id}/types`) {
+        return Promise.resolve(jsonResponse(200, { types: [TYPE_A1] }));
+      }
+      if (url === `/api/brands/${NEW_BRAND.id}/types`) {
+        return Promise.resolve(jsonResponse(200, { types: [] }));
+      }
+      return Promise.reject(new Error(`url inesperada: ${url}`));
+    });
+
+    render(<YarnCatalogPanel onCatalogChange={onCatalogChange} />);
+
+    // El árbol sigue "loading" (el primer GET no resolvió todavía) cuando
+    // se crea la marca desde el modal, siempre visible.
+    await userEvent.click(
+      screen.getByRole("button", { name: CATALOG_NEW_BRAND_TRIGGER_LABEL }),
+    );
+    const input = screen.getByRole("textbox", { name: CATALOG_BRAND_NAME_LABEL });
+    await userEvent.type(input, NEW_BRAND.name);
+    await userEvent.click(
+      screen.getByRole("button", { name: CATALOG_CREATE_BRAND_LABEL }),
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+    expect(onCatalogChange).toHaveBeenCalledTimes(1);
+
+    // El GET viejo resuelve TARDE, con datos obsoletos (sin la marca nueva):
+    // el flag `cancelled` del efecto debe impedir que pise el estado ya
+    // refrescado por el refetch.
+    resolveFirstGet(jsonResponse(200, { brands: [BRAND_A] }));
+
+    await openPanel();
+    expect(await screen.findByText(BRAND_A.name)).toBeInTheDocument();
+    expect(await screen.findByText(NEW_BRAND.name)).toBeInTheDocument();
+  });
+
+  it("crear una marca mientras el árbol está \"failed\" también recupera la lista completa, no sólo la nueva marca", async () => {
+    const onCatalogChange = vi.fn();
+    let brandsGetCalls = 0;
+
+    fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/brands" && init?.method === "POST") {
+        return Promise.resolve(jsonResponse(201, { brand: NEW_BRAND }));
+      }
+      if (url === "/api/brands") {
+        brandsGetCalls += 1;
+        if (brandsGetCalls === 1) {
+          return Promise.reject(new Error("sin red"));
+        }
+        return Promise.resolve(
+          jsonResponse(200, { brands: [BRAND_A, NEW_BRAND] }),
+        );
+      }
+      if (url === `/api/brands/${BRAND_A.id}/types`) {
+        return Promise.resolve(jsonResponse(200, { types: [TYPE_A1] }));
+      }
+      if (url === `/api/brands/${NEW_BRAND.id}/types`) {
+        return Promise.resolve(jsonResponse(200, { types: [] }));
+      }
+      return Promise.reject(new Error(`url inesperada: ${url}`));
+    });
+
+    render(<YarnCatalogPanel onCatalogChange={onCatalogChange} />);
+    await openPanel();
+    expect(await screen.findByText(CATALOG_LOAD_ERROR)).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: CATALOG_NEW_BRAND_TRIGGER_LABEL }),
+    );
+    const input = screen.getByRole("textbox", { name: CATALOG_BRAND_NAME_LABEL });
+    await userEvent.type(input, NEW_BRAND.name);
+    await userEvent.click(
+      screen.getByRole("button", { name: CATALOG_CREATE_BRAND_LABEL }),
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+    expect(onCatalogChange).toHaveBeenCalledTimes(1);
+
+    expect(await screen.findByText(BRAND_A.name)).toBeInTheDocument();
+    expect(await screen.findByText(NEW_BRAND.name)).toBeInTheDocument();
   });
 });
 

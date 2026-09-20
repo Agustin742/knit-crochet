@@ -344,9 +344,9 @@ describe("YarnsView — los tres estados (RFC-04 §4)", () => {
     });
 
     /* La marca nueva vive en memoria dentro del panel de catálogo, que
-       recién la muestra al desplegar «Catálogos» (el `Disclosure` sólo monta
-       su panel abierto). */
-    await userEvent.click(screen.getByText("Catálogos"));
+       recién la muestra al desplegar «Marcas y tipos» (el `Disclosure` sólo
+       monta su panel abierto). */
+    await userEvent.click(screen.getByText("Marcas y tipos"));
     await screen.findByText(NEW_BRAND.name);
     await waitFor(() => {
       expect(brandsGetCalls).toBeGreaterThan(callsBeforeCreate);

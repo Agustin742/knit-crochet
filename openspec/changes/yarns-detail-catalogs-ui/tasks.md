@@ -87,14 +87,16 @@ dentro del acordeón. Lo pedido:
       si sólo queda la lista, quizá deje de tener sentido como acordeón. Decisión: se queda como
       acordeón — sigue plegando listas potencialmente largas (marcas y, dentro, tipos), que es
       distinto de esconder la acción de alta. Ver RFC-04 E2(d).
-- [ ] Consecuencia de layout, medida en navegador: la columna izquierda ya obliga a scrollear con
+- [x] Consecuencia de layout, medida en navegador: la columna izquierda ya obliga a scrollear con
       filtro + 13 swatches + catálogos. Sacar los formularios a modales la acorta, que juega a favor.
-      **LEFT OPEN — este ejecutor no tiene herramientas de navegador** (mismo motivo que 2.13).
+      **Verificado en navegador por el orquestador, 2026-09-20:** el alivio es sólo PARCIAL — con el
+      acordeón desplegado la columna sigue scrolleando. La primera versión de esta tarea decía "la
+      acorta" sin más; ese texto lo había escrito un agente sin herramientas de navegador (hallazgo
+      R3-002). Corregido acá y en `RFC-04-lanas.md` E2(d).
 
 **Ojo con lo que NO cambia:** la señal `onCatalogChange` sigue disparando sólo con 201, y el árbol de
 filtro se sigue refrescando sin recargar. Eso quedó verificado en navegador y no se toca — lo que
-cambia es por dónde entra el dato, no qué pasa después. Confirmado sin tocar `onCatalogChange` ni
-`appendBrand`/`appendType`: siguen agregando en memoria, sin refetch propio.
+cambia es por dónde entra el dato, no qué pasa después.
 
 **Amerita enmienda de RFC-04:** E2(c) acaba de fijar que el panel es una sección plegable con sus
 formularios dentro. Si los formularios pasan a modales, esa enmienda queda desactualizada el mismo
@@ -102,6 +104,41 @@ día que se escribió. Corresponde E2(d) — o corregir la (c), decidiéndolo ex
 **Resuelto:** se agregó **E2(d)** en `RFC-04-lanas.md` §7-ter (no se tocó la (c)) registrando el
 alta por modales, el botón siempre visible fuera del acordeón, un modal por marca para tipos, el
 acordeón limitado a listas, y el motivo de layout.
+
+### Correcciones tras revisión (2026-09-20): R3-001, R3-002, R3-003
+
+Revisión posterior a S2a/S2b encontró tres hallazgos sobre este mismo cambio. Se resolvieron los dos
+primeros; el tercero queda deliberadamente afuera de este alcance.
+
+- [x] **FIX 1 — el botón de alta quedaba huérfano de su sección.** Medido en navegador: la columna
+      leía `filtro de marcas → 13 swatches → «Nueva marca» → «Catálogos»`, así que el botón se leía
+      como el último ítem del filtro de color, y «Catálogos» aparecía RECIÉN debajo de él.
+      Restructurado: `YarnCatalogPanel.tsx` ahora abre con una fila de encabezado
+      (`<section aria-labelledby>` + `<h2 id>` con `CATALOG_SECTION_LABEL` = «Catálogos», el botón
+      «Nueva marca» al lado, a la derecha); el `Disclosure` que sigue debajo pliega sólo la LISTA de
+      marcas y tipos y lleva su propia etiqueta, `CATALOG_LIST_SUMMARY_LABEL` = «Marcas y tipos»
+      (nueva constante en `yarn-copy.ts`), para no repetir «Catálogos» en dos controles distintos.
+      El botón sigue siempre visible, fuera del `Disclosure` — esa propiedad no se tocó.
+- [x] **FIX 2 — R3-001, crear una marca con el árbol no `ready` borraba la lista.** `appendBrand`
+      reemplazaba TODO el estado por `{ status: "ready", entries: [entry] }` cuando `current.status`
+      no era `"ready"` — alcanzable desde S2a en adelante porque el botón de alta pasó a renderizarse
+      en los cuatro estados, no sólo en `ready`. Con el árbol `loading`, un GET en vuelo que resolvía
+      DESPUÉS del POST pisaba el estado y la marca nueva desaparecía hasta recargar. `appendType`
+      tenía el mismo defecto en sentido inverso: con `current.status !== "ready"` devolvía `current`
+      sin cambios y el tipo nuevo se perdía en silencio. Arreglado: cuando el árbol no está `ready`,
+      no hay lista real que completar, así que se dispara un refetch (`setRetryToken` con la misma
+      lógica de +1 que ya usaba el botón «Reintentar») en vez de inventar una lista de una sola
+      entrada. El caso `ready` no se tocó — sigue agregando en memoria, sin refetch propio. El
+      `useEffect` que pide `getBrandTree()` ya tenía un flag `cancelled` en su cleanup; bumpear
+      `retryToken` dispara ese cleanup ANTES de la nueva corrida, así que una resolución tardía del
+      GET viejo (el que estaba en vuelo) queda descartada por el flag y no pisa el estado ya
+      refrescado por el GET nuevo. Tests nuevos en `YarnCatalogPanel.test.tsx` (describe "crear con
+      el árbol todavía no listo") cubren `loading` y `failed`, y el de `loading` fuerza justo esa
+      carrera: el GET viejo resuelve TARDE con datos obsoletos y se verifica que no pisa nada.
+- [ ] **R3-003 — deliberadamente fuera de alcance.** El modal de alta de tipo hace
+      `setTypeModalBrandId(null)` sin condición cuando la respuesta llega tarde, lo mismo que R3-001
+      pero del lado del cierre del modal en vez de la lista. No pedido por el usuario en este cambio;
+      se deja tal cual está.
 
 ## Phase 3: S2b `catalog-delete-409`
 
