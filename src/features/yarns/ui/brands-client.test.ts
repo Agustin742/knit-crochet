@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createBrand,
   createYarnType,
+  deleteBrand,
+  deleteYarnType,
   getBrandTree,
 } from "./brands-client";
 
@@ -160,5 +162,85 @@ describe("createYarnType — POST /api/brands/:id/types", () => {
     const result = await createYarnType(BRAND_A.id, "Merino Worsted");
 
     expect(result.ok).toBe(false);
+  });
+});
+
+describe("deleteBrand — DELETE /api/brands/:id", () => {
+  it("un 204 se vuelve ok:true", async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    const result = await deleteBrand(BRAND_A.id);
+
+    const [url, init] = fetchSpy.mock.calls[0] ?? [];
+    expect(url).toBe(`/api/brands/${BRAND_A.id}`);
+    expect(init?.method).toBe("DELETE");
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("un 404 (marca ajena o borrada) se vuelve kind: error", async () => {
+    fetchSpy.mockResolvedValueOnce(jsonResponse(404, { error: "La marca no existe." }));
+
+    const result = await deleteBrand(BRAND_A.id);
+
+    expect(result.ok).toBe(false);
+    expect(result).toMatchObject({ kind: "error" });
+  });
+
+  it("un 409 con hijos se vuelve kind: blocked con los DOS contadores", async () => {
+    fetchSpy.mockResolvedValueOnce(
+      jsonResponse(409, { error: "tiene hijos", types: 2, yarns: 5 }),
+    );
+
+    const result = await deleteBrand(BRAND_A.id);
+
+    expect(result).toEqual({ ok: false, kind: "blocked", types: 2, yarns: 5 });
+  });
+
+  it("la red caída se vuelve kind: error sin lanzar", async () => {
+    fetchSpy.mockRejectedValueOnce(new Error("sin red"));
+
+    const result = await deleteBrand(BRAND_A.id);
+
+    expect(result.ok).toBe(false);
+    expect(result).toMatchObject({ kind: "error" });
+  });
+});
+
+describe("deleteYarnType — DELETE /api/brands/:id/types/:typeId", () => {
+  it("un 204 se vuelve ok:true", async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    const result = await deleteYarnType(BRAND_A.id, TYPE_A1.id);
+
+    const [url, init] = fetchSpy.mock.calls[0] ?? [];
+    expect(url).toBe(`/api/brands/${BRAND_A.id}/types/${TYPE_A1.id}`);
+    expect(init?.method).toBe("DELETE");
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("un 404 se vuelve kind: error", async () => {
+    fetchSpy.mockResolvedValueOnce(jsonResponse(404, { error: "El tipo no existe." }));
+
+    const result = await deleteYarnType(BRAND_A.id, TYPE_A1.id);
+
+    expect(result.ok).toBe(false);
+    expect(result).toMatchObject({ kind: "error" });
+  });
+
+  it("un 409 con lanas se vuelve kind: blocked con UN contador", async () => {
+    fetchSpy.mockResolvedValueOnce(jsonResponse(409, { error: "tiene lanas", yarns: 3 }));
+
+    const result = await deleteYarnType(BRAND_A.id, TYPE_A1.id);
+
+    expect(result).toEqual({ ok: false, kind: "blocked", yarns: 3 });
+  });
+
+  it("la red caída se vuelve kind: error sin lanzar", async () => {
+    fetchSpy.mockRejectedValueOnce(new Error("sin red"));
+
+    const result = await deleteYarnType(BRAND_A.id, TYPE_A1.id);
+
+    expect(result.ok).toBe(false);
+    expect(result).toMatchObject({ kind: "error" });
   });
 });

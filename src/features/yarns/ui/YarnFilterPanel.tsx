@@ -10,8 +10,11 @@ export interface YarnFilterPanelProps {
   onFiltersChange: (filters: YarnFilters) => void;
   /** Reenviado tal cual al árbol marca→tipo (design D5): sube en cada alta. */
   catalogToken?: number;
-  /** Reenviado tal cual desde el panel de catálogo (design D5). */
-  onCatalogChange?: () => void;
+  /** Reenviado tal cual desde el panel de catálogo (design D5, backlog 24
+   *  S2b): un borrado manda QUÉ se borró, para que `YarnsView` suelte un
+   *  filtro que apuntaba a ese id (`handleCatalogChange`). Un alta nunca
+   *  manda `removed`. */
+  onCatalogChange?: (removed?: { brandId?: string; typeId?: string }) => void;
 }
 
 /** El valor exclusivo del árbol, derivado de `filters` (design D5-bis). */

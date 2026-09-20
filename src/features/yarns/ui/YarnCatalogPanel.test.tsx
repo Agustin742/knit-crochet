@@ -5,7 +5,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
 
 import {
+  CONFIRM_DIALOG_CANCEL_LABEL,
+  CONFIRM_DIALOG_CONFIRM_LABEL,
+} from "@/shared/ui";
+
+import {
   CATALOG_ADD_TYPE_TRIGGER_LABEL,
+  CATALOG_BLOCKED_BRAND_TITLE,
+  CATALOG_BLOCKED_TYPE_TITLE,
   CATALOG_BRAND_NAME_LABEL,
   CATALOG_CREATE_BRAND_LABEL,
   CATALOG_CREATE_TYPE_LABEL,
@@ -13,10 +20,15 @@ import {
   CATALOG_LIST_SUMMARY_LABEL,
   CATALOG_LOAD_ERROR,
   CATALOG_NEW_BRAND_TRIGGER_LABEL,
+  CATALOG_NOTICE_DISMISS_LABEL,
   CATALOG_SECTION_LABEL,
   CATALOG_TYPE_NAME_LABEL,
   RETRY_LABEL,
+  brandBlockedBody,
   catalogCreateTypeModalTitle,
+  catalogDeleteConfirmTitle,
+  catalogDeleteLabel,
+  typeBlockedBody,
 } from "./yarn-copy";
 import { YarnCatalogPanel } from "./YarnCatalogPanel";
 
@@ -461,6 +473,321 @@ describe("YarnCatalogPanel — crear con el árbol todavía no listo (R3-001, 20
 
     expect(await screen.findByText(BRAND_A.name)).toBeInTheDocument();
     expect(await screen.findByText(NEW_BRAND.name)).toBeInTheDocument();
+  });
+});
+
+async function openBrandPanel() {
+  await openPanel();
+  await screen.findByText(BRAND_A.name);
+  await userEvent.click(screen.getByText(BRAND_A.name));
+  await screen.findByText(TYPE_A1.name);
+  return screen.getByRole("group", { name: BRAND_A.name });
+}
+
+describe("YarnCatalogPanel — borrar: ConfirmDialog antes del pedido (design D4, backlog 24 S2b)", () => {
+  it("el botón nombra la marca (nunca «Borrar» a secas) y abre ConfirmDialog con dos botones, foco en Cancelar", async () => {
+    render(<YarnCatalogPanel />);
+    const brandPanel = await openBrandPanel();
+
+    await userEvent.click(
+      within(brandPanel).getByRole("button", {
+        name: catalogDeleteLabel(BRAND_A.name),
+      }),
+    );
+
+    const dialog = screen.getByRole("dialog");
+    expect(
+      within(dialog).getByRole("heading", {
+        name: catalogDeleteConfirmTitle(BRAND_A.name),
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: CONFIRM_DIALOG_CANCEL_LABEL }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: CONFIRM_DIALOG_CONFIRM_LABEL }),
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        within(dialog).getByRole("button", { name: CONFIRM_DIALOG_CANCEL_LABEL }),
+      ).toHaveFocus();
+    });
+  });
+
+  it("el botón de un tipo nombra el tipo y abre su propia confirmación", async () => {
+    render(<YarnCatalogPanel />);
+    const brandPanel = await openBrandPanel();
+
+    await userEvent.click(
+      within(brandPanel).getByRole("button", {
+        name: catalogDeleteLabel(TYPE_A1.name),
+      }),
+    );
+
+    expect(
+      screen.getByRole("heading", { name: catalogDeleteConfirmTitle(TYPE_A1.name) }),
+    ).toBeInTheDocument();
+  });
+
+  it("cancelar cierra la confirmación sin pedir nada y la fila sigue listada", async () => {
+    render(<YarnCatalogPanel />);
+    const brandPanel = await openBrandPanel();
+
+    await userEvent.click(
+      within(brandPanel).getByRole("button", {
+        name: catalogDeleteLabel(BRAND_A.name),
+      }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: CONFIRM_DIALOG_CANCEL_LABEL }),
+    );
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByText(BRAND_A.name)).toBeInTheDocument();
+    const deleteCalls = fetchSpy.mock.calls.filter(
+      ([, init]: [string, RequestInit?]) => init?.method === "DELETE",
+    );
+    expect(deleteCalls).toHaveLength(0);
+  });
+});
+
+describe("YarnCatalogPanel — borrar una marca vacía (design D4, backlog 24 S2b)", () => {
+  it("un 204 quita la marca de la lista y avisa una sola vez con el brandId borrado", async () => {
+    const onCatalogChange = vi.fn();
+    fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
+      if (url === `/api/brands/${BRAND_A.id}` && init?.method === "DELETE") {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      return defaultFetch(url);
+    });
+
+    render(<YarnCatalogPanel onCatalogChange={onCatalogChange} />);
+    const brandPanel = await openBrandPanel();
+
+    await userEvent.click(
+      within(brandPanel).getByRole("button", {
+        name: catalogDeleteLabel(BRAND_A.name),
+      }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: CONFIRM_DIALOG_CONFIRM_LABEL }),
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+    expect(screen.queryByText(BRAND_A.name)).toBeNull();
+    expect(onCatalogChange).toHaveBeenCalledTimes(1);
+    expect(onCatalogChange).toHaveBeenCalledWith({ brandId: BRAND_A.id });
+  });
+});
+
+describe("YarnCatalogPanel — borrar un tipo vacío (design D4, backlog 24 S2b)", () => {
+  it("un 204 quita el tipo del panel de su marca y avisa una sola vez con el typeId borrado", async () => {
+    const onCatalogChange = vi.fn();
+    fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
+      if (
+        url === `/api/brands/${BRAND_A.id}/types/${TYPE_A1.id}` &&
+        init?.method === "DELETE"
+      ) {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      return defaultFetch(url);
+    });
+
+    render(<YarnCatalogPanel onCatalogChange={onCatalogChange} />);
+    const brandPanel = await openBrandPanel();
+
+    await userEvent.click(
+      within(brandPanel).getByRole("button", {
+        name: catalogDeleteLabel(TYPE_A1.name),
+      }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: CONFIRM_DIALOG_CONFIRM_LABEL }),
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+    expect(within(brandPanel).queryByText(TYPE_A1.name)).toBeNull();
+    expect(onCatalogChange).toHaveBeenCalledTimes(1);
+    expect(onCatalogChange).toHaveBeenCalledWith({ typeId: TYPE_A1.id });
+  });
+});
+
+describe("YarnCatalogPanel — 409 abre un aviso de una sola acción, no ConfirmDialog (design D4, backlog 24 S2b)", () => {
+  it("borrar una marca con hijos muestra los DOS contadores, un solo control, y la marca sigue listada", async () => {
+    const onCatalogChange = vi.fn();
+    fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
+      if (url === `/api/brands/${BRAND_A.id}` && init?.method === "DELETE") {
+        return Promise.resolve(
+          jsonResponse(409, { error: "tiene hijos", types: 1, yarns: 4 }),
+        );
+      }
+      return defaultFetch(url);
+    });
+
+    render(<YarnCatalogPanel onCatalogChange={onCatalogChange} />);
+    const brandPanel = await openBrandPanel();
+
+    await userEvent.click(
+      within(brandPanel).getByRole("button", {
+        name: catalogDeleteLabel(BRAND_A.name),
+      }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: CONFIRM_DIALOG_CONFIRM_LABEL }),
+    );
+
+    const notice = await screen.findByRole("dialog");
+    expect(
+      within(notice).getByRole("heading", { name: CATALOG_BLOCKED_BRAND_TITLE }),
+    ).toBeInTheDocument();
+    expect(within(notice).getByText(brandBlockedBody(1, 4))).toBeInTheDocument();
+    expect(within(notice).getAllByRole("button")).toHaveLength(1);
+    expect(
+      within(notice).getByRole("button", { name: CATALOG_NOTICE_DISMISS_LABEL }),
+    ).toBeInTheDocument();
+
+    expect(screen.getByText(BRAND_A.name)).toBeInTheDocument();
+    expect(onCatalogChange).not.toHaveBeenCalled();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: CATALOG_NOTICE_DISMISS_LABEL }),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("borrar un tipo con lanas muestra UN contador y la ConfirmDialog no reaparece", async () => {
+    const onCatalogChange = vi.fn();
+    fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
+      if (
+        url === `/api/brands/${BRAND_A.id}/types/${TYPE_A1.id}` &&
+        init?.method === "DELETE"
+      ) {
+        return Promise.resolve(jsonResponse(409, { error: "tiene lanas", yarns: 3 }));
+      }
+      return defaultFetch(url);
+    });
+
+    render(<YarnCatalogPanel onCatalogChange={onCatalogChange} />);
+    const brandPanel = await openBrandPanel();
+
+    await userEvent.click(
+      within(brandPanel).getByRole("button", {
+        name: catalogDeleteLabel(TYPE_A1.name),
+      }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: CONFIRM_DIALOG_CONFIRM_LABEL }),
+    );
+
+    const notice = await screen.findByRole("dialog");
+    expect(
+      within(notice).getByRole("heading", { name: CATALOG_BLOCKED_TYPE_TITLE }),
+    ).toBeInTheDocument();
+    expect(within(notice).getByText(typeBlockedBody(3))).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: CONFIRM_DIALOG_CANCEL_LABEL }),
+    ).toBeNull();
+
+    expect(within(brandPanel).getByText(TYPE_A1.name)).toBeInTheDocument();
+    expect(onCatalogChange).not.toHaveBeenCalled();
+  });
+});
+
+describe("YarnCatalogPanel — guarda contra respuestas tardías (distinta de R3-003, que sigue abierto)", () => {
+  it("cancelar durante un borrado en vuelo evita que la respuesta tardía reabra un modal, toque la lista o avise", async () => {
+    const onCatalogChange = vi.fn();
+    let resolveDelete: (response: Response) => void = () => {};
+    fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
+      if (url === `/api/brands/${BRAND_A.id}` && init?.method === "DELETE") {
+        return new Promise((resolve) => {
+          resolveDelete = resolve;
+        });
+      }
+      return defaultFetch(url);
+    });
+
+    render(<YarnCatalogPanel onCatalogChange={onCatalogChange} />);
+    const brandPanel = await openBrandPanel();
+
+    await userEvent.click(
+      within(brandPanel).getByRole("button", {
+        name: catalogDeleteLabel(BRAND_A.name),
+      }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: CONFIRM_DIALOG_CONFIRM_LABEL }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: CONFIRM_DIALOG_CANCEL_LABEL }),
+    );
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    // La respuesta llega DESPUÉS de cancelar: un 409 que, de aplicarse,
+    // abriría el aviso de bloqueo.
+    resolveDelete(jsonResponse(409, { error: "tiene hijos", types: 1, yarns: 2 }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByText(BRAND_A.name)).toBeInTheDocument();
+    expect(onCatalogChange).not.toHaveBeenCalled();
+  });
+
+  it("abrir la confirmación de OTRA fila mientras la primera sigue en vuelo no se ve tocada por la respuesta vieja", async () => {
+    const onCatalogChange = vi.fn();
+    let resolveBrandDelete: (response: Response) => void = () => {};
+    fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
+      if (url === `/api/brands/${BRAND_A.id}` && init?.method === "DELETE") {
+        return new Promise((resolve) => {
+          resolveBrandDelete = resolve;
+        });
+      }
+      return defaultFetch(url);
+    });
+
+    render(<YarnCatalogPanel onCatalogChange={onCatalogChange} />);
+    const brandPanel = await openBrandPanel();
+
+    // Primer borrado: se confirma y queda en vuelo.
+    await userEvent.click(
+      within(brandPanel).getByRole("button", {
+        name: catalogDeleteLabel(BRAND_A.name),
+      }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: CONFIRM_DIALOG_CONFIRM_LABEL }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: CONFIRM_DIALOG_CANCEL_LABEL }),
+    );
+
+    // Se abre una SEGUNDA confirmación, esta vez para el tipo.
+    await userEvent.click(
+      within(brandPanel).getByRole("button", {
+        name: catalogDeleteLabel(TYPE_A1.name),
+      }),
+    );
+    expect(
+      screen.getByRole("heading", { name: catalogDeleteConfirmTitle(TYPE_A1.name) }),
+    ).toBeInTheDocument();
+
+    // La respuesta del PRIMER borrado (marca) llega tarde, con éxito.
+    resolveBrandDelete(new Response(null, { status: 204 }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // La confirmación del TIPO sigue abierta, intacta — la respuesta vieja
+    // no la cerró ni la mutó.
+    expect(
+      screen.getByRole("heading", { name: catalogDeleteConfirmTitle(TYPE_A1.name) }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(BRAND_A.name)).toBeInTheDocument();
+    expect(onCatalogChange).not.toHaveBeenCalled();
   });
 });
 

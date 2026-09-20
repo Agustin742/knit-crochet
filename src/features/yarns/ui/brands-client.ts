@@ -120,3 +120,79 @@ export async function createYarnType(
     return { ok: false, message: UNEXPECTED_ERROR_MESSAGE };
   }
 }
+
+/**
+ * Resultados discriminados de borrar (design D4): el panel nunca toca
+ * `Response` — sólo estos tres casos. `kind: "blocked"` es el único que
+ * lleva los contadores del `409` (`api/brands/params.ts:58-68`, dos para la
+ * marca, uno para el tipo); `kind: "error"` cubre 404 y red caída por igual,
+ * porque ninguno de los dos tiene nada más específico que decir.
+ */
+export type DeleteBrandResult =
+  | { ok: true }
+  | { ok: false; kind: "blocked"; types: number; yarns: number }
+  | { ok: false; kind: "error"; message: string };
+
+export type DeleteTypeResult =
+  | { ok: true }
+  | { ok: false; kind: "blocked"; yarns: number }
+  | { ok: false; kind: "error"; message: string };
+
+/** `DELETE /api/brands/:id`; `204` en éxito, `409 { error, types, yarns }` bloqueada. */
+export async function deleteBrand(id: string): Promise<DeleteBrandResult> {
+  let response: Response;
+  try {
+    response = await fetch(`/api/brands/${id}`, {
+      method: "DELETE",
+      credentials: "same-origin",
+    });
+  } catch {
+    return { ok: false, kind: "error", message: NETWORK_ERROR_MESSAGE };
+  }
+
+  if (response.status === 204) {
+    return { ok: true };
+  }
+
+  if (response.status === 409) {
+    try {
+      const body = (await response.json()) as { types: number; yarns: number };
+      return { ok: false, kind: "blocked", types: body.types, yarns: body.yarns };
+    } catch {
+      return { ok: false, kind: "error", message: UNEXPECTED_ERROR_MESSAGE };
+    }
+  }
+
+  return { ok: false, kind: "error", message: UNEXPECTED_ERROR_MESSAGE };
+}
+
+/** `DELETE /api/brands/:id/types/:typeId`; `204` en éxito, `409 { error, yarns }` bloqueado. */
+export async function deleteYarnType(
+  brandId: string,
+  typeId: string,
+): Promise<DeleteTypeResult> {
+  let response: Response;
+  try {
+    response = await fetch(`/api/brands/${brandId}/types/${typeId}`, {
+      method: "DELETE",
+      credentials: "same-origin",
+    });
+  } catch {
+    return { ok: false, kind: "error", message: NETWORK_ERROR_MESSAGE };
+  }
+
+  if (response.status === 204) {
+    return { ok: true };
+  }
+
+  if (response.status === 409) {
+    try {
+      const body = (await response.json()) as { yarns: number };
+      return { ok: false, kind: "blocked", yarns: body.yarns };
+    } catch {
+      return { ok: false, kind: "error", message: UNEXPECTED_ERROR_MESSAGE };
+    }
+  }
+
+  return { ok: false, kind: "error", message: UNEXPECTED_ERROR_MESSAGE };
+}

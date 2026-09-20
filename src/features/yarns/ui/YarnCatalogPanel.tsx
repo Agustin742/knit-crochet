@@ -2,17 +2,29 @@
 
 import { type FormEvent, type RefObject, useEffect, useRef, useState } from "react";
 
-import { Button, Dialog, Disclosure, Field, Input, Skeleton } from "@/shared/ui";
+import {
+  Button,
+  ConfirmDialog,
+  Dialog,
+  Disclosure,
+  Field,
+  Input,
+  Skeleton,
+} from "@/shared/ui";
 
 import {
   type BrandTreeEntry,
   type BrandTreeState,
   createBrand,
   createYarnType,
+  deleteBrand,
+  deleteYarnType,
   getBrandTree,
 } from "./brands-client";
 import {
   CATALOG_ADD_TYPE_TRIGGER_LABEL,
+  CATALOG_BLOCKED_BRAND_TITLE,
+  CATALOG_BLOCKED_TYPE_TITLE,
   CATALOG_BRAND_NAME_LABEL,
   CATALOG_CREATE_BRAND_LABEL,
   CATALOG_CREATE_BRAND_TITLE,
@@ -21,23 +33,42 @@ import {
   CATALOG_LIST_SUMMARY_LABEL,
   CATALOG_LOAD_ERROR,
   CATALOG_NEW_BRAND_TRIGGER_LABEL,
+  CATALOG_NOTICE_DISMISS_LABEL,
   CATALOG_SECTION_LABEL,
   CATALOG_TYPES_EMPTY_MESSAGE,
   CATALOG_TYPE_NAME_LABEL,
   RETRY_LABEL,
+  brandBlockedBody,
   catalogCreateTypeModalTitle,
+  catalogDeleteConfirmTitle,
+  catalogDeleteLabel,
+  typeBlockedBody,
 } from "./yarn-copy";
 
 const CATALOG_SECTION_TITLE_ID = "yarn-catalog-title";
 
 export interface YarnCatalogPanelProps {
   /**
-   * Se llama **una sola vez** después de un `201` de creación (design D5):
-   * nunca tras un fallo, nunca tras un intento — es la señal que le dice al
-   * árbol marca→tipo de `YarnFilterPanel` que vuelva a pedirse.
+   * Se llama **una sola vez** después de un `201`/`204` de alta o borrado
+   * (design D5): nunca tras un fallo, nunca tras un intento — es la señal
+   * que le dice al árbol marca→tipo de `YarnFilterPanel` que vuelva a
+   * pedirse. Un borrado avisa además QUÉ se borró (`removed`), porque
+   * `YarnsView` lo necesita para soltar un filtro que apuntaba a ese id
+   * (design D5, `handleCatalogChange`); un alta nunca manda `removed`.
    */
-  onCatalogChange?: () => void;
+  onCatalogChange?: (removed?: { brandId?: string; typeId?: string }) => void;
 }
+
+/** Lo que espera confirmación de `ConfirmDialog` antes de pedir el borrado. */
+type DeleteTarget =
+  | { kind: "brand"; brand: BrandTreeEntry["brand"] }
+  | { kind: "type"; brandId: string; type: BrandTreeEntry["types"][number] };
+
+/** El aviso de una sola acción tras un `409` (design D4): construido sobre
+ *  `Dialog` directo, nunca `ConfirmDialog` — no hay nada que confirmar. */
+type CatalogNotice =
+  | { target: "brand"; types: number; yarns: number }
+  | { target: "type"; yarns: number };
 
 /**
  * Sección de catálogo dentro del `Card` de `YarnFilterPanel` (RFC-04 §7-ter
@@ -76,6 +107,22 @@ export function YarnCatalogPanel({ onCatalogChange }: YarnCatalogPanelProps) {
   const [typeModalBrandId, setTypeModalBrandId] = useState<string | null>(null);
   const brandNameRef = useRef<HTMLInputElement>(null);
   const typeNameRef = useRef<HTMLInputElement>(null);
+
+  /* Borrar (design D4, backlog 24 S2b). `confirmTarget` es lo que
+     `ConfirmDialog` pregunta ANTES del pedido; `notice` es el aviso de una
+     sola acción que reemplaza esa confirmación tras un 409 — nunca los dos
+     a la vez, así que un solo `Dialog` de cada tipo alcanza. */
+  const [confirmTarget, setConfirmTarget] = useState<DeleteTarget | null>(null);
+  const [deletePending, setDeletePending] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<CatalogNotice | null>(null);
+  /* Guarda contra una respuesta que llega DESPUÉS de que el objetivo cambió
+     (cancelar o abrir otra confirmación): se compara contra el valor vivo,
+     nunca contra uno capturado en un cierre viejo, así que ni cancelar ni
+     reabrir para otra fila puede quedar pisado por una respuesta tardía —
+     el mismo defecto que R3-003 deja abierto del lado del alta de tipo, acá
+     sí resuelto (`tasks.md` 3.6). */
+  const deleteRequestTokenRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -116,6 +163,126 @@ export function YarnCatalogPanel({ onCatalogChange }: YarnCatalogPanelProps) {
     if (state.status !== "ready") {
       setRetryToken((token) => token + 1);
     }
+  }
+
+  function removeBrand(brandId: string) {
+    setState((current) =>
+      current.status === "ready"
+        ? {
+            status: "ready",
+            entries: current.entries.filter((entry) => entry.brand.id !== brandId),
+          }
+        : current,
+    );
+    if (state.status !== "ready") {
+      setRetryToken((token) => token + 1);
+    }
+  }
+
+  function removeType(brandId: string, typeId: string) {
+    setState((current) =>
+      current.status === "ready"
+        ? {
+            status: "ready",
+            entries: current.entries.map((entry) =>
+              entry.brand.id === brandId
+                ? { ...entry, types: entry.types.filter((type) => type.id !== typeId) }
+                : entry,
+            ),
+          }
+        : current,
+    );
+    if (state.status !== "ready") {
+      setRetryToken((token) => token + 1);
+    }
+  }
+
+  function openBrandDeleteConfirm(brand: BrandTreeEntry["brand"]) {
+    deleteRequestTokenRef.current += 1;
+    setDeletePending(false);
+    setDeleteError(null);
+    setConfirmTarget({ kind: "brand", brand });
+  }
+
+  function openTypeDeleteConfirm(
+    brandId: string,
+    type: BrandTreeEntry["types"][number],
+  ) {
+    deleteRequestTokenRef.current += 1;
+    setDeletePending(false);
+    setDeleteError(null);
+    setConfirmTarget({ kind: "type", brandId, type });
+  }
+
+  function cancelDelete() {
+    deleteRequestTokenRef.current += 1;
+    setConfirmTarget(null);
+    setDeletePending(false);
+    setDeleteError(null);
+  }
+
+  /**
+   * Confirmado, pide el borrado de verdad. El `token` capturado ANTES del
+   * `await` es la guarda (ver el comentario de `deleteRequestTokenRef`
+   * arriba): si `confirmTarget` cambió mientras la petición seguía en
+   * vuelo —se canceló, o se abrió otra confirmación—, la respuesta que
+   * llega tarde no tiene a quién aplicarse y se descarta entera, sin tocar
+   * ni el modal actual ni la lista.
+   */
+  async function handleConfirmDelete() {
+    if (confirmTarget === null) {
+      return;
+    }
+    const target = confirmTarget;
+    const token = deleteRequestTokenRef.current;
+    setDeletePending(true);
+    setDeleteError(null);
+
+    /* Dos ramas enteras, no una sola con un ternario por llamada: los dos
+       resultados discriminados (`DeleteBrandResult`/`DeleteTypeResult`) NO
+       comparten forma en el caso `blocked` (dos contadores vs. uno solo), así
+       que unificar la rama le mentiría al tipo — `result.types` dejaría de
+       existir en la mitad de los casos. */
+    if (target.kind === "brand") {
+      const result = await deleteBrand(target.brand.id);
+      if (deleteRequestTokenRef.current !== token) {
+        return;
+      }
+      setDeletePending(false);
+
+      if (result.ok) {
+        removeBrand(target.brand.id);
+        setConfirmTarget(null);
+        onCatalogChange?.({ brandId: target.brand.id });
+        return;
+      }
+      if (result.kind === "blocked") {
+        setConfirmTarget(null);
+        setNotice({ target: "brand", types: result.types, yarns: result.yarns });
+        return;
+      }
+      setDeleteError(result.message);
+      return;
+    }
+
+    const result = await deleteYarnType(target.brandId, target.type.id);
+    if (deleteRequestTokenRef.current !== token) {
+      return;
+    }
+    setDeletePending(false);
+
+    if (result.ok) {
+      removeType(target.brandId, target.type.id);
+      setConfirmTarget(null);
+      onCatalogChange?.({ typeId: target.type.id });
+      return;
+    }
+    if (result.kind === "blocked") {
+      setConfirmTarget(null);
+      setNotice({ target: "type", yarns: result.yarns });
+      return;
+    }
+    setDeleteError(result.message);
   }
 
   /* Se guarda el ID de la marca y no la marca entera (mismo criterio que
@@ -178,6 +345,8 @@ export function YarnCatalogPanel({ onCatalogChange }: YarnCatalogPanelProps) {
                 key={entry.brand.id}
                 entry={entry}
                 onAddType={() => setTypeModalBrandId(entry.brand.id)}
+                onDeleteBrand={() => openBrandDeleteConfirm(entry.brand)}
+                onDeleteType={(type) => openTypeDeleteConfirm(entry.brand.id, type)}
               />
             ))
           )}
@@ -220,6 +389,49 @@ export function YarnCatalogPanel({ onCatalogChange }: YarnCatalogPanelProps) {
           />
         )}
       </Dialog>
+
+      <ConfirmDialog
+        open={confirmTarget !== null}
+        title={
+          confirmTarget === null
+            ? ""
+            : catalogDeleteConfirmTitle(
+                confirmTarget.kind === "brand"
+                  ? confirmTarget.brand.name
+                  : confirmTarget.type.name,
+              )
+        }
+        loading={deletePending}
+        onConfirm={() => void handleConfirmDelete()}
+        onCancel={cancelDelete}
+      >
+        {deleteError === null ? null : (
+          <p role="alert" className="font-body text-sm leading-base text-danger">
+            {deleteError}
+          </p>
+        )}
+      </ConfirmDialog>
+
+      <Dialog
+        open={notice !== null}
+        onClose={() => setNotice(null)}
+        title={
+          notice === null
+            ? ""
+            : notice.target === "brand"
+              ? CATALOG_BLOCKED_BRAND_TITLE
+              : CATALOG_BLOCKED_TYPE_TITLE
+        }
+        closeLabel={CATALOG_NOTICE_DISMISS_LABEL}
+      >
+        {notice === null ? null : (
+          <p className="font-body text-sm leading-base text-fg">
+            {notice.target === "brand"
+              ? brandBlockedBody(notice.types, notice.yarns)
+              : typeBlockedBody(notice.yarns)}
+          </p>
+        )}
+      </Dialog>
     </section>
   );
 }
@@ -227,9 +439,13 @@ export function YarnCatalogPanel({ onCatalogChange }: YarnCatalogPanelProps) {
 function BrandPanel({
   entry,
   onAddType,
+  onDeleteBrand,
+  onDeleteType,
 }: {
   entry: BrandTreeEntry;
   onAddType: () => void;
+  onDeleteBrand: () => void;
+  onDeleteType: (type: BrandTreeEntry["types"][number]) => void;
 }) {
   return (
     <Disclosure summary={entry.brand.name}>
@@ -245,15 +461,38 @@ function BrandPanel({
         ) : (
           <ul className="flex flex-col gap-(--space-1)">
             {entry.types.map((type) => (
-              <li key={type.id} className="font-body text-sm leading-base text-fg">
-                {type.name}
+              <li
+                key={type.id}
+                className="flex items-center justify-between gap-(--space-2)"
+              >
+                <span className="font-body text-sm leading-base text-fg">
+                  {type.name}
+                </span>
+                <Button
+                  variant="danger"
+                  size="icon"
+                  aria-label={catalogDeleteLabel(type.name)}
+                  onClick={() => onDeleteType(type)}
+                >
+                  <span aria-hidden="true">✕</span>
+                </Button>
               </li>
             ))}
           </ul>
         )}
-        <Button variant="secondary" className="self-start" onClick={onAddType}>
-          {CATALOG_ADD_TYPE_TRIGGER_LABEL}
-        </Button>
+        <div className="flex items-center gap-(--space-2)">
+          <Button variant="secondary" onClick={onAddType}>
+            {CATALOG_ADD_TYPE_TRIGGER_LABEL}
+          </Button>
+          <Button
+            variant="danger"
+            size="icon"
+            aria-label={catalogDeleteLabel(entry.brand.name)}
+            onClick={onDeleteBrand}
+          >
+            <span aria-hidden="true">✕</span>
+          </Button>
+        </div>
       </div>
     </Disclosure>
   );

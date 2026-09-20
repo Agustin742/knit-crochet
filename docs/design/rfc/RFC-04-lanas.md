@@ -175,6 +175,43 @@ los **19px** del encabezado al que acompaña — más de tres veces su altura, i
 visual. Van **apilados**: el `<h2>` en su línea y el botón debajo, alineado al inicio (una sola
 línea, 45px). La agrupación semántica es la misma; lo que cambia es que ahora entra.
 
+### E2(e) — borrar: `ConfirmDialog` antes del pedido, un aviso de una sola acción tras el 409 (design D4, backlog 24 slice S2b)
+
+> Nota de numeración: `tasks.md` (tarea 3.9) pedía originalmente "append E2(d)" para esta
+> enmienda, pero esa letra ya la ocupó la anterior (el alta saliendo del `Disclosure` hacia
+> modales). Corresponde **E2(e)** — siguiente letra libre, en el mismo orden de escritura que el
+> resto de esta sección.
+
+§1 exige confirmación explícita antes de borrar; el borrado del catálogo (marca o tipo) usa el
+primitivo `ConfirmDialog` que ya existía (tono `danger`, foco inicial en «Cancelar», dos
+botones), no uno nuevo. Cada fila —marca o tipo— tiene su propio `Button variant="danger"
+size="icon"` cuyo nombre accesible incluye el nombre de lo que borra (`Borrar {nombre}`, nunca
+«Borrar» a secas: el mismo criterio que E2(d) ya fija para no repetir controles genéricos).
+
+El servidor no ofrece `?force` ni cascada para marca/tipo (`api/brands/*`): con hijos, responde
+`409` con los contadores exactos (`{ types, yarns }` para la marca, `{ yarns }` para el tipo) y
+no borra nada. Ese `409` **no reabre `ConfirmDialog`** — no hay nada que confirmar, la acción ya
+fue rechazada — sino un aviso de una sola acción construido **directamente sobre `Dialog`**, con
+el cierre del encabezado como único control (`closeLabel="Entendido"`), nombrando los contadores
+exactos que trajo la respuesta. La marca o el tipo bloqueados siguen listados: no se borró nada,
+así que no hay fila que quitar.
+
+Un borrado exitoso (`204`) avisa a `onCatalogChange` con QUÉ se borró
+(`{ brandId }` o `{ typeId }`), no sólo que algo cambió: `YarnsView` lo usa para soltar el
+filtro activo si apuntaba a lo borrado (design D5, `handleCatalogChange(removed?)`) — borrar la
+marca activa suelta `brandId` **y** `typeId` juntos (un tipo sin marca no es representable, #23
+D5-bis), borrar el tipo activo suelta sólo `typeId`.
+
+**Guarda contra respuestas tardías, sin repetir R3-003.** El hallazgo R3-003 (abierto,
+deliberadamente fuera de alcance de este cambio) es que el modal de alta de tipo cierra
+`typeModalBrandId` sin condición cuando la respuesta llega tarde, así que una respuesta vieja
+puede cerrar un modal que el usuario ya reabrió para otra marca. Los dos modales nuevos de esta
+enmienda (`ConfirmDialog` y el aviso 409) no repiten ese patrón: cada pedido de borrado captura
+un token antes del `await`, y sólo aplica su resultado —cerrar el modal, quitar la fila, avisar—
+si ese token sigue vigente cuando la respuesta llega. Cancelar o abrir otra confirmación bumpea
+el token, así que una respuesta que llega después de cualquiera de las dos cosas se descarta
+entera.
+
 ## 8. Slices de implementación (→ backlog de UI)
 
 IDs reales en la tabla de [RFC-00 §4](RFC-00-proceso.md); las entradas que siguen abiertas están en `docs/product/backlog-ui.md`:

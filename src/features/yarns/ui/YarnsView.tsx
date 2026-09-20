@@ -58,14 +58,37 @@ export function YarnsView() {
   const [usedQuantityPending, setUsedQuantityPending] = useState(false);
   const [usedQuantityError, setUsedQuantityError] = useState<string | null>(null);
   /* Sube en cada alta/borrado exitoso del catálogo (design D5): es la única
-     dependencia nueva del efecto de `YarnBrandTree`, así que un create en el
-     panel se ve reflejado en el árbol sin recargar la página. El branch de
-     filtro colgante (borrar la marca/tipo activo) es la rebanada S2b. */
+     dependencia nueva del efecto de `YarnBrandTree`, así que un create o un
+     borrado en el panel se ven reflejados en el árbol sin recargar la
+     página. */
   const [catalogToken, setCatalogToken] = useState(0);
 
-  const handleCatalogChange = useCallback(() => {
-    setCatalogToken((token) => token + 1);
-  }, []);
+  /**
+   * Design D5: un borrado de la marca o el tipo que el filtro activo
+   * apunta suelta ESE filtro, para no dejar la vista pidiendo
+   * `GET /api/yarns` con un `brandId`/`typeId` que ya no existe. Borrar la
+   * marca activa suelta `typeId` CON ella — un tipo sin marca no es
+   * representable (#23 D5-bis) — pero borrar el tipo activo deja `brandId`
+   * como estaba. El updater funcional lee `current` en el momento del
+   * `setFilters`, nunca una copia capturada al armar el callback: sin eso,
+   * un borrado disparado bajo un filtro ya cambiado por OTRA interacción
+   * podría comparar contra un `filters` viejo y soltar el que no corresponde.
+   */
+  const handleCatalogChange = useCallback(
+    (removed?: { brandId?: string; typeId?: string }) => {
+      setCatalogToken((token) => token + 1);
+      setFilters((current) => {
+        if (removed?.brandId !== undefined && current.brandId === removed.brandId) {
+          return { colorFamily: current.colorFamily };
+        }
+        if (removed?.typeId !== undefined && current.typeId === removed.typeId) {
+          return { ...current, typeId: undefined };
+        }
+        return current;
+      });
+    },
+    [],
+  );
 
   const requestKey = requestKeyOf(filters, reloadToken);
   const loading = loaded?.key !== requestKey;

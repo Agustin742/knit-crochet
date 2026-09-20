@@ -89,3 +89,63 @@ export const CATALOG_ADD_TYPE_TRIGGER_LABEL = "Agregar tipo";
 export function catalogCreateTypeModalTitle(brandName: string): string {
   return `Agregar tipo a ${brandName}`;
 }
+
+/**
+ * Copy de borrar (design D4, RFC-04 §7-ter E2(e), backlog 24 slice S2b): una
+ * `ConfirmDialog` por objetivo (marca o tipo) y, tras un `409`, un aviso de
+ * una sola acción construido directamente sobre `Dialog`.
+ */
+
+/** Nombre accesible del botón de borrado — nunca "Borrar" a secas (design D4):
+ *  sirve tanto para la marca como para el tipo, porque los dos nombran su
+ *  propio objetivo de la misma forma. */
+export function catalogDeleteLabel(name: string): string {
+  return `Borrar ${name}`;
+}
+
+/** La pregunta de la `ConfirmDialog`, antes del pedido: nombra lo que se borra. */
+export function catalogDeleteConfirmTitle(name: string): string {
+  return `¿Borrar ${name}?`;
+}
+
+/** Título del aviso 409, construido sobre `Dialog` y no `ConfirmDialog` (design D4). */
+export const CATALOG_BLOCKED_BRAND_TITLE = "No se puede borrar la marca";
+export const CATALOG_BLOCKED_TYPE_TITLE = "No se puede borrar el tipo";
+
+/** Único control del aviso 409: el cierre del encabezado de `Dialog`, sin botones extra. */
+export const CATALOG_NOTICE_DISMISS_LABEL = "Entendido";
+
+/** "1 tipo" / "2 tipos", pluralizando como `stockLabel`. */
+function pluralClause(count: number, singular: string, plural: string): string {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+/** "el tipo" / "los tipos": la frase de acción concuerda en número con el conteo. */
+function actionClause(count: number, singular: string, plural: string): string {
+  return count === 1 ? singular : plural;
+}
+
+/**
+ * Cuerpo del aviso al borrar una marca con hijos (`409 { error, types,
+ * yarns }`, `api/brands/params.ts:58-68`): los DOS contadores, omitiendo la
+ * cláusula cuyo conteo es 0 (design D4). Los dos en 0 a la vez no puede pasar
+ * — el servidor no manda 409 en ese caso.
+ */
+export function brandBlockedBody(types: number, yarns: number): string {
+  const countClauses: string[] = [];
+  const actionClauses: string[] = [];
+  if (types > 0) {
+    countClauses.push(pluralClause(types, "tipo", "tipos"));
+    actionClauses.push(actionClause(types, "el tipo", "los tipos"));
+  }
+  if (yarns > 0) {
+    countClauses.push(pluralClause(yarns, "lana", "lanas"));
+    actionClauses.push(actionClause(yarns, "la lana", "las lanas"));
+  }
+  return `Esta marca todavía tiene ${countClauses.join(" y ")}. Borrá ${actionClauses.join(" y ")} antes de eliminar la marca.`;
+}
+
+/** Cuerpo del aviso al borrar un tipo con lanas (`409 { error, yarns }`): un solo contador. */
+export function typeBlockedBody(yarns: number): string {
+  return `Este tipo todavía tiene ${pluralClause(yarns, "lana", "lanas")}. Borrá ${actionClause(yarns, "la lana", "las lanas")} antes de eliminar el tipo.`;
+}

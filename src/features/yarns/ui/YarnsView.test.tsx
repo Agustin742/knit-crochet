@@ -6,7 +6,12 @@ import { axe } from "vitest-axe";
 
 import { COLOR_FAMILY_LABELS } from "@/shared/config";
 
-import { EMPTY_TITLE, ERROR_TITLE, RETRY_LABEL } from "./yarn-copy";
+import {
+  CATALOG_SECTION_LABEL,
+  EMPTY_TITLE,
+  ERROR_TITLE,
+  RETRY_LABEL,
+} from "./yarn-copy";
 import { YARNS_ENDPOINT } from "./yarns-client";
 import {
   LOADING_MESSAGE,
@@ -364,6 +369,137 @@ describe("YarnsView — los tres estados (RFC-04 §4)", () => {
 
     const failed = await renderReady({ status: 500 });
     expect(await axe(failed.container)).toHaveNoViolations();
+  });
+});
+
+/**
+ * `handleCatalogChange(removed?)` (design D5, backlog 24 slice S2b): borrar
+ * en el panel de catálogo la marca o el tipo que el filtro activo apunta
+ * suelta ESE filtro, para no dejar `/lanas` pidiendo `GET /api/yarns` con un
+ * `brandId`/`typeId` que ya no existe. Se mide contra la URL que pide el
+ * ÚLTIMO `GET /api/yarns`, no contra estado interno.
+ */
+describe("YarnsView — borrar en el catálogo limpia el filtro colgante (design D5, backlog 24 S2b)", () => {
+  const BRAND = { id: "brand-1", userId: "u", name: "Malabrigo" };
+  const TYPE = { id: "type-1", brandId: "brand-1", name: "Merino Worsted" };
+
+  function lastYarnsUrl(): string {
+    const yarnsCalls = fetchSpy.mock.calls.filter((call: unknown[]) =>
+      (call[0] as string).startsWith("/api/yarns"),
+    );
+    const last = yarnsCalls[yarnsCalls.length - 1];
+    if (last === undefined) {
+      throw new Error("ningún GET /api/yarns registrado todavía");
+    }
+    return last[0] as string;
+  }
+
+  function serveDeleteScenario() {
+    fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/brands") {
+        return Promise.resolve(jsonResponse(200, { brands: [BRAND] }));
+      }
+      if (url === `/api/brands/${BRAND.id}/types`) {
+        return Promise.resolve(jsonResponse(200, { types: [TYPE] }));
+      }
+      if (url === `/api/brands/${BRAND.id}` && init?.method === "DELETE") {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      if (
+        url === `/api/brands/${BRAND.id}/types/${TYPE.id}` &&
+        init?.method === "DELETE"
+      ) {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      if (url.startsWith("/api/yarns")) {
+        return Promise.resolve(jsonResponse(200, { yarns: [CRUDA] }));
+      }
+      return Promise.reject(new Error(`url inesperada: ${url}`));
+    });
+  }
+
+  it("borrar la marca del filtro activo limpia brandId Y typeId, conserva colorFamily", async () => {
+    serveDeleteScenario();
+    render(<YarnsView />);
+    await settle();
+
+    // Filtro de color primero, para comprobar que sobrevive al borrado.
+    await userEvent.click(
+      screen.getByRole("button", { name: COLOR_FAMILY_LABELS.blue }),
+    );
+    await waitFor(() => {
+      expect(lastYarnsUrl()).toContain("colorFamily=blue");
+    });
+
+    // Selecciona la marca entera en el árbol de filtro (fuera del panel de
+    // catálogo: son dos árboles independientes que piden lo mismo).
+    const filterTree = screen.getByRole("group", { name: "Marca y tipo" });
+    await userEvent.click(within(filterTree).getByText(BRAND.name));
+    await userEvent.click(
+      within(filterTree).getByRole("radio", { name: "Toda la marca" }),
+    );
+    await waitFor(() => {
+      expect(lastYarnsUrl()).toContain(`brandId=${BRAND.id}`);
+    });
+
+    // Borra esa misma marca desde el panel de catálogo: dos acordeones
+    // anidados, el de la lista y el de esta marca (`YarnCatalogPanel.test.tsx`
+    // — `openBrandPanel`).
+    const catalogSection = screen.getByRole("region", { name: CATALOG_SECTION_LABEL });
+    await userEvent.click(within(catalogSection).getByText("Marcas y tipos"));
+    await userEvent.click(within(catalogSection).getByText(BRAND.name));
+    const catalogBrandPanel = within(catalogSection).getByRole("group", {
+      name: BRAND.name,
+    });
+    await userEvent.click(
+      within(catalogBrandPanel).getByRole("button", { name: `Borrar ${BRAND.name}` }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      const url = lastYarnsUrl();
+      expect(url).not.toContain("brandId=");
+      expect(url).not.toContain("typeId=");
+      expect(url).toContain("colorFamily=blue");
+    });
+  });
+
+  it("borrar el tipo del filtro activo limpia SÓLO typeId, conserva brandId", async () => {
+    serveDeleteScenario();
+    render(<YarnsView />);
+    await settle();
+
+    const filterTree = screen.getByRole("group", { name: "Marca y tipo" });
+    await userEvent.click(within(filterTree).getByText(BRAND.name));
+    await userEvent.click(within(filterTree).getByRole("radio", { name: TYPE.name }));
+    await waitFor(() => {
+      const url = lastYarnsUrl();
+      expect(url).toContain(`brandId=${BRAND.id}`);
+      expect(url).toContain(`typeId=${TYPE.id}`);
+    });
+
+    const catalogSection = screen.getByRole("region", { name: CATALOG_SECTION_LABEL });
+    await userEvent.click(within(catalogSection).getByText("Marcas y tipos"));
+    await userEvent.click(within(catalogSection).getByText(BRAND.name));
+    const catalogBrandPanel = within(catalogSection).getByRole("group", {
+      name: BRAND.name,
+    });
+    await userEvent.click(
+      within(catalogBrandPanel).getByRole("button", { name: `Borrar ${TYPE.name}` }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      const url = lastYarnsUrl();
+      expect(url).toContain(`brandId=${BRAND.id}`);
+      expect(url).not.toContain("typeId=");
+    });
   });
 });
 
