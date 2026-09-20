@@ -68,6 +68,31 @@ Chain strategy: feature-branch-chain
 - [x] 2.12 Docs: `RFC-04-lanas.md` §7-ter — append **E2(c)** (panel placement, left column under filter tree/color row, reuses `Disclosure`), Spanish.
 - [ ] 2.13 Browser verification (REGLA 4): orchestrator creates a brand and a type on `/lanas`, confirms the tree refreshes without reload, checks contrast on the panel's `Card` surface. **LEFT OPEN — this executor has no browser tools.**
 
+## Cambio pedido por el usuario tras ver S2a en pantalla (2026-09-20)
+
+**Se suma a S2b. Rehace los formularios que S2a acaba de entregar — no es trabajo nuevo encima, es
+reemplazo.**
+
+Lo que no gustó: crear una marca hoy exige **desplegar** «Catálogos», y el formulario vive colgado
+dentro del acordeón. Lo pedido:
+
+- [ ] Crear marca: un **botón que no se colapse** —visible sin desplegar nada— que abre un **modal**
+      con el campo. Sale de adentro del `Disclosure`.
+- [ ] Crear tipo: desde **donde se ven las marcas**, cada marca ofrece entrar a **su propio modal**
+      para agregarle un tipo. Un modal por marca, no un formulario inline por marca.
+- [ ] Revisar qué queda del `Disclosure` «Catálogos» una vez que los dos formularios se van a modales:
+      si sólo queda la lista, quizá deje de tener sentido como acordeón.
+- [ ] Consecuencia de layout, medida en navegador: la columna izquierda ya obliga a scrollear con
+      filtro + 13 swatches + catálogos. Sacar los formularios a modales la acorta, que juega a favor.
+
+**Ojo con lo que NO cambia:** la señal `onCatalogChange` sigue disparando sólo con 201, y el árbol de
+filtro se sigue refrescando sin recargar. Eso quedó verificado en navegador y no se toca — lo que
+cambia es por dónde entra el dato, no qué pasa después.
+
+**Amerita enmienda de RFC-04:** E2(c) acaba de fijar que el panel es una sección plegable con sus
+formularios dentro. Si los formularios pasan a modales, esa enmienda queda desactualizada el mismo
+día que se escribió. Corresponde E2(d) — o corregir la (c), decidiéndolo explícitamente.
+
 ## Phase 3: S2b `catalog-delete-409`
 
 - [ ] 3.1 RED: extend `brands-client.test.ts` — `deleteBrand`/`deleteYarnType` 204 → `ok:true`; 404 → `ok:false, kind:"error"`; **409 → `ok:false, kind:"blocked"`, both counts for a brand, one count for a type**.
