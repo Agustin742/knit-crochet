@@ -962,6 +962,61 @@ describe("YarnCatalogPanel — guarda contra respuestas tardías (distinta de R3
       screen.getByRole("heading", { name: catalogDeleteConfirmTitle(TYPE_A1.name) }),
     ).toBeInTheDocument();
   });
+
+  /* Simetrico del anterior, pero sobre la rama de TIPO. El arreglo del guarda
+     se aplico a las dos ramas de `handleConfirmDelete`; sin este test solo una
+     quedaba cubierta, y una regresion en la otra pasaria sin que nadie la vea. */
+  it("un 204 tardio de un tipo lo saca de la lista y avisa, aunque el dialogo ya sea otro", async () => {
+    const onCatalogChange = vi.fn();
+    let resolveTypeDelete: (response: Response) => void = () => {};
+    fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
+      if (
+        url === `/api/brands/${BRAND_A.id}/types/${TYPE_A1.id}` &&
+        init?.method === "DELETE"
+      ) {
+        return new Promise((resolve) => {
+          resolveTypeDelete = resolve;
+        });
+      }
+      return defaultFetch(url);
+    });
+
+    render(<YarnCatalogPanel onCatalogChange={onCatalogChange} />);
+    const brandPanel = await openBrandPanel();
+
+    await userEvent.click(
+      within(brandPanel).getByRole("button", {
+        name: catalogDeleteLabel(TYPE_A1.name),
+      }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: CONFIRM_DIALOG_CONFIRM_LABEL }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: CONFIRM_DIALOG_CANCEL_LABEL }),
+    );
+
+    await userEvent.click(
+      within(brandPanel).getByRole("button", {
+        name: catalogDeleteLabel(BRAND_A.name),
+      }),
+    );
+    expect(
+      screen.getByRole("heading", { name: catalogDeleteConfirmTitle(BRAND_A.name) }),
+    ).toBeInTheDocument();
+
+    resolveTypeDelete(new Response(null, { status: 204 }));
+
+    await waitFor(() => {
+      expect(screen.queryByText(TYPE_A1.name)).toBeNull();
+    });
+    expect(onCatalogChange).toHaveBeenCalledTimes(1);
+    expect(onCatalogChange).toHaveBeenCalledWith({ typeId: TYPE_A1.id });
+
+    expect(
+      screen.getByRole("heading", { name: catalogDeleteConfirmTitle(BRAND_A.name) }),
+    ).toBeInTheDocument();
+  });
 });
 
 describe("YarnCatalogPanel — accesibilidad", () => {
