@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 
 import { Disclosure } from "@/shared/ui";
-import type { BrandRecord, YarnTypeRecord } from "@/features/yarns/types";
+
+import { type BrandTreeState, getBrandTree } from "./brands-client";
 
 /**
  * Nombre del ÚNICO grupo de radios que cubre el árbol entero (design D5-bis):
@@ -25,51 +26,13 @@ export interface YarnBrandTreeProps {
   /** `"all"` | `brandId` | `` `${brandId}:${typeId}` `` — un solo valor exclusivo. */
   value: string;
   onValueChange: (value: string) => void;
-}
-
-type BrandTreeEntry = { brand: BrandRecord; types: YarnTypeRecord[] };
-type BrandTreeState =
-  | { status: "loading" }
-  | { status: "ready"; entries: BrandTreeEntry[] }
-  | { status: "failed" };
-
-/**
- * `GET /api/brands` y luego `Promise.all` sobre `GET /api/brands/:id/types`
- * (design D7): una sola vez, en paralelo, sin depender de ningún filtro. Un
- * fallo en cualquier tramo se atrapa entero y nunca se propaga — quien llama
- * lo lee como "panel deshabilitado", no como una excepción que tire la
- * página abajo.
- */
-async function fetchTree(): Promise<BrandTreeState> {
-  try {
-    const brandsResponse = await fetch("/api/brands", {
-      credentials: "same-origin",
-    });
-    if (!brandsResponse.ok) {
-      return { status: "failed" };
-    }
-    const { brands } = (await brandsResponse.json()) as {
-      brands: BrandRecord[];
-    };
-
-    const entries = await Promise.all(
-      brands.map(async (brand): Promise<BrandTreeEntry> => {
-        const typesResponse = await fetch(`/api/brands/${brand.id}/types`, {
-          credentials: "same-origin",
-        });
-        if (!typesResponse.ok) {
-          throw new Error("no se pudo leer los tipos de la marca");
-        }
-        const { types } = (await typesResponse.json()) as {
-          types: YarnTypeRecord[];
-        };
-        return { brand, types };
-      }),
-    );
-    return { status: "ready", entries };
-  } catch {
-    return { status: "failed" };
-  }
+  /**
+   * Sube en cada creación/borrado exitoso del catálogo (design D5): el único
+   * cambio de este slice es que el árbol vuelve a pedirse cuando este número
+   * cambia. Por defecto `0`, y sólo entra en el arreglo de dependencias del
+   * efecto — aditivo, así que revertir S2 restaura el efecto `[]` de antes.
+   */
+  catalogToken?: number;
 }
 
 /**
@@ -83,12 +46,16 @@ async function fetchTree(): Promise<BrandTreeState> {
  * así que la marca que sostiene la selección activa lo anuncia en su propio
  * `summary` (siempre montado, cerrado o no), no en el panel que se desmonta.
  */
-export function YarnBrandTree({ value, onValueChange }: YarnBrandTreeProps) {
+export function YarnBrandTree({
+  value,
+  onValueChange,
+  catalogToken = 0,
+}: YarnBrandTreeProps) {
   const [state, setState] = useState<BrandTreeState>({ status: "loading" });
 
   useEffect(() => {
     let cancelled = false;
-    void fetchTree().then((result) => {
+    void getBrandTree().then((result) => {
       if (!cancelled) {
         setState(result);
       }
@@ -96,7 +63,7 @@ export function YarnBrandTree({ value, onValueChange }: YarnBrandTreeProps) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [catalogToken]);
 
   if (state.status === "failed") {
     return (

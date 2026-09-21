@@ -83,6 +83,135 @@ todavía cuando se implementa #23. Igual que #20 con su propia card (RFC-03, E1(
 un control real y alcanzable por teclado cuyo tap es un no-op documentado (deuda 192), no un `div`
 decorado a la espera del drawer.
 
+## 7-ter. Enmienda E2 — el detalle de una lana, y dónde vive el catálogo (2026-09-20)
+
+> Registrada al cerrar las rebanadas del cambio SDD `yarns-detail-catalogs-ui` (entrada 24 del backlog
+> de UI). Las letras se escriben **en el orden en que entran las rebanadas**, no agrupadas por tema,
+> para que este documento nunca describa código que todavía no existe. El detalle por rebanada está en
+> `openspec/changes/yarns-detail-catalogs-ui/`.
+
+### E2(a) — el stepper de `usedQuantity` es un primitivo genérico, no una pieza de lanas
+
+§2 pide «stepper de `usedQuantity`» en el cajón de detalle. Se resuelve con un primitivo `Stepper` del
+design system: controlado, sin estado propio y sin saber qué cuenta. **Controlado a propósito:** un
+valor que se persiste en el servidor no puede tener una segunda fuente de verdad, porque un `PATCH`
+rechazado dejaría el número mostrando algo que nunca se guardó. El `Disclosure` sí puede ser dual,
+porque abierto/cerrado es efímero; esto no.
+
+El piso en `0` y la **ausencia de techo** son decisión de quien lo consume, no del primitivo: salen de
+que el PRD-01 §4.5 define `usedQuantity` como **independiente** de `quantity` —enlazar una lana a un
+proyecto no descuenta stock—, así que el consumo no tiene tope contra el inventario.
+
+### E2(b) — el botón «Editar» del cajón es un no-op hasta que exista la entrada 25
+
+§2 pone un botón «Editar» en el cajón que abre el modal de edición, pero ese modal es la entrada **25**
+(`yarns_form_ui`), que no existe cuando entra la 24. Igual que el tap de la tarjeta en E1(c), el botón
+se monta como **control real y alcanzable por teclado** cuyo manejador es un no-op documentado (deuda
+199), en vez de un `div` decorado esperando. Cuando entre la 25, el mismo control pasa a abrir el
+modal: ya está puesto y ya es accesible, sólo falta cablearlo.
+
+### E2(c) — el panel de catálogo vive en la columna del filtro, no en una pantalla propia
+
+§1 y §5 hablan del catálogo de marcas y tipos sin decir dónde se gestiona. Se resuelve como una
+sección más dentro del `Card` del panel de filtros: bajo el árbol marca→tipo y la fila de color,
+como último hijo de la MISMA superficie (deuda 196 no se repite: el panel nunca se monta suelto
+sobre el fondo de la página). Reutiliza el `Disclosure` genérico —el mismo primitivo del árbol y de
+la enmienda E1 de #22— tanto para la sección entera («Catálogos») como para cada marca dentro de
+ella, así que no suma ningún criterio visual nuevo al design system.
+
+### E2(d) — el alta se sale del `Disclosure` hacia modales (2026-09-20)
+
+E2(c) fijó el panel de catálogo como una sección plegable **con sus dos formularios de alta
+adentro**. El usuario vio esa versión (S2a) en pantalla y la rechazó: crear una marca exigía
+**desplegar** «Catálogos» para llegar a un campo escondido dentro del acordeón. No se corrige (c) —
+la enmienda queda para que se entienda por qué cambió— y se agrega esta:
+
+- **Crear marca** pasa a un botón siempre visible, hermano del `Disclosure` y no un hijo suyo:
+  alcanzable sin desplegar nada. Abre un modal (`Dialog`) con el campo de nombre.
+- **Crear tipo** deja de ser un formulario inline repetido bajo cada marca. Cada marca listada
+  ofrece un control que abre **su propio modal**, uno por marca, en vez de uno por marca montado
+  siempre en el DOM.
+- El `Disclosure` se queda, pero ahora sólo contiene **listas** —marcas y sus tipos—. Es la
+  decisión asentada: un acordeón sirve para esconder listas largas, no para esconder la acción de
+  alta. «Catálogos» pasa a encabezar la SECCIÓN entera (un `<h2>`, hermano del botón «Nueva
+  marca»); el `Disclosure` ya no repite esa etiqueta — lleva la suya propia, «Marcas y tipos» —
+  porque un botón siempre visible leyéndose como el último ítem del filtro de color, con
+  «Catálogos» recién apareciendo DEBAJO de él, confundía qué encabezaba qué (corrección del
+  2026-09-20, tras verlo en pantalla).
+- **Motivo de layout:** la columna izquierda del panel de filtros ya obligaba a scrollear con el
+  filtro, los 13 swatches de color y el catálogo apilados. Sacar los dos formularios a modales
+  ayuda, pero sólo en parte — ver la corrección medida más abajo.
+
+Lo que NO cambió: la señal `onCatalogChange` (design D5) sigue disparando una sola vez, sólo tras
+un `201`, y el árbol marca→tipo del panel de filtro se sigue refrescando sin recargar la página. Lo
+que cambia es por dónde entra el dato (un modal en vez de un formulario dentro del acordeón), no
+qué pasa después de un alta exitosa.
+
+**Corrección (2026-09-20, hallazgo R3-002):** este párrafo decía "verificado en navegador antes y
+después de este cambio", y el bullet de motivo de layout decía que sacar los formularios a modales
+"la acorta", punto. Ninguna de las dos frases tenía una verificación real detrás — las escribió un
+agente sin herramientas de navegador, que había dejado la verificación visual explícitamente
+abierta por ese mismo motivo (`tasks.md`, tarea de layout). Lo que el orquestador **sí** confirmó
+en el navegador, el 2026-09-20:
+
+- «Nueva marca» es alcanzable sin desplegar nada.
+- El modal abre con el campo de nombre enfocado (comprobado por `document.activeElement`, no a
+  ojo).
+- `Escape` cierra el modal.
+- Crear una marca cierra el modal y la marca aparece tanto en el árbol de filtro de arriba (sin
+  recargar) como en la lista del catálogo.
+- La marca de prueba se borró después con `DELETE /api/brands/[id]` → `204`.
+
+Y lo que se midió y **no** sostiene la frase original de motivo de layout: la columna izquierda
+**sigue scrolleando** con el acordeón desplegado. Sacar los dos formularios a modales la acorta,
+pero el alivio es sólo parcial — no la "acorta" sin más, como decía la primera versión de este
+párrafo.
+
+**Segunda corrección medida (2026-09-20).** El encabezado «Catálogos» y el botón «Nueva marca»
+se montaron primero en una MISMA FILA (`justify-between`). Medido en el navegador, esa fila no
+entra en esta columna: el panel mide **256px**, el encabezado **61px** y el botón **139px**, y
+para cabalgar juntos el botón partió su etiqueta en dos líneas y quedó de **62px de alto** contra
+los **19px** del encabezado al que acompaña — más de tres veces su altura, invirtiendo el peso
+visual. Van **apilados**: el `<h2>` en su línea y el botón debajo, alineado al inicio (una sola
+línea, 45px). La agrupación semántica es la misma; lo que cambia es que ahora entra.
+
+### E2(e) — borrar: `ConfirmDialog` antes del pedido, un aviso de una sola acción tras el 409 (design D4, backlog 24 slice S2b)
+
+> Nota de numeración: `tasks.md` (tarea 3.9) pedía originalmente "append E2(d)" para esta
+> enmienda, pero esa letra ya la ocupó la anterior (el alta saliendo del `Disclosure` hacia
+> modales). Corresponde **E2(e)** — siguiente letra libre, en el mismo orden de escritura que el
+> resto de esta sección.
+
+§1 exige confirmación explícita antes de borrar; el borrado del catálogo (marca o tipo) usa el
+primitivo `ConfirmDialog` que ya existía (tono `danger`, foco inicial en «Cancelar», dos
+botones), no uno nuevo. Cada fila —marca o tipo— tiene su propio `Button variant="danger"
+size="icon"` cuyo nombre accesible incluye el nombre de lo que borra (`Borrar {nombre}`, nunca
+«Borrar» a secas: el mismo criterio que E2(d) ya fija para no repetir controles genéricos).
+
+El servidor no ofrece `?force` ni cascada para marca/tipo (`api/brands/*`): con hijos, responde
+`409` con los contadores exactos (`{ types, yarns }` para la marca, `{ yarns }` para el tipo) y
+no borra nada. Ese `409` **no reabre `ConfirmDialog`** — no hay nada que confirmar, la acción ya
+fue rechazada — sino un aviso de una sola acción construido **directamente sobre `Dialog`**, con
+el cierre del encabezado como único control (`closeLabel="Entendido"`), nombrando los contadores
+exactos que trajo la respuesta. La marca o el tipo bloqueados siguen listados: no se borró nada,
+así que no hay fila que quitar.
+
+Un borrado exitoso (`204`) avisa a `onCatalogChange` con QUÉ se borró
+(`{ brandId }` o `{ typeId }`), no sólo que algo cambió: `YarnsView` lo usa para soltar el
+filtro activo si apuntaba a lo borrado (design D5, `handleCatalogChange(removed?)`) — borrar la
+marca activa suelta `brandId` **y** `typeId` juntos (un tipo sin marca no es representable, #23
+D5-bis), borrar el tipo activo suelta sólo `typeId`.
+
+**Guarda contra respuestas tardías, sin repetir R3-003.** El hallazgo R3-003 (abierto,
+deliberadamente fuera de alcance de este cambio) es que el modal de alta de tipo cierra
+`typeModalBrandId` sin condición cuando la respuesta llega tarde, así que una respuesta vieja
+puede cerrar un modal que el usuario ya reabrió para otra marca. Los dos modales nuevos de esta
+enmienda (`ConfirmDialog` y el aviso 409) no repiten ese patrón: cada pedido de borrado captura
+un token antes del `await`, y sólo aplica su resultado —cerrar el modal, quitar la fila, avisar—
+si ese token sigue vigente cuando la respuesta llega. Cancelar o abrir otra confirmación bumpea
+el token, así que una respuesta que llega después de cualquiera de las dos cosas se descarta
+entera.
+
 ## 8. Slices de implementación (→ backlog de UI)
 
 IDs reales en la tabla de [RFC-00 §4](RFC-00-proceso.md); las entradas que siguen abiertas están en `docs/product/backlog-ui.md`:

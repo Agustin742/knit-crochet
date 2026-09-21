@@ -1,12 +1,17 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
 
 import { COLOR_FAMILY_LABELS } from "@/shared/config";
 
-import { EMPTY_TITLE, ERROR_TITLE, RETRY_LABEL } from "./yarn-copy";
+import {
+  CATALOG_SECTION_LABEL,
+  EMPTY_TITLE,
+  ERROR_TITLE,
+  RETRY_LABEL,
+} from "./yarn-copy";
 import { YARNS_ENDPOINT } from "./yarns-client";
 import {
   LOADING_MESSAGE,
@@ -14,7 +19,7 @@ import {
   PAGE_TITLE,
   YarnsView,
 } from "./YarnsView";
-import type { SerializedYarnListItem } from "./types";
+import type { SerializedYarnListItem, SerializedYarnRecord } from "./types";
 
 const fetchSpy = vi.fn();
 
@@ -52,6 +57,16 @@ function yarn(patch: Partial<SerializedYarnListItem> = {}): SerializedYarnListIt
 
 const CRUDA = yarn();
 const AZUL = yarn({ id: "azul", colorName: "Azul", colorFamily: "blue" });
+
+function patchedRecordFrom(
+  item: SerializedYarnListItem,
+  patch: Partial<SerializedYarnRecord> = {},
+): SerializedYarnRecord {
+  const { brandName, typeName, ...record } = item;
+  return { ...record, ...patch };
+}
+
+const CRUDA_LABEL = `${CRUDA.brandName} · ${CRUDA.typeName} · ${CRUDA.colorName}`;
 
 type Scenario = { yarns?: SerializedYarnListItem[]; status?: number; failNetwork?: boolean };
 
@@ -291,6 +306,58 @@ describe("YarnsView — los tres estados (RFC-04 §4)", () => {
     ).toBeInTheDocument();
   });
 
+  /**
+   * Cableado de la señal de frescura (design D5, backlog 24 slice S2a): una
+   * alta exitosa en el panel de catálogo tiene que subir `catalogToken` y eso
+   * tiene que disparar un SEGUNDO `GET /api/brands` desde el árbol — no basta
+   * con que el panel muestre la marca nueva en memoria.
+   */
+  it("una alta en el panel de catálogo sube catalogToken y el árbol vuelve a pedir /api/brands", async () => {
+    const BRAND = { id: "brand-1", userId: "u", name: "Malabrigo" };
+    const NEW_BRAND = { id: "brand-new", userId: "u", name: "Cascada" };
+    let brandsGetCalls = 0;
+    fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/brands" && init?.method === "POST") {
+        return Promise.resolve(jsonResponse(201, { brand: NEW_BRAND }));
+      }
+      if (url === "/api/brands") {
+        brandsGetCalls += 1;
+        return Promise.resolve(jsonResponse(200, { brands: [BRAND] }));
+      }
+      if (url.startsWith("/api/brands/")) {
+        return Promise.resolve(jsonResponse(200, { types: [] }));
+      }
+      return Promise.resolve(jsonResponse(200, { yarns: [CRUDA] }));
+    });
+
+    render(<YarnsView />);
+    await settle();
+    await screen.findByText(BRAND.name);
+    const callsBeforeCreate = brandsGetCalls;
+
+    /* El alta de marca vive en un modal, alcanzable sin desplegar «Catálogos»
+       (RFC-04 §7-ter E2(d), 2026-09-20). */
+    await userEvent.click(screen.getByRole("button", { name: "Nueva marca" }));
+    const input = await screen.findByRole("textbox", {
+      name: "Nombre de la marca",
+    });
+    await userEvent.type(input, NEW_BRAND.name);
+    await userEvent.click(screen.getByRole("button", { name: "Crear marca" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    /* La marca nueva vive en memoria dentro del panel de catálogo, que
+       recién la muestra al desplegar «Marcas y tipos» (el `Disclosure` sólo
+       monta su panel abierto). */
+    await userEvent.click(screen.getByText("Marcas y tipos"));
+    await screen.findByText(NEW_BRAND.name);
+    await waitFor(() => {
+      expect(brandsGetCalls).toBeGreaterThan(callsBeforeCreate);
+    });
+  });
+
   it("no tiene violaciones de axe en ninguno de los tres estados", async () => {
     const loaded = await renderReady();
     expect(await axe(loaded.container)).toHaveNoViolations();
@@ -302,5 +369,213 @@ describe("YarnsView — los tres estados (RFC-04 §4)", () => {
 
     const failed = await renderReady({ status: 500 });
     expect(await axe(failed.container)).toHaveNoViolations();
+  });
+});
+
+/**
+ * `handleCatalogChange(removed?)` (design D5, backlog 24 slice S2b): borrar
+ * en el panel de catálogo la marca o el tipo que el filtro activo apunta
+ * suelta ESE filtro, para no dejar `/lanas` pidiendo `GET /api/yarns` con un
+ * `brandId`/`typeId` que ya no existe. Se mide contra la URL que pide el
+ * ÚLTIMO `GET /api/yarns`, no contra estado interno.
+ */
+describe("YarnsView — borrar en el catálogo limpia el filtro colgante (design D5, backlog 24 S2b)", () => {
+  const BRAND = { id: "brand-1", userId: "u", name: "Malabrigo" };
+  const TYPE = { id: "type-1", brandId: "brand-1", name: "Merino Worsted" };
+
+  function lastYarnsUrl(): string {
+    const yarnsCalls = fetchSpy.mock.calls.filter((call: unknown[]) =>
+      (call[0] as string).startsWith("/api/yarns"),
+    );
+    const last = yarnsCalls[yarnsCalls.length - 1];
+    if (last === undefined) {
+      throw new Error("ningún GET /api/yarns registrado todavía");
+    }
+    return last[0] as string;
+  }
+
+  function serveDeleteScenario() {
+    fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/brands") {
+        return Promise.resolve(jsonResponse(200, { brands: [BRAND] }));
+      }
+      if (url === `/api/brands/${BRAND.id}/types`) {
+        return Promise.resolve(jsonResponse(200, { types: [TYPE] }));
+      }
+      if (url === `/api/brands/${BRAND.id}` && init?.method === "DELETE") {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      if (
+        url === `/api/brands/${BRAND.id}/types/${TYPE.id}` &&
+        init?.method === "DELETE"
+      ) {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      if (url.startsWith("/api/yarns")) {
+        return Promise.resolve(jsonResponse(200, { yarns: [CRUDA] }));
+      }
+      return Promise.reject(new Error(`url inesperada: ${url}`));
+    });
+  }
+
+  it("borrar la marca del filtro activo limpia brandId Y typeId, conserva colorFamily", async () => {
+    serveDeleteScenario();
+    render(<YarnsView />);
+    await settle();
+
+    // Filtro de color primero, para comprobar que sobrevive al borrado.
+    await userEvent.click(
+      screen.getByRole("button", { name: COLOR_FAMILY_LABELS.blue }),
+    );
+    await waitFor(() => {
+      expect(lastYarnsUrl()).toContain("colorFamily=blue");
+    });
+
+    // Selecciona la marca entera en el árbol de filtro (fuera del panel de
+    // catálogo: son dos árboles independientes que piden lo mismo).
+    const filterTree = screen.getByRole("group", { name: "Marca y tipo" });
+    await userEvent.click(within(filterTree).getByText(BRAND.name));
+    await userEvent.click(
+      within(filterTree).getByRole("radio", { name: "Toda la marca" }),
+    );
+    await waitFor(() => {
+      expect(lastYarnsUrl()).toContain(`brandId=${BRAND.id}`);
+    });
+
+    // Borra esa misma marca desde el panel de catálogo: dos acordeones
+    // anidados, el de la lista y el de esta marca (`YarnCatalogPanel.test.tsx`
+    // — `openBrandPanel`).
+    const catalogSection = screen.getByRole("region", { name: CATALOG_SECTION_LABEL });
+    await userEvent.click(within(catalogSection).getByText("Marcas y tipos"));
+    await userEvent.click(within(catalogSection).getByText(BRAND.name));
+    const catalogBrandPanel = within(catalogSection).getByRole("group", {
+      name: BRAND.name,
+    });
+    await userEvent.click(
+      within(catalogBrandPanel).getByRole("button", { name: `Borrar ${BRAND.name}` }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      const url = lastYarnsUrl();
+      expect(url).not.toContain("brandId=");
+      expect(url).not.toContain("typeId=");
+      expect(url).toContain("colorFamily=blue");
+    });
+  });
+
+  it("borrar el tipo del filtro activo limpia SÓLO typeId, conserva brandId", async () => {
+    serveDeleteScenario();
+    render(<YarnsView />);
+    await settle();
+
+    const filterTree = screen.getByRole("group", { name: "Marca y tipo" });
+    await userEvent.click(within(filterTree).getByText(BRAND.name));
+    await userEvent.click(within(filterTree).getByRole("radio", { name: TYPE.name }));
+    await waitFor(() => {
+      const url = lastYarnsUrl();
+      expect(url).toContain(`brandId=${BRAND.id}`);
+      expect(url).toContain(`typeId=${TYPE.id}`);
+    });
+
+    const catalogSection = screen.getByRole("region", { name: CATALOG_SECTION_LABEL });
+    await userEvent.click(within(catalogSection).getByText("Marcas y tipos"));
+    await userEvent.click(within(catalogSection).getByText(BRAND.name));
+    const catalogBrandPanel = within(catalogSection).getByRole("group", {
+      name: BRAND.name,
+    });
+    await userEvent.click(
+      within(catalogBrandPanel).getByRole("button", { name: `Borrar ${TYPE.name}` }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      const url = lastYarnsUrl();
+      expect(url).toContain(`brandId=${BRAND.id}`);
+      expect(url).not.toContain("typeId=");
+    });
+  });
+});
+
+describe("YarnsView — el cajón de detalle (backlog 24, slice S1, deuda 192)", () => {
+  it("tocar una tarjeta abre el cajón con la lana tocada", async () => {
+    await renderReady();
+
+    await userEvent.click(screen.getByText(CRUDA_LABEL));
+
+    const dialog = screen.getByRole("dialog");
+    expect(
+      within(dialog).getByRole("heading", { name: CRUDA_LABEL }),
+    ).toBeInTheDocument();
+  });
+
+  it(
+    "un cambio del stepper conserva marca · tipo · colorName en la tarjeta y no muestra skeleton",
+    async () => {
+      fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
+        if (url.startsWith("/api/brands")) {
+          return Promise.resolve(jsonResponse(200, { brands: [] }));
+        }
+        if (init?.method === "PATCH") {
+          return Promise.resolve(
+            jsonResponse(200, {
+              yarn: patchedRecordFrom(CRUDA, { usedQuantity: 1 }),
+            }),
+          );
+        }
+        return Promise.resolve(jsonResponse(200, { yarns: [CRUDA, AZUL] }));
+      });
+
+      render(<YarnsView />);
+      await settle();
+
+      await userEvent.click(screen.getByText(CRUDA_LABEL));
+      await userEvent.click(screen.getByRole("button", { name: "Sumar" }));
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole("status", { name: "Ovillos usados" }),
+        ).toHaveTextContent("1");
+      });
+
+      // La grilla sigue siendo la lista real: ningún skeleton la reemplazó.
+      const grid = screen.getByRole("list");
+      expect(within(grid).getByText(CRUDA_LABEL)).toBeInTheDocument();
+      expect(
+        screen.getByRole("status", { name: LOADING_REGION_LABEL }).textContent,
+      ).toBe("");
+    },
+  );
+
+  it("un refetch que llega sin la lana abierta cierra el cajón", async () => {
+    fetchSpy.mockImplementation((url: string) => {
+      if (url.startsWith("/api/brands")) {
+        return Promise.resolve(jsonResponse(200, { brands: [] }));
+      }
+      if (url.includes("colorFamily=blue")) {
+        return Promise.resolve(jsonResponse(200, { yarns: [AZUL] }));
+      }
+      return Promise.resolve(jsonResponse(200, { yarns: [CRUDA, AZUL] }));
+    });
+
+    render(<YarnsView />);
+    await settle();
+
+    await userEvent.click(screen.getByText(CRUDA_LABEL));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: COLOR_FAMILY_LABELS.blue }),
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
   });
 });

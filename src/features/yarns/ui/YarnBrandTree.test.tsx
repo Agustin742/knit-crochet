@@ -131,6 +131,47 @@ describe("YarnBrandTree — un árbol que no carga no tira la página abajo", ()
   });
 });
 
+describe("YarnBrandTree — catalogToken vuelve a pedir el árbol (design D5)", () => {
+  it("un catalogToken nuevo dispara un segundo fetch de /api/brands", async () => {
+    const { rerender } = render(
+      <YarnBrandTree value="all" onValueChange={vi.fn()} catalogToken={0} />,
+    );
+    await screen.findByText(BRAND_A.name);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "/api/brands",
+      expect.objectContaining({ credentials: "same-origin" }),
+    );
+    const callsAfterMount = fetchSpy.mock.calls.filter(
+      ([url]) => url === "/api/brands",
+    ).length;
+    expect(callsAfterMount).toBe(1);
+
+    rerender(
+      <YarnBrandTree value="all" onValueChange={vi.fn()} catalogToken={1} />,
+    );
+    await screen.findByText(BRAND_A.name);
+
+    const callsAfterToken = fetchSpy.mock.calls.filter(
+      ([url]) => url === "/api/brands",
+    ).length;
+    expect(callsAfterToken).toBe(2);
+  });
+
+  it("sin catalogToken (default 0) el árbol no vuelve a pedirse solo por re-renderizar", async () => {
+    const { rerender } = render(
+      <YarnBrandTree value="all" onValueChange={vi.fn()} />,
+    );
+    await screen.findByText(BRAND_A.name);
+
+    rerender(<YarnBrandTree value="brand-a" onValueChange={vi.fn()} />);
+
+    const callsAfterRerender = fetchSpy.mock.calls.filter(
+      ([url]) => url === "/api/brands",
+    ).length;
+    expect(callsAfterRerender).toBe(1);
+  });
+});
+
 describe("YarnBrandTree — accesibilidad", () => {
   it("no tiene violaciones de axe con el árbol ya cargado", async () => {
     const { container } = render(

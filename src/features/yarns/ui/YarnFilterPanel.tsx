@@ -2,11 +2,19 @@ import { Card } from "@/shared/ui";
 
 import { ColorFamilyFilter } from "./ColorFamilyFilter";
 import { YarnBrandTree } from "./YarnBrandTree";
+import { YarnCatalogPanel } from "./YarnCatalogPanel";
 import type { YarnFilters } from "./types";
 
 export interface YarnFilterPanelProps {
   filters: YarnFilters;
   onFiltersChange: (filters: YarnFilters) => void;
+  /** Reenviado tal cual al árbol marca→tipo (design D5): sube en cada alta. */
+  catalogToken?: number;
+  /** Reenviado tal cual desde el panel de catálogo (design D5, backlog 24
+   *  S2b): un borrado manda QUÉ se borró, para que `YarnsView` suelte un
+   *  filtro que apuntaba a ese id (`handleCatalogChange`). Un alta nunca
+   *  manda `removed`. */
+  onCatalogChange?: (removed?: { brandId?: string; typeId?: string }) => void;
 }
 
 /** El valor exclusivo del árbol, derivado de `filters` (design D5-bis). */
@@ -40,11 +48,15 @@ export function parseScope(
 export function YarnFilterPanel({
   filters,
   onFiltersChange,
+  catalogToken,
+  onCatalogChange,
 }: YarnFilterPanelProps) {
   /* La superficie NO es decoración (deuda 196): sobre el fondo de la página
      `text-fg` y `--bg` son el mismo color —1.00 de contraste, invisible—, y
      `axe` no lo gatea. Es la misma decisión que RFC-03 E2(b) tomó para el
-     toolbar de `/proyectos`: todo el filtro vive sobre UNA superficie. */
+     toolbar de `/proyectos`: todo el filtro vive sobre UNA superficie. El
+     panel de catálogo (RFC-04 §7-ter E2(c)) es el último hijo del MISMO
+     `Card`, no una superficie aparte. */
   return (
     <Card data-slot="yarn-filter-panel" className="flex flex-col gap-(--space-4)">
       <YarnBrandTree
@@ -55,6 +67,7 @@ export function YarnFilterPanel({
             colorFamily: filters.colorFamily,
           })
         }
+        catalogToken={catalogToken}
       />
       <ColorFamilyFilter
         value={filters.colorFamily}
@@ -66,6 +79,7 @@ export function YarnFilterPanel({
           })
         }
       />
+      <YarnCatalogPanel onCatalogChange={onCatalogChange} />
     </Card>
   );
 }

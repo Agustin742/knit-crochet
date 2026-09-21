@@ -5,8 +5,10 @@ import { useCallback, useEffect, useState } from "react";
 import { Card, EmptyState, ErrorState, Skeleton } from "@/shared/ui";
 
 import { EMPTY_TITLE, ERROR_TITLE, RETRY_LABEL } from "./yarn-copy";
-import { getYarns } from "./yarns-client";
+import { mergeYarnPatch } from "./merge-yarn";
+import { getYarns, patchYarnUsedQuantity } from "./yarns-client";
 import { YarnCard } from "./YarnCard";
+import { YarnDetailDrawer } from "./YarnDetailDrawer";
 import { YarnFilterPanel } from "./YarnFilterPanel";
 import type { SerializedYarnListItem, YarnFilters } from "./types";
 
@@ -47,6 +49,46 @@ export function YarnsView() {
   const [filters, setFilters] = useState<YarnFilters>({});
   const [reloadToken, setReloadToken] = useState(0);
   const [loaded, setLoaded] = useState<LoadedState | null>(null);
+  /* El cajón se resuelve por `id` contra la lista viva, no por una copia:
+     así el resultado del `PATCH` entra al cajón abierto por el mismo camino
+     que a la tarjeta, y una lana que desaparece de la lista cierra el cajón
+     sola (`find` devuelve `undefined`). Por eso `detailId` NO se limpia: un
+     id viejo es inerte, porque toda lectura pasa por `find`. */
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [usedQuantityPending, setUsedQuantityPending] = useState(false);
+  const [usedQuantityError, setUsedQuantityError] = useState<string | null>(null);
+  /* Sube en cada alta/borrado exitoso del catálogo (design D5): es la única
+     dependencia nueva del efecto de `YarnBrandTree`, así que un create o un
+     borrado en el panel se ven reflejados en el árbol sin recargar la
+     página. */
+  const [catalogToken, setCatalogToken] = useState(0);
+
+  /**
+   * Design D5: un borrado de la marca o el tipo que el filtro activo
+   * apunta suelta ESE filtro, para no dejar la vista pidiendo
+   * `GET /api/yarns` con un `brandId`/`typeId` que ya no existe. Borrar la
+   * marca activa suelta `typeId` CON ella — un tipo sin marca no es
+   * representable (#23 D5-bis) — pero borrar el tipo activo deja `brandId`
+   * como estaba. El updater funcional lee `current` en el momento del
+   * `setFilters`, nunca una copia capturada al armar el callback: sin eso,
+   * un borrado disparado bajo un filtro ya cambiado por OTRA interacción
+   * podría comparar contra un `filters` viejo y soltar el que no corresponde.
+   */
+  const handleCatalogChange = useCallback(
+    (removed?: { brandId?: string; typeId?: string }) => {
+      setCatalogToken((token) => token + 1);
+      setFilters((current) => {
+        if (removed?.brandId !== undefined && current.brandId === removed.brandId) {
+          return { colorFamily: current.colorFamily };
+        }
+        if (removed?.typeId !== undefined && current.typeId === removed.typeId) {
+          return { ...current, typeId: undefined };
+        }
+        return current;
+      });
+    },
+    [],
+  );
 
   const requestKey = requestKeyOf(filters, reloadToken);
   const loading = loaded?.key !== requestKey;
@@ -74,6 +116,36 @@ export function YarnsView() {
 
   const reload = useCallback(() => setReloadToken((token) => token + 1), []);
 
+  /* El `PATCH` devuelve la fila CRUDA, sin `brandName` ni `typeName` (esos dos
+     los agregó #23 sólo a la lista). Por eso la respuesta entra por
+     `mergeYarnPatch`, cuyo tipo de retorno impide devolver la cruda: sin él,
+     tocar el stepper blanquearía «marca · tipo» en la tarjeta. */
+  const changeUsedQuantity = useCallback(
+    async (id: string, next: number) => {
+      setUsedQuantityPending(true);
+      setUsedQuantityError(null);
+      const result = await patchYarnUsedQuantity(id, next);
+      setUsedQuantityPending(false);
+      if (!result.ok) {
+        setUsedQuantityError(result.message);
+        return;
+      }
+      setLoaded((current) =>
+        /* `yarns` es `null` cuando la carga falló: ahí no hay nada que
+           fusionar, y el cajón tampoco está abierto. */
+        current === null || current.yarns === null
+          ? current
+          : {
+              ...current,
+              yarns: current.yarns.map((yarn) =>
+                yarn.id === id ? mergeYarnPatch(yarn, result.data) : yarn,
+              ),
+            },
+      );
+    },
+    [],
+  );
+
   return (
     /* El `h1` encabeza la PÁGINA y queda fuera de las dos columnas: dentro de
        la del filtro empujaba sólo a ese lado, y la rejilla de tarjetas
@@ -85,7 +157,12 @@ export function YarnsView() {
 
       <div className="flex flex-col gap-(--space-6) tablet:flex-row">
       <div className="flex flex-col gap-(--space-4) tablet:w-64 tablet:shrink-0">
-        <YarnFilterPanel filters={filters} onFiltersChange={setFilters} />
+        <YarnFilterPanel
+          filters={filters}
+          onFiltersChange={setFilters}
+          catalogToken={catalogToken}
+          onCatalogChange={handleCatalogChange}
+        />
       </div>
 
       <div className="flex flex-1 flex-col gap-(--space-4)">
@@ -110,13 +187,31 @@ export function YarnsView() {
           >
             {yarns.map((yarn) => (
               <li key={yarn.id}>
-                <YarnCard yarn={yarn} />
+                <YarnCard
+                  yarn={yarn}
+                  onOpen={() => {
+                    setUsedQuantityError(null);
+                    setDetailId(yarn.id);
+                  }}
+                />
               </li>
             ))}
           </ul>
         )}
       </div>
       </div>
+
+      <YarnDetailDrawer
+        yarn={yarns?.find((yarn) => yarn.id === detailId) ?? null}
+        onClose={() => setDetailId(null)}
+        onUsedQuantityChange={(next) => {
+          if (detailId !== null) {
+            void changeUsedQuantity(detailId, next);
+          }
+        }}
+        usedQuantityPending={usedQuantityPending}
+        usedQuantityError={usedQuantityError}
+      />
     </div>
   );
 }

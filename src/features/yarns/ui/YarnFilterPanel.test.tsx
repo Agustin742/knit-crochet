@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
@@ -192,5 +192,81 @@ describe("YarnFilterPanel — árbol y color se combinan con AND (RFC-04 §5)", 
     await screen.findByText(BRAND.name);
 
     expect(await axe(container)).toHaveNoViolations();
+  });
+});
+
+describe("YarnFilterPanel — monta el panel de catálogo dentro del mismo Card (design D4/D5)", () => {
+  it("renderiza la sección 'Catálogos' del panel de catálogo", async () => {
+    render(<YarnFilterPanel filters={{}} onFiltersChange={vi.fn()} />);
+    await screen.findByText(BRAND.name);
+
+    expect(screen.getByText("Catálogos")).toBeInTheDocument();
+  });
+
+  it("reenvía catalogToken al árbol: un token nuevo dispara un segundo fetch", async () => {
+    const { rerender } = render(
+      <YarnFilterPanel
+        filters={{}}
+        onFiltersChange={vi.fn()}
+        catalogToken={0}
+      />,
+    );
+    await screen.findByText(BRAND.name);
+    const callsAfterMount = fetchSpy.mock.calls.filter(
+      ([url]) => url === "/api/brands",
+    ).length;
+
+    rerender(
+      <YarnFilterPanel
+        filters={{}}
+        onFiltersChange={vi.fn()}
+        catalogToken={1}
+      />,
+    );
+    await screen.findByText(BRAND.name);
+
+    const callsAfterToken = fetchSpy.mock.calls.filter(
+      ([url]) => url === "/api/brands",
+    ).length;
+    expect(callsAfterToken).toBeGreaterThan(callsAfterMount);
+  });
+
+  it("una creación exitosa en el panel de catálogo levanta onCatalogChange", async () => {
+    const onCatalogChange = vi.fn();
+    fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/brands" && init?.method === "POST") {
+        return Promise.resolve(
+          jsonResponse(201, { brand: { id: "brand-new", userId: "u", name: "Cascada" } }),
+        );
+      }
+      return defaultFetch(url);
+    });
+
+    render(
+      <YarnFilterPanel
+        filters={{}}
+        onFiltersChange={vi.fn()}
+        onCatalogChange={onCatalogChange}
+      />,
+    );
+    await screen.findByText(BRAND.name);
+
+    /* El alta de marca vive en un modal, alcanzable sin desplegar «Catálogos»
+       (RFC-04 §7-ter E2(d), 2026-09-20). */
+    await userEvent.click(screen.getByRole("button", { name: "Nueva marca" }));
+
+    const input = await screen.findByRole("textbox", {
+      name: "Nombre de la marca",
+    });
+    await userEvent.type(input, "Cascada");
+    await userEvent.click(screen.getByRole("button", { name: "Crear marca" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    expect(onCatalogChange).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(screen.getByText("Marcas y tipos"));
+    await screen.findByText("Cascada");
   });
 });

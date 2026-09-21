@@ -72,6 +72,13 @@ const PRIMITIVES = [
   // escrito a mano que estos primitivos vienen a sustituir.
   "Select",
   "Skeleton",
+  // RFC-04 §7-bis E2(a) (backlog 24, slice S1): el incrementador/decrementador
+  // genérico que el cajón de detalle de lanas necesita para `usedQuantity`.
+  // Controlado, sin piso ni techo propios — eso lo decide quien lo consume.
+  "STEPPER_DECREMENT_LABEL",
+  "STEPPER_INCREMENT_LABEL",
+  "STEPPER_SIZES",
+  "Stepper",
   // Enmienda E3(c) del RFC-03: las pestañas del drawer de detalle. Mismo trato
   // que `SegmentedControl` — es un control genérico (RFC-04 y RFC-05 también
   // piden pestañas), así que vive en el design system y su ancla se paga.
@@ -84,6 +91,7 @@ const PRIMITIVES = [
   "clampProgress",
   "disclosureVariants",
   "inputClasses",
+  "stepperVariants",
   "swatchVariants",
 ];
 

@@ -5,8 +5,9 @@ import {
   UNEXPECTED_ERROR_MESSAGE,
   YARNS_ENDPOINT,
   getYarns,
+  patchYarnUsedQuantity,
 } from "./yarns-client";
-import type { SerializedYarnListItem } from "./types";
+import type { SerializedYarnListItem, SerializedYarnRecord } from "./types";
 
 const fetchSpy = vi.fn();
 
@@ -106,5 +107,72 @@ describe("getYarns", () => {
     const result = await getYarns({});
 
     expect(result).toEqual({ ok: false, message: UNEXPECTED_ERROR_MESSAGE });
+  });
+});
+
+const PATCHED: SerializedYarnRecord = {
+  id: CRUDA.id,
+  userId: "u",
+  image: null,
+  brandId: "brand-1",
+  typeId: "type-1",
+  colorName: "Natural",
+  colorCode: "N1",
+  colorFamily: "neutral",
+  quantity: 3,
+  usedQuantity: 2,
+  length: 100,
+  fiber: "Lana",
+  recommendedNeedle: { min: 4, max: 5 },
+  thickness: 4.5,
+  lot: "2026-01-01T00:00:00.000Z",
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-02T00:00:00.000Z",
+};
+
+describe("patchYarnUsedQuantity", () => {
+  it("el cuerpo es exactamente { usedQuantity }", async () => {
+    fetchSpy.mockResolvedValue(jsonResponse(200, { yarn: PATCHED }));
+
+    await patchYarnUsedQuantity(CRUDA.id, 2);
+
+    const [url, init] = fetchSpy.mock.calls[0] ?? [];
+    expect(url).toBe(`${YARNS_ENDPOINT}/${CRUDA.id}`);
+    expect(init?.method).toBe("PATCH");
+    expect(JSON.parse(init?.body as string)).toEqual({ usedQuantity: 2 });
+  });
+
+  it("un 200 devuelve la fila cruda, sin brandName ni typeName", async () => {
+    fetchSpy.mockResolvedValue(jsonResponse(200, { yarn: PATCHED }));
+
+    const result = await patchYarnUsedQuantity(CRUDA.id, 2);
+
+    expect(result).toEqual({ ok: true, data: PATCHED });
+  });
+
+  it("un 400 de validación se vuelve un error tipado", async () => {
+    fetchSpy.mockResolvedValue(
+      jsonResponse(400, { error: "usedQuantity inválido" }),
+    );
+
+    const result = await patchYarnUsedQuantity(CRUDA.id, -1);
+
+    expect(result.ok).toBe(false);
+  });
+
+  it("un 404 (lana borrada por otro) se vuelve un error tipado", async () => {
+    fetchSpy.mockResolvedValue(jsonResponse(404, { error: "No encontrada" }));
+
+    const result = await patchYarnUsedQuantity(CRUDA.id, 2);
+
+    expect(result.ok).toBe(false);
+  });
+
+  it("la red caída se vuelve un error tipado sin lanzar", async () => {
+    fetchSpy.mockRejectedValue(new Error("sin red"));
+
+    const result = await patchYarnUsedQuantity(CRUDA.id, 2);
+
+    expect(result).toEqual({ ok: false, message: NETWORK_ERROR_MESSAGE });
   });
 });
