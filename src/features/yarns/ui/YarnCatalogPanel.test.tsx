@@ -458,6 +458,75 @@ describe("YarnCatalogPanel — crear tipo: descartar el modal no confunde dos ma
   });
 });
 
+describe("YarnCatalogPanel — crear marca: una respuesta tardía no cierra el modal reabierto (2026-09-21)", () => {
+  it("descartar el modal en vuelo y reabrirlo: la 201 tardía no lo cierra ni borra lo tipeado, pero igual agrega la marca y avisa", async () => {
+    const onCatalogChange = vi.fn();
+    let resolveCreate: (response: Response) => void = () => {};
+
+    fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/brands" && init?.method === "POST") {
+        return new Promise((resolve) => {
+          resolveCreate = resolve;
+        });
+      }
+      return defaultFetch(url);
+    });
+
+    render(<YarnCatalogPanel onCatalogChange={onCatalogChange} />);
+    await openPanel();
+    await screen.findByText(BRAND_A.name);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: CATALOG_NEW_BRAND_TRIGGER_LABEL }),
+    );
+    await userEvent.type(
+      screen.getByRole("textbox", { name: CATALOG_BRAND_NAME_LABEL }),
+      NEW_BRAND.name,
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: CATALOG_CREATE_BRAND_LABEL }),
+    );
+
+    // El POST queda en vuelo; se descarta el modal antes de que resuelva.
+    await userEvent.click(
+      screen.getByRole("button", { name: DIALOG_CLOSE_LABEL }),
+    );
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    // Se reabre y se empieza a tipear otra marca.
+    await userEvent.click(
+      screen.getByRole("button", { name: CATALOG_NEW_BRAND_TRIGGER_LABEL }),
+    );
+    const reopenedInput = screen.getByRole("textbox", {
+      name: CATALOG_BRAND_NAME_LABEL,
+    });
+    await userEvent.type(reopenedInput, "Drops");
+
+    // La 201 de la primera alta resuelve tarde.
+    resolveCreate(jsonResponse(201, { brand: NEW_BRAND }));
+    await waitFor(() => {
+      expect(onCatalogChange).toHaveBeenCalledTimes(1);
+    });
+
+    // El modal reabierto sigue abierto y conserva lo tipeado.
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(
+      screen.getByRole("textbox", { name: CATALOG_BRAND_NAME_LABEL }),
+    ).toHaveValue("Drops");
+
+    // La marca se agregó igual: el servidor ya la creó.
+    await userEvent.click(
+      screen.getByRole("button", { name: DIALOG_CLOSE_LABEL }),
+    );
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+    expect(screen.getByText(NEW_BRAND.name)).toBeInTheDocument();
+  });
+});
+
 describe("YarnCatalogPanel — crear con el árbol todavía no listo (R3-001, 2026-09-20)", () => {
   it("crear una marca mientras el árbol sigue \"loading\" no la reemplaza: termina mostrando la lista completa del servidor, marca nueva incluida", async () => {
     const onCatalogChange = vi.fn();

@@ -122,9 +122,9 @@ export function YarnCatalogPanel({ onCatalogChange }: YarnCatalogPanelProps) {
      el diálogo que el usuario tiene delante (`confirmTarget`, `deletePending`,
      `deleteError`, `notice`) — un `204` tardío igual borra la fila y avisa,
      porque el servidor ya lo hizo y la UI no puede desmentirlo (ver
-     `handleConfirmDelete` abajo). El mismo patrón guarda el modal de alta de
-     tipo (`typeModalRequestTokenRef`), que hasta esta corrección quedaba sin
-     proteger. */
+     `handleConfirmDelete` abajo). El mismo patrón guarda los modales de alta
+     de tipo (`typeModalRequestTokenRef`) y de marca
+     (`brandModalRequestTokenRef`). */
   const deleteRequestTokenRef = useRef(0);
   /* Mismo patrón que `deleteRequestTokenRef`, aplicado al modal de alta de
      tipo: se bumpea al abrir o cerrar, así que una respuesta tardía sólo
@@ -132,6 +132,10 @@ export function YarnCatalogPanel({ onCatalogChange }: YarnCatalogPanelProps) {
      tipo creado y el aviso a `onCatalogChange` pasan siempre — el servidor
      ya lo comprometió — sólo el cierre del modal queda condicionado. */
   const typeModalRequestTokenRef = useRef(0);
+  /* Mismo patrón, aplicado al modal de alta de marca: si el usuario lo
+     descartó y lo reabrió mientras la petición seguía en vuelo, la respuesta
+     tardía no debe cerrar el modal nuevo ni llevarse lo que ya tipeó. */
+  const brandModalRequestTokenRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -323,6 +327,16 @@ export function YarnCatalogPanel({ onCatalogChange }: YarnCatalogPanelProps) {
     setTypeModalBrandId(null);
   }
 
+  function openBrandModal() {
+    brandModalRequestTokenRef.current += 1;
+    setBrandModalOpen(true);
+  }
+
+  function closeBrandModal() {
+    brandModalRequestTokenRef.current += 1;
+    setBrandModalOpen(false);
+  }
+
   /* Se guarda el ID de la marca y no la marca entera (mismo criterio que
      `ProjectFormDialog`, #21): así el modal siempre lee la versión más
      reciente de esa marca en `state` en vez de arrastrar un objeto viejo. */
@@ -335,6 +349,7 @@ export function YarnCatalogPanel({ onCatalogChange }: YarnCatalogPanelProps) {
      `openTypeModal`/`closeTypeModal`), así que sirve para comparar contra el
      valor vivo del ref cuando la respuesta de alta llegue. */
   const typeModalToken = typeModalRequestTokenRef.current;
+  const brandModalToken = brandModalRequestTokenRef.current;
 
   return (
     <section
@@ -348,7 +363,7 @@ export function YarnCatalogPanel({ onCatalogChange }: YarnCatalogPanelProps) {
         >
           {CATALOG_SECTION_LABEL}
         </h2>
-        <Button variant="secondary" onClick={() => setBrandModalOpen(true)}>
+        <Button variant="secondary" onClick={openBrandModal}>
           {CATALOG_NEW_BRAND_TRIGGER_LABEL}
         </Button>
       </div>
@@ -398,16 +413,21 @@ export function YarnCatalogPanel({ onCatalogChange }: YarnCatalogPanelProps) {
 
       <Dialog
         open={brandModalOpen}
-        onClose={() => setBrandModalOpen(false)}
+        onClose={closeBrandModal}
         title={CATALOG_CREATE_BRAND_TITLE}
         initialFocusRef={brandNameRef}
       >
         <BrandCreateForm
           nameRef={brandNameRef}
           onCreated={(brand) => {
+            /* Igual que el alta de tipo: la marca ya existe en el servidor,
+               así que se agrega y se avisa siempre; sólo el cierre queda
+               condicionado a que el modal siga siendo el mismo. */
             appendBrand({ brand, types: [] });
-            setBrandModalOpen(false);
             onCatalogChange?.();
+            if (brandModalRequestTokenRef.current === brandModalToken) {
+              closeBrandModal();
+            }
           }}
         />
       </Dialog>
