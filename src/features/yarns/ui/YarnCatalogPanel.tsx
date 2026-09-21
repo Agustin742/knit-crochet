@@ -118,11 +118,20 @@ export function YarnCatalogPanel({ onCatalogChange }: YarnCatalogPanelProps) {
   const [notice, setNotice] = useState<CatalogNotice | null>(null);
   /* Guarda contra una respuesta que llega DESPUÉS de que el objetivo cambió
      (cancelar o abrir otra confirmación): se compara contra el valor vivo,
-     nunca contra uno capturado en un cierre viejo, así que ni cancelar ni
-     reabrir para otra fila puede quedar pisado por una respuesta tardía —
-     el mismo defecto que R3-003 deja abierto del lado del alta de tipo, acá
-     sí resuelto (`tasks.md` 3.6). */
+     nunca contra uno capturado en un cierre viejo. Sólo protege lo que toca
+     el diálogo que el usuario tiene delante (`confirmTarget`, `deletePending`,
+     `deleteError`, `notice`) — un `204` tardío igual borra la fila y avisa,
+     porque el servidor ya lo hizo y la UI no puede desmentirlo (ver
+     `handleConfirmDelete` abajo). El mismo patrón guarda el modal de alta de
+     tipo (`typeModalRequestTokenRef`), que hasta esta corrección quedaba sin
+     proteger. */
   const deleteRequestTokenRef = useRef(0);
+  /* Mismo patrón que `deleteRequestTokenRef`, aplicado al modal de alta de
+     tipo: se bumpea al abrir o cerrar, así que una respuesta tardía sólo
+     cierra el modal si todavía apunta a la marca para la que se pidió. El
+     tipo creado y el aviso a `onCatalogChange` pasan siempre — el servidor
+     ya lo comprometió — sólo el cierre del modal queda condicionado. */
+  const typeModalRequestTokenRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -226,8 +235,16 @@ export function YarnCatalogPanel({ onCatalogChange }: YarnCatalogPanelProps) {
    * `await` es la guarda (ver el comentario de `deleteRequestTokenRef`
    * arriba): si `confirmTarget` cambió mientras la petición seguía en
    * vuelo —se canceló, o se abrió otra confirmación—, la respuesta que
-   * llega tarde no tiene a quién aplicarse y se descarta entera, sin tocar
-   * ni el modal actual ni la lista.
+   * llega tarde ya no tiene diálogo al que aplicarse.
+   *
+   * Eso SÓLO vale para lo que toca el diálogo. Un `204` tardío significa que
+   * el servidor ya borró el registro, con o sin diálogo mirándolo: por eso
+   * `removeBrand`/`removeType` y el aviso a `onCatalogChange` corren SIEMPRE
+   * que `result.ok`, sin condicionarlos al token — mentirle a la lista sería
+   * peor que un diálogo que ya no está. Un `blocked` (409) o un `error`
+   * tardío, en cambio, no cambian nada: ni la lista tiene qué actualizar ni
+   * hay diálogo al que avisarle, así que esas dos ramas quedan enteras
+   * detrás de la guarda del token.
    */
   async function handleConfirmDelete() {
     if (confirmTarget === null) {
@@ -245,15 +262,19 @@ export function YarnCatalogPanel({ onCatalogChange }: YarnCatalogPanelProps) {
        existir en la mitad de los casos. */
     if (target.kind === "brand") {
       const result = await deleteBrand(target.brand.id);
+
+      if (result.ok) {
+        removeBrand(target.brand.id);
+        onCatalogChange?.({ brandId: target.brand.id });
+      }
+
       if (deleteRequestTokenRef.current !== token) {
         return;
       }
       setDeletePending(false);
 
       if (result.ok) {
-        removeBrand(target.brand.id);
         setConfirmTarget(null);
-        onCatalogChange?.({ brandId: target.brand.id });
         return;
       }
       if (result.kind === "blocked") {
@@ -266,15 +287,19 @@ export function YarnCatalogPanel({ onCatalogChange }: YarnCatalogPanelProps) {
     }
 
     const result = await deleteYarnType(target.brandId, target.type.id);
+
+    if (result.ok) {
+      removeType(target.brandId, target.type.id);
+      onCatalogChange?.({ typeId: target.type.id });
+    }
+
     if (deleteRequestTokenRef.current !== token) {
       return;
     }
     setDeletePending(false);
 
     if (result.ok) {
-      removeType(target.brandId, target.type.id);
       setConfirmTarget(null);
-      onCatalogChange?.({ typeId: target.type.id });
       return;
     }
     if (result.kind === "blocked") {
@@ -285,6 +310,19 @@ export function YarnCatalogPanel({ onCatalogChange }: YarnCatalogPanelProps) {
     setDeleteError(result.message);
   }
 
+  /* Mismo criterio que `openBrandDeleteConfirm`/`cancelDelete`: bumpear el
+     token en cada apertura y cierre invalida cualquier respuesta de alta de
+     tipo que siga en vuelo para un objetivo que ya no es el vigente. */
+  function openTypeModal(brandId: string) {
+    typeModalRequestTokenRef.current += 1;
+    setTypeModalBrandId(brandId);
+  }
+
+  function closeTypeModal() {
+    typeModalRequestTokenRef.current += 1;
+    setTypeModalBrandId(null);
+  }
+
   /* Se guarda el ID de la marca y no la marca entera (mismo criterio que
      `ProjectFormDialog`, #21): así el modal siempre lee la versión más
      reciente de esa marca en `state` en vez de arrastrar un objeto viejo. */
@@ -292,6 +330,11 @@ export function YarnCatalogPanel({ onCatalogChange }: YarnCatalogPanelProps) {
     state.status === "ready"
       ? (state.entries.find((entry) => entry.brand.id === typeModalBrandId) ?? null)
       : null;
+  /* Capturado en ESTE render, junto con `typeModalEntry`: mientras el modal
+     siga abierto para la misma marca no cambia (sólo lo bumpean
+     `openTypeModal`/`closeTypeModal`), así que sirve para comparar contra el
+     valor vivo del ref cuando la respuesta de alta llegue. */
+  const typeModalToken = typeModalRequestTokenRef.current;
 
   return (
     <section
@@ -344,7 +387,7 @@ export function YarnCatalogPanel({ onCatalogChange }: YarnCatalogPanelProps) {
               <BrandPanel
                 key={entry.brand.id}
                 entry={entry}
-                onAddType={() => setTypeModalBrandId(entry.brand.id)}
+                onAddType={() => openTypeModal(entry.brand.id)}
                 onDeleteBrand={() => openBrandDeleteConfirm(entry.brand)}
                 onDeleteType={(type) => openTypeDeleteConfirm(entry.brand.id, type)}
               />
@@ -371,7 +414,7 @@ export function YarnCatalogPanel({ onCatalogChange }: YarnCatalogPanelProps) {
 
       <Dialog
         open={typeModalEntry !== null}
-        onClose={() => setTypeModalBrandId(null)}
+        onClose={closeTypeModal}
         title={
           typeModalEntry === null ? "" : catalogCreateTypeModalTitle(typeModalEntry.brand.name)
         }
@@ -382,9 +425,16 @@ export function YarnCatalogPanel({ onCatalogChange }: YarnCatalogPanelProps) {
             brandId={typeModalEntry.brand.id}
             nameRef={typeNameRef}
             onCreated={(type) => {
+              /* El tipo ya existe en el servidor: se agrega y se avisa
+                 siempre. Cerrar el modal es lo único condicionado — si el
+                 usuario lo descartó y abrió el de otra marca mientras esta
+                 petición seguía en vuelo, cerrar ahora se llevaría por
+                 delante el modal de esa otra marca (DEBT4). */
               appendType(typeModalEntry.brand.id, type);
-              setTypeModalBrandId(null);
               onCatalogChange?.();
+              if (typeModalRequestTokenRef.current === typeModalToken) {
+                closeTypeModal();
+              }
             }}
           />
         )}

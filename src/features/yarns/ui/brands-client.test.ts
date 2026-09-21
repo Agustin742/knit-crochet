@@ -196,6 +196,26 @@ describe("deleteBrand — DELETE /api/brands/:id", () => {
     expect(result).toEqual({ ok: false, kind: "blocked", types: 2, yarns: 5 });
   });
 
+  it("un 409 sin los contadores se vuelve kind: error, no blocked con undefined", async () => {
+    fetchSpy.mockResolvedValueOnce(jsonResponse(409, { error: "tiene hijos" }));
+
+    const result = await deleteBrand(BRAND_A.id);
+
+    expect(result.ok).toBe(false);
+    expect(result).toMatchObject({ kind: "error" });
+  });
+
+  it("un 409 con un solo contador válido (falta el otro) también se vuelve kind: error", async () => {
+    fetchSpy.mockResolvedValueOnce(
+      jsonResponse(409, { error: "tiene hijos", types: 2 }),
+    );
+
+    const result = await deleteBrand(BRAND_A.id);
+
+    expect(result.ok).toBe(false);
+    expect(result).toMatchObject({ kind: "error" });
+  });
+
   it("la red caída se vuelve kind: error sin lanzar", async () => {
     fetchSpy.mockRejectedValueOnce(new Error("sin red"));
 
@@ -233,6 +253,15 @@ describe("deleteYarnType — DELETE /api/brands/:id/types/:typeId", () => {
     const result = await deleteYarnType(BRAND_A.id, TYPE_A1.id);
 
     expect(result).toEqual({ ok: false, kind: "blocked", yarns: 3 });
+  });
+
+  it("un 409 sin el contador se vuelve kind: error, no blocked con undefined", async () => {
+    fetchSpy.mockResolvedValueOnce(jsonResponse(409, { error: "tiene lanas" }));
+
+    const result = await deleteYarnType(BRAND_A.id, TYPE_A1.id);
+
+    expect(result.ok).toBe(false);
+    expect(result).toMatchObject({ kind: "error" });
   });
 
   it("la red caída se vuelve kind: error sin lanzar", async () => {
