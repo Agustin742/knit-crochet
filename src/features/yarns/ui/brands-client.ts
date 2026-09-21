@@ -138,6 +138,17 @@ export type DeleteTypeResult =
   | { ok: false; kind: "blocked"; yarns: number }
   | { ok: false; kind: "error"; message: string };
 
+/**
+ * Un `409` que parsea pero no trae un contador VÁLIDO (falta, no es número,
+ * o es `NaN`) no es `blocked` — es `error`, la misma rama que ya cubre un
+ * cuerpo que no parsea. `brandBlockedBody`/`typeBlockedBody` no saben
+ * renderizar `undefined`, y `NaN` pasaría el chequeo de `typeof` sin decir
+ * nada útil tampoco.
+ */
+function isValidCount(value: unknown): value is number {
+  return typeof value === "number" && !Number.isNaN(value);
+}
+
 /** `DELETE /api/brands/:id`; `204` en éxito, `409 { error, types, yarns }` bloqueada. */
 export async function deleteBrand(id: string): Promise<DeleteBrandResult> {
   let response: Response;
@@ -156,8 +167,11 @@ export async function deleteBrand(id: string): Promise<DeleteBrandResult> {
 
   if (response.status === 409) {
     try {
-      const body = (await response.json()) as { types: number; yarns: number };
-      return { ok: false, kind: "blocked", types: body.types, yarns: body.yarns };
+      const body = (await response.json()) as { types?: unknown; yarns?: unknown };
+      if (isValidCount(body.types) && isValidCount(body.yarns)) {
+        return { ok: false, kind: "blocked", types: body.types, yarns: body.yarns };
+      }
+      return { ok: false, kind: "error", message: UNEXPECTED_ERROR_MESSAGE };
     } catch {
       return { ok: false, kind: "error", message: UNEXPECTED_ERROR_MESSAGE };
     }
@@ -187,8 +201,11 @@ export async function deleteYarnType(
 
   if (response.status === 409) {
     try {
-      const body = (await response.json()) as { yarns: number };
-      return { ok: false, kind: "blocked", yarns: body.yarns };
+      const body = (await response.json()) as { yarns?: unknown };
+      if (isValidCount(body.yarns)) {
+        return { ok: false, kind: "blocked", yarns: body.yarns };
+      }
+      return { ok: false, kind: "error", message: UNEXPECTED_ERROR_MESSAGE };
     } catch {
       return { ok: false, kind: "error", message: UNEXPECTED_ERROR_MESSAGE };
     }
