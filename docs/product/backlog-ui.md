@@ -52,7 +52,7 @@ El detalle está en `docs/harness/verification.md` y en `SDD-01 §9`.
 |---|---|---|---|
 | ~~22~~ | ~~`projects-form-ui`~~ | ~~Proyectos: crear/editar en modal~~ — cerrada | RFC-03 |
 | ~~23~~ | ~~`yarns-list-ui`~~ | ~~Lanas: lista + filtro jerárquico~~ — cerrada | RFC-04 |
-| 24 | `yarns-detail-catalogs-ui` | Lanas: detalle + gestión de catálogos | RFC-04 |
+| ~~24~~ | ~~`yarns-detail-catalogs-ui`~~ | ~~Lanas: detalle + gestión de catálogos~~ — cerrada | RFC-04 |
 | 25 | `yarns-form-ui` | Lanas: crear/editar en modal con tabs | RFC-04 |
 | 26 | `patterns-list-ui` | Patrones: lista + filtros | RFC-05 |
 | 27 | `patterns-detail-ui` | Patrones: detalle en drawer | RFC-05 |
@@ -98,9 +98,11 @@ Sidebar/acordeón con árbol marca→tipo más una fila de swatches de familia d
 - **Debts cerrados:** 168 (split swatch), 194 (filter panel contrast), 195 (disclosure affordance), 196 (summary contrast on Card), 197 (grid alignment).
 - **Debts abiertos por diseño:** 192 (card tap es no-op, cerrado por 24), 193 (empty state "Agregar lana", bloqueado por 25, no por 24).
 
-### 24 · `yarns-detail-catalogs-ui` — Lanas: detalle (drawer + stepper `usedQuantity`) + catálogos
+### ~~24 · `yarns-detail-catalogs-ui` — Lanas: detalle (drawer + stepper `usedQuantity`) + catálogos~~ · CERRADA
 
-**RFC-04.** Drawer de detalle con los datos de la lana y el stepper `+`/`−` de
+**RFC-04.** Cerrada por el cambio SDD `yarns-detail-catalogs-ui`, archivado en `openspec/changes/archive/2026-09-22-yarns-detail-catalogs-ui/` el 2026-09-22. Entregada en los PR #2 y #3. El botón «Editar» del drawer sigue sin destino hasta la entrada 25. Queda sin medir el contraste del panel de catálogos. Se conserva el detalle abajo porque documenta qué se pedía.
+
+Drawer de detalle con los datos de la lana y el stepper `+`/`−` de
 `usedQuantity` —que es consumo, y por eso **no** va en el form de crear— más el
 panel de gestión de catálogos (crear y borrar marca y tipo) en la misma página.
 
