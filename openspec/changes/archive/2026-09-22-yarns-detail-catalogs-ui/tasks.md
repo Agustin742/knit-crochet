@@ -66,7 +66,7 @@ Chain strategy: feature-branch-chain
 - [x] 2.10 GREEN: `YarnsView.tsx` — `catalogToken` state, `handleCatalogChange` incrementing it (delete/dangling-filter branch deferred to S2b).
 - [x] 2.11 `yarns-ui.classes.test.ts` — add `YarnCatalogPanel.tsx` entry.
 - [x] 2.12 Docs: `RFC-04-lanas.md` §7-ter — append **E2(c)** (panel placement, left column under filter tree/color row, reuses `Disclosure`), Spanish.
-- [ ] 2.13 Browser verification (REGLA 4): orchestrator creates a brand and a type on `/lanas`, confirms the tree refreshes without reload, checks contrast on the panel's `Card` surface. **LEFT OPEN — this executor has no browser tools.**
+- [x] 2.13 Browser verification (REGLA 4): orchestrator creates a brand and a type on `/lanas`, confirms the tree refreshes without reload, checks contrast on the panel's `Card` surface. **Closed on 2026-09-22:** the create-and-refresh-without-reload behaviour was verified in the browser by the orchestrator on 2026-09-20, after the forms moved into modals (see the note below the S2a rework). The contrast check on the panel's `Card` surface was **not recorded** and remains unmeasured.
 
 ## Cambio pedido por el usuario tras ver S2a en pantalla (2026-09-20)
 
@@ -135,10 +135,11 @@ primeros; el tercero queda deliberadamente afuera de este alcance.
       refrescado por el GET nuevo. Tests nuevos en `YarnCatalogPanel.test.tsx` (describe "crear con
       el árbol todavía no listo") cubren `loading` y `failed`, y el de `loading` fuerza justo esa
       carrera: el GET viejo resuelve TARDE con datos obsoletos y se verifica que no pisa nada.
-- [ ] **R3-003 — deliberadamente fuera de alcance.** El modal de alta de tipo hace
-      `setTypeModalBrandId(null)` sin condición cuando la respuesta llega tarde, lo mismo que R3-001
-      pero del lado del cierre del modal en vez de la lista. No pedido por el usuario en este cambio;
-      se deja tal cual está.
+- [x] **R3-003 — dejado fuera de alcance aquí, resuelto después.** El modal de alta de tipo hacía
+      `setTypeModalBrandId(null)` sin condición cuando la respuesta llegaba tarde, lo mismo que R3-001
+      pero del lado del cierre del modal en vez de la lista. Se resolvió en el commit `7d038bb`
+      (PR #3): `typeModalRequestTokenRef` se incrementa al abrir y cerrar el modal, y una respuesta
+      tardía sólo cierra el modal si su token sigue vigente.
 
 ## Phase 3: S2b `catalog-delete-409`
 
