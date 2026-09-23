@@ -164,6 +164,16 @@ describe("lotInputValue — la parte de calendario en UTC (design D5)", () => {
       expect(lotInputValue("2026-03-05T00:00:00.000Z")).toBe("2026-03-05");
       expect(lotInputValue("no-es-una-fecha")).toBe("");
     });
+
+    it("el lot del alta también serializa a medianoche UTC, sin desfase (R3-003)", () => {
+      process.env.TZ = "America/Argentina/Buenos_Aires";
+      const result = validateCreate({ ...validValues, lot: "2026-03-05" });
+      expect(result.ok).toBe(true);
+      if (!result.ok) {
+        throw new Error("se esperaba éxito");
+      }
+      expect(result.payload.lot.toISOString()).toBe("2026-03-05T00:00:00.000Z");
+    });
   });
 });
 
@@ -385,6 +395,53 @@ describe("validateEdit — sólo lo que cambió, y un formulario sin cambios no 
       throw new Error("se esperaba un fallo");
     }
     expect(result.errors.quantity).toBe(QUANTITY_REQUIRED_ERROR);
+  });
+
+  /* R3-001: en edición todo numérico queda opcional bajo `.partial()` —
+     `length`/`thickness` directamente, `needleMin`/`needleMax` porque el
+     borde ilegible deja un `undefined` dentro de `recommendedNeedle`. Las
+     cuatro pruebas de abajo confirman que `copyOverrides`, que corre
+     siempre, es lo único que impide que cada uno se cuele como "sin
+     cambios" o con el mensaje en inglés de zod — ningún caso produce un
+     patch. */
+  it("length ilegible en edición: error de copy propia, no un patch enviado en silencio", () => {
+    const after = { ...before, length: "abc" };
+    const result = validateEdit(before, after);
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error("se esperaba un fallo");
+    }
+    expect(result.errors.length).toBe(LENGTH_REQUIRED_ERROR);
+  });
+
+  it("thickness ilegible en edición: error de copy propia, no un patch enviado en silencio", () => {
+    const after = { ...before, thickness: "abc" };
+    const result = validateEdit(before, after);
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error("se esperaba un fallo");
+    }
+    expect(result.errors.thickness).toBe(THICKNESS_REQUIRED_ERROR);
+  });
+
+  it("needleMin ilegible en edición: error de copy propia, no el mensaje en inglés de zod", () => {
+    const after = { ...before, needleMin: "abc" };
+    const result = validateEdit(before, after);
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error("se esperaba un fallo");
+    }
+    expect(result.errors.needleMin).toBe(NEEDLE_MIN_REQUIRED_ERROR);
+  });
+
+  it("needleMax ilegible en edición: error de copy propia, no el mensaje en inglés de zod", () => {
+    const after = { ...before, needleMax: "abc" };
+    const result = validateEdit(before, after);
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error("se esperaba un fallo");
+    }
+    expect(result.errors.needleMax).toBe(NEEDLE_MAX_REQUIRED_ERROR);
   });
 });
 

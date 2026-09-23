@@ -245,11 +245,18 @@ export function issuesToErrors(
  * problema, no la acción pendiente — por una copia que nombra qué falta
  * hacer, cuando el campo está directamente vacío.
  *
- * `quantity` es el único numérico **opcional** del esquema: un texto
- * ilegible se traduce a `undefined`, que zod acepta en silencio (no hay
- * `issue` que mapear). Por eso `copyOverrides` se evalúa siempre, no sólo
- * cuando zod ya falló — si no, un stock ilegible se guardaría como "sin
- * cambios" en vez de mostrar un error.
+ * En alta (`createYarnSchema`), `quantity` es el único numérico
+ * **opcional** del esquema: un texto ilegible se traduce a `undefined`, que
+ * zod acepta en silencio (no hay `issue` que mapear). En edición
+ * (`updateYarnSchema`, `.partial()`), en cambio, **todos** los campos
+ * numéricos quedan opcionales — `length`/`thickness`/`quantity` porque
+ * `.partial()` los vuelve opcionales directamente, y `needleMin`/`needleMax`
+ * porque un borde ilegible produce `{ min: undefined, max: N }` (o al
+ * revés) dentro de `recommendedNeedle`, que zod sí rechaza, pero con su
+ * mensaje en inglés. Por eso `copyOverrides` se evalúa **siempre**, tanto
+ * si zod aceptó el parche en silencio (`length`/`thickness`/`quantity`) como
+ * si lo rechazó con un mensaje que hay que reemplazar (`needleMin`/
+ * `needleMax`) — nunca sólo cuando zod ya falló.
  */
 function copyOverrides(
   values: YarnFormValues,
