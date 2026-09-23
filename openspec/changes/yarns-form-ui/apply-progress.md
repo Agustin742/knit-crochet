@@ -92,3 +92,48 @@ None.
 6/6 Phase 1 tasks complete (S1 `yarn-save-client`). 0/~85 total tasks across all 7 phases complete
 elsewhere. Ready for the orchestrator to decide the PR1 size:exception question, then commit and
 continue to Phase 2 (S2 `yarn-form-model`) in a future apply batch.
+
+## Review follow-up — lineage review-fefc007131a83b01
+
+S1 was split into two PRs (`feature/25-s1a-yarn-save-client`, `feature/25-s1b-upload-client`); this
+follow-up fixes three non-blocking findings from that review, TDD RED→GREEN on both branches, then
+rebases s1b onto the fixed s1a.
+
+- **R3-002** (`src/features/yarns/ui/yarns-client.ts`, `saveYarn`) — a 2xx with valid JSON but no
+  `yarn` field resolved `{ ok: true, data: undefined }`. Fixed: success now requires a defined,
+  non-null `payload.yarn`; otherwise it resolves the existing `{ ok: false, field: null,
+  message: UNEXPECTED_ERROR_MESSAGE }` fallback. Commit: `2e11531` on
+  `feature/25-s1a-yarn-save-client`.
+- **R3-003** (same file, same function) — success was `response.ok` (any 2xx), so `createYarn` with
+  200 or `updateYarn` with 201 both counted as success. Fixed: `saveYarn` now takes an explicit
+  `successStatus` per call — `createYarn` requires 201 (`POST /api/yarns` per
+  `api/yarns/route.ts:39`), `updateYarn` requires 200 (`PATCH /api/yarns/:id` per
+  `api/yarns/[id]/route.ts:33,55`). Same commit `2e11531`.
+- **R3-001** (`src/features/uploads/ui/uploads-client.ts`, `uploadImage`) — on 201 the body was cast
+  to `{ url: string }` unchecked, so `{}` or `{ url: null }` resolved a fake success. Fixed:
+  `payload.url` is checked with `typeof ... !== "string"` before resolving success; otherwise it
+  resolves the existing `UNEXPECTED_ERROR_MESSAGE` fallback. Commit: `8612f20` on
+  `feature/25-s1b-upload-client` (rebased cleanly onto the s1a fix — no conflicts, since s1b does
+  not touch `yarns-client.ts`).
+
+### TDD Cycle Evidence (follow-up)
+
+| Finding | Test File | RED | GREEN |
+|---|---|---|---|
+| R3-002 | `yarns-client.test.ts` — 2 new cases (`createYarn`/`updateYarn`, 2xx body without `yarn`) | ✅ failed against unfixed `saveYarn` | ✅ 28/28 passed |
+| R3-003 | `yarns-client.test.ts` — 2 new cases (`createYarn` w/ 200, `updateYarn` w/ 201) | ✅ failed against unfixed `saveYarn` | ✅ 28/28 passed |
+| R3-001 | `uploads-client.test.ts` — 2 new cases (201 with `{}`, 201 with `{ url: null }`) | ✅ failed against unfixed `uploadImage` | ✅ 10/10 passed |
+
+### Verification (follow-up, on final s1b branch)
+
+| Command | Result |
+|---|---|
+| `pnpm exec vitest run yarns-client uploads-client` | 2 files, 38/38 passed |
+| `pnpm test` (full suite) | 121 files, 2114 passed / 13 skipped |
+| `pnpm typecheck` | clean, no output |
+| `pnpm lint` | clean, no output |
+
+Authored changed lines (follow-up only, from `git diff --stat` per commit): `yarns-client.ts`
++28/-4, `yarns-client.test.ts` +48 (commit `2e11531`, 72 insertions + 4 deletions); `uploads-client.ts`
++7/-1, `uploads-client.test.ts` +18 (commit `8612f20`, 24 insertions + 1 deletion) → **96 insertions
++ 5 deletions = 101 authored lines**, well under the 400-line budget.
