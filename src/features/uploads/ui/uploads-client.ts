@@ -124,7 +124,12 @@ export async function uploadImage(file: File): Promise<UploadImageResult> {
   }
 
   try {
-    const payload = (await response.json()) as { url: string };
+    const payload = (await response.json()) as Partial<{ url: string }>;
+    if (typeof payload.url !== "string") {
+      // Un 201 con cuerpo válido pero sin `url` no deja ninguna URL que
+      // guardar — es tan inservible como uno ilegible (R3-001).
+      return { ok: false, message: UNEXPECTED_ERROR_MESSAGE };
+    }
     return { ok: true, data: payload.url };
   } catch {
     // Un 201 con cuerpo ilegible no deja ninguna URL que guardar.

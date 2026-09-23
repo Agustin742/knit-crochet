@@ -157,4 +157,22 @@ describe("uploadImage", () => {
 
     expect(result).toEqual({ ok: false, message: UNEXPECTED_ERROR_MESSAGE });
   });
+
+  it("un 201 sin `url` en el cuerpo es tan inservible como un 500 (R3-001)", async () => {
+    fetchSpy.mockResolvedValue(jsonResponse(UPLOAD_CREATED_STATUS, {}));
+
+    const result = await uploadImage(imagen());
+
+    expect(result).toEqual({ ok: false, message: UNEXPECTED_ERROR_MESSAGE });
+  });
+
+  it("un 201 con `url` nula es tan inservible como un 500 (R3-001)", async () => {
+    fetchSpy.mockResolvedValue(
+      jsonResponse(UPLOAD_CREATED_STATUS, { url: null }),
+    );
+
+    const result = await uploadImage(imagen());
+
+    expect(result).toEqual({ ok: false, message: UNEXPECTED_ERROR_MESSAGE });
+  });
 });
