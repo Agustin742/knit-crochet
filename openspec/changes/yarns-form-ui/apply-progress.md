@@ -635,6 +635,33 @@ all 7 phases complete. Ready to continue to Phase 4 (S4 `yarn-identity-tab`) in 
 - The late-response safety at this component layer is local only: `ChooseOrCreateField` ignores a create result after cancel/reopen via a local monotonic request sequence and disables `Crear` while pending to avoid duplicate create requests. The catalog/result selection guard still belongs in `YarnFormDialog` S5b, where `brandRequestSeq`/`typeRequestSeq` can compare against current form state and update catalog data.
 - The photo input is disabled while `photo.uploading` is true, matching the D10/S5b design note; the test asserts the uploading label/disabled state first, then rerenders non-uploading to assert `onFile`.
 
+## S4 Review Follow-up — R3-001 / R3-002
+
+Fixed two non-blocking advisory findings from the approved S4 review (`yarn-identity-tab`):
+
+- **R3-001** (`YarnIdentityTab.tsx`) — changing the selected brand now emits one explicit patch
+  containing both the new `brandId` and `typeId: ""`, preventing a type from the previous brand
+  remaining selected. The identity-tab test asserts the combined patch.
+- **R3-002** (`ChooseOrCreateField.tsx`) — rejected `onCreate` promises are caught; the current
+  request clears pending and displays the safe message `No se pudo crear. Intentá de nuevo.` without
+  exposing rejection details. The test asserts the message and re-enabled Crear button.
+
+### TDD Cycle Evidence (S4 review follow-up)
+
+| Finding | RED | GREEN | TRIANGULATE |
+|---|---|---|---|
+| R3-001 | Focused Vitest run failed: brand selection emitted `{ brandId: "brand-b" }` without `typeId: ""` | Focused run passed after explicitly emitting both fields | Same component contract; different-brand selection tested |
+| R3-002 | Focused Vitest run failed to find the safe message and reported an unhandled `private details` rejection; pending remained true | Focused run passed with safe error rendering and pending reset | Asserted private rejection detail is not rendered and Crear is enabled |
+
+### Verification (S4 review follow-up)
+
+| Command | Result |
+|---|---|
+| `pnpm exec vitest run ChooseOrCreateField YarnIdentityTab` | 2 files, 18/18 passed |
+| `pnpm exec vitest run ChooseOrCreateField YarnIdentityTab yarns-ui.classes` | 3 files, 36/36 passed |
+| `pnpm typecheck` | clean |
+| `pnpm lint` | clean |
+
 ## Status (updated after S4)
 
 S1: 6/6. S2: 7/7 (+ review follow-up). S3: 8/8 (+ review follow-up). S4: 7/7 tasks complete. Ready to continue to S5a `yarn-form-shell-create` in a future apply batch.

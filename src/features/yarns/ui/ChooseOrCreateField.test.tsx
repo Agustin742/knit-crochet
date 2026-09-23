@@ -162,6 +162,19 @@ describe("ChooseOrCreateField — elegir o crear inline", () => {
     expect(onCreate).toHaveBeenCalledWith("Nube");
   });
 
+  it("si onCreate rechaza muestra un error seguro y vuelve a habilitar Crear", async () => {
+    const user = userEvent.setup();
+    renderField({ onCreate: vi.fn(async () => Promise.reject(new Error("private details"))) });
+
+    await user.click(screen.getByRole("button", { name: "Nueva marca" }));
+    await user.type(screen.getByLabelText("Nombre de la marca"), "Nube");
+    await user.click(screen.getByRole("button", { name: "Crear" }));
+
+    expect(await screen.findByText("No se pudo crear. Intentá de nuevo.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Crear" })).toBeEnabled();
+    expect(screen.queryByText("private details")).not.toBeInTheDocument();
+  });
+
   it("un create fallido muestra el error y deja abierta la fila", async () => {
     const user = userEvent.setup();
     renderField({

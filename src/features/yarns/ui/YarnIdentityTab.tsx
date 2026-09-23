@@ -86,7 +86,7 @@ export function YarnIdentityTab({
         options={brandOptions}
         value={values.brandId}
         onValueChange={(brandId) => {
-          onChange({ brandId });
+          onChange({ brandId, typeId: "" });
         }}
         status={catalogStatus}
         onRetry={onRetryCatalog}

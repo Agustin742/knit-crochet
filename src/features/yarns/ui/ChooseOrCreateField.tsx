@@ -75,7 +75,17 @@ export function ChooseOrCreateField({
     setPending(true);
     setCreateError(undefined);
 
-    const result = await onCreate(trimmed);
+    let result: InlineCreateOutcome;
+    try {
+      result = await onCreate(trimmed);
+    } catch {
+      if (requestSeq.current === token) {
+        setPending(false);
+        setCreateError("No se pudo crear. Intentá de nuevo.");
+      }
+      return;
+    }
+
     if (requestSeq.current !== token) {
       return;
     }

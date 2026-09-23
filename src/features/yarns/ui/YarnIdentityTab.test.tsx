@@ -98,7 +98,7 @@ describe("YarnIdentityTab — identidad de la lana", () => {
     await user.type(screen.getByLabelText("Código de color"), "R-1");
     await user.click(screen.getByRole("button", { name: "Rojo" }));
 
-    expect(onChange).toHaveBeenCalledWith({ brandId: "brand-b" });
+    expect(onChange).toHaveBeenCalledWith({ brandId: "brand-b", typeId: "" });
     expect(onChange).toHaveBeenCalledWith({ typeId: "type-a" });
     expect(onChange).toHaveBeenCalledWith({ colorName: "R" });
     expect(onChange).toHaveBeenCalledWith({ colorCode: "R" });
