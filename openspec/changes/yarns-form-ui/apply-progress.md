@@ -662,6 +662,36 @@ Fixed two non-blocking advisory findings from the approved S4 review (`yarn-iden
 | `pnpm typecheck` | clean |
 | `pnpm lint` | clean |
 
-## Status (updated after S4)
+## Phase 5a: S5a `yarn-form-shell-create`
 
-S1: 6/6. S2: 7/7 (+ review follow-up). S3: 8/8 (+ review follow-up). S4: 7/7 tasks complete. Ready to continue to S5a `yarn-form-shell-create` in a future apply batch.
+### Completed Tasks
+
+- [x] 5.1 RED — `src/features/yarns/ui/YarnFormDialog.test.tsx` created with 12 create-mode scenarios: null target, fresh defaults and default tab, tab-value persistence, both inactive-tab error directions, active-tab focus, required colour-family invalid state, needle max-only validation, duplicate-code response, successful payload/save/close, `usedQuantity` absence, and full-dialog axe.
+- [x] 5.2 RED — the same suite pins duplicate `colorCode` errors to the field, tab switch/focus, and absence of a page-level alert; valid create sends parsed assembled values and returns the raw response record.
+- [x] 5.5 GREEN — `src/features/yarns/ui/YarnFormDialog.tsx` created: create-only keyed shell, shell-owned form/catalog/tab/request state, field refs, pending-focus effect, `validateCreate`/`reportErrors`, `createYarn`, 409 field mapping, and S5b-only photo/inline-create placeholders.
+- [x] 5.6 REFACTOR — verified both tab components are controlled and own no switch-persistent state; focus refs are memoized as a stable field map. Async photo upload and real inline creation remain unimplemented for S5b.
+- [x] 5.7 — `yarns-ui.classes.test.ts` includes `YarnFormDialog.tsx`.
+- [x] 5.8 — required focused tests, typecheck, and lint passed (see exact results below).
+
+### TDD Cycle Evidence
+
+| Area | RED | GREEN | TRIANGULATE / REFACTOR |
+|---|---|---|---|
+| `YarnFormDialog` behavior | `pnpm exec vitest run YarnFormDialog` failed before implementation with `Failed to resolve import "./YarnFormDialog"` (no tests collected) | The final combined focused run passed 12 form tests plus the CSS-class gate | 12 scenarios cover both tab directions, same-tab focus, field-level invalid states, duplicate response and successful payload; full dialog axe clean. Tab components remain controlled; no async upload/inline-create implementation was pulled into S5a. |
+| CSS class gate | Initial combined run exposed `{...props}` as an untraceable spread in `YarnFormDialog.tsx` | Replaced the spread with explicit props; combined run then passed | Gate verifies emitted utility classes and no unhandled/bypassed attributes. |
+
+### Verification Report (S5a)
+
+| Command | Result |
+|---|---|
+| `pnpm exec vitest run YarnFormDialog yarns-ui.classes` | 2 files, 31/31 tests passed |
+| `pnpm typecheck` | passed (`tsc --noEmit`, no diagnostics) |
+| `pnpm lint` | passed (`eslint .`, no diagnostics) |
+
+### Deviations / Issues (S5a)
+
+- None. S5b upload and real inline brand/type creation remain intentionally deferred; `YarnsView` wiring and edit mode remain untouched.
+
+## Status (updated after S5a)
+
+S1: 6/6. S2: 7/7 (+ review follow-up). S3: 8/8 (+ review follow-up). S4: 7/7 (+ review follow-up). S5a: 6/6 slice tasks complete (5.1, 5.2, 5.5–5.8). S5b tasks remain unchecked.

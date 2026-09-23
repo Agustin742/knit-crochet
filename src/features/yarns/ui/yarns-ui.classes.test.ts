@@ -32,6 +32,7 @@ const COMPONENTS = [
   "YarnTechnicalTab.tsx",
   "ChooseOrCreateField.tsx",
   "YarnIdentityTab.tsx",
+  "YarnFormDialog.tsx",
 ];
 
 /**

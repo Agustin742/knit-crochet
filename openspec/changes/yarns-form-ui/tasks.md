@@ -219,7 +219,7 @@ S6 and S7 become PR7 and PR8.)*
 
 ### S5a `yarn-form-shell-create`
 
-- [ ] 5.1 RED: create `src/features/yarns/ui/YarnFormDialog.test.tsx`, create-mode scenarios —
+- [x] 5.1 RED: create `src/features/yarns/ui/YarnFormDialog.test.tsx`, create-mode scenarios —
       **no target renders nothing** (no dialog in the document); **create target renders an empty
       form** (every field empty/default, `quantity` = `"0"`); the shell mounts `Tabs` with
       `YarnIdentityTab`/`YarnTechnicalTab`, defaulting to «Identidad»; **fill a field on
@@ -232,13 +232,13 @@ S6 and S7 become PR7 and PR8.)*
       switch; submitting with no colour family chosen is rejected with the error on the
       `ColorFamilyPicker` and its accessible invalid state; a needle max below min is rejected on
       the max field only; `axe` clean on the full dialog.
-- [ ] 5.2 RED: extend `YarnFormDialog.test.tsx` — **a duplicate-`colorCode` 409 response switches
+- [x] 5.2 RED: extend `YarnFormDialog.test.tsx` — **a duplicate-`colorCode` 409 response switches
       to Identidad and shows the message on the `colorCode` field with an accessible invalid
       state, with no page-level alert** (spec: "A duplicate colour code is reported on the
       colour-code field..."); a valid submit calls `createYarn` with the assembled payload and,
       on success, calls `onSaved` with the raw record and closes; `usedQuantity` is absent from
       both rendered tabs.
-- [ ] 5.5 GREEN: `src/features/yarns/ui/YarnFormDialog.tsx` — shell owning `values`, `errors`,
+- [x] 5.5 GREEN: `src/features/yarns/ui/YarnFormDialog.tsx` — shell owning `values`, `errors`,
       `tab`, `catalog`, `uploading`, `fileName`, `formError`, `pending`, `catalogPending`; target/key
       remount contract (`ProjectFormDialog.tsx:104-121` pattern — no target renders `null`, inner
       form keyed `"create"`); `reportErrors(errors)` picking `first = YARN_FORM_FIELDS.find(f =>
@@ -249,11 +249,11 @@ S6 and S7 become PR7 and PR8.)*
       then `createYarn`, mapping a `field: "colorCode"` result through the same `reportErrors`
       path. Create-mode only in this slice (`YarnFormTarget = { mode: "create" }`); the `edit` arm
       is added in S7. Carries `"use client"`.
-- [ ] 5.6 REFACTOR: confirm the shell never lets a tab component hold state that must survive a
+- [x] 5.6 REFACTOR: confirm the shell never lets a tab component hold state that must survive a
       switch (spot-check `YarnIdentityTab`/`YarnTechnicalTab` for any local `useState` beyond the
       `ChooseOrCreateField` inline-row UI, which is allowed to be local per `design.md` D3).
-- [ ] 5.7 `src/features/yarns/ui/yarns-ui.classes.test.ts` — add `YarnFormDialog.tsx`.
-- [ ] 5.8 Run `pnpm test -- YarnFormDialog yarns-ui.classes`, `pnpm typecheck`, `pnpm lint` and
+- [x] 5.7 `src/features/yarns/ui/yarns-ui.classes.test.ts` — add `YarnFormDialog.tsx`.
+- [x] 5.8 Run `pnpm test -- YarnFormDialog yarns-ui.classes`, `pnpm typecheck`, `pnpm lint` and
       record the result.
 ### S5b `yarn-form-async-inputs`
 
