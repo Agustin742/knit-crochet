@@ -72,7 +72,7 @@ describe("NeedleRangeField — Mínimo y Máximo, cada uno con su error (design 
     expect(onMaxChange).toHaveBeenCalledWith("6");
   });
 
-  it("cada campo muestra su propio error, sin mezclarse con el otro", () => {
+  it("cada campo muestra su propio error, sin mezclarse con el otro, cableado por aria-describedby (B1)", () => {
     render(
       <NeedleRangeField
         min="6"
@@ -83,19 +83,18 @@ describe("NeedleRangeField — Mínimo y Máximo, cada uno con su error (design 
       />,
     );
 
-    expect(
-      screen.getByText("El máximo debe ser >= al mínimo."),
-    ).toBeInTheDocument();
-    expect(screen.getByLabelText("Máximo")).toHaveAttribute(
-      "aria-invalid",
-      "true",
-    );
-    expect(screen.getByLabelText("Mínimo")).not.toHaveAttribute(
-      "aria-invalid",
-    );
+    const maxMessage = screen.getByText("El máximo debe ser >= al mínimo.");
+    const maxInput = screen.getByLabelText("Máximo");
+    const minInput = screen.getByLabelText("Mínimo");
+
+    expect(maxMessage).toBeInTheDocument();
+    expect(maxInput).toHaveAttribute("aria-invalid", "true");
+    expect(maxInput).toHaveAttribute("aria-describedby", maxMessage.id);
+    expect(minInput).not.toHaveAttribute("aria-invalid");
+    expect(minInput).not.toHaveAttribute("aria-describedby");
   });
 
-  it("minError y maxError renderizan a la vez, cada uno en su campo", () => {
+  it("minError y maxError renderizan a la vez, cada uno cableado a su propio campo (B1)", async () => {
     render(
       <NeedleRangeField
         min=""
@@ -107,14 +106,31 @@ describe("NeedleRangeField — Mínimo y Máximo, cada uno con su error (design 
       />,
     );
 
-    expect(screen.getByLabelText("Mínimo")).toHaveAttribute(
-      "aria-invalid",
-      "true",
+    const minInput = screen.getByLabelText("Mínimo");
+    const maxInput = screen.getByLabelText("Máximo");
+    const minMessage = screen.getByText("Ingresá la aguja mínima, en mm.");
+    const maxMessage = screen.getByText("Ingresá la aguja máxima, en mm.");
+
+    expect(minInput).toHaveAttribute("aria-invalid", "true");
+    expect(minInput).toHaveAttribute("aria-describedby", minMessage.id);
+    expect(maxInput).toHaveAttribute("aria-invalid", "true");
+    expect(maxInput).toHaveAttribute("aria-describedby", maxMessage.id);
+    expect(minMessage.id).not.toBe(maxMessage.id);
+  });
+
+  it("no tiene violaciones de axe con ambos errores presentes (B1)", async () => {
+    const { container } = render(
+      <NeedleRangeField
+        min=""
+        max=""
+        onMinChange={vi.fn()}
+        onMaxChange={vi.fn()}
+        minError="Ingresá la aguja mínima, en mm."
+        maxError="Ingresá la aguja máxima, en mm."
+      />,
     );
-    expect(screen.getByLabelText("Máximo")).toHaveAttribute(
-      "aria-invalid",
-      "true",
-    );
+
+    expect(await axe(container)).toHaveNoViolations();
   });
 
   it("minRef y maxRef apuntan a sus propios inputs", () => {
