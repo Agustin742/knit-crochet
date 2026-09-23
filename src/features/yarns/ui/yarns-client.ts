@@ -137,10 +137,18 @@ export type YarnSaveResult =
   | { ok: false; field: "colorCode"; message: string }
   | { ok: false; field: null; message: string };
 
+/**
+ * `successStatus` fija el ÚNICO status que cuenta como éxito (R3-003):
+ * `POST /api/yarns` responde `201`, `PATCH /api/yarns/:id` responde `200`
+ * (`api/yarns/route.ts:39`, `api/yarns/[id]/route.ts:33,55`) — un `200` de
+ * `createYarn` o un `201` de `updateYarn` son tan repliegue como cualquier
+ * otro status no documentado, aunque el cuerpo venga con `yarn` adentro.
+ */
 async function saveYarn(
   url: string,
   method: "POST" | "PATCH",
   body: unknown,
+  successStatus: number,
 ): Promise<YarnSaveResult> {
   let response: Response;
   try {
@@ -162,12 +170,16 @@ async function saveYarn(
     };
   }
 
-  if (!response.ok) {
+  if (response.status !== successStatus) {
     return { ok: false, field: null, message: UNEXPECTED_ERROR_MESSAGE };
   }
 
   try {
-    const payload = (await response.json()) as YarnDetailPayload;
+    const payload = (await response.json()) as Partial<YarnDetailPayload>;
+    if (payload.yarn === undefined || payload.yarn === null) {
+      // Un cuerpo válido sin `yarn` no deja ninguna fila que devolver (R3-002).
+      return { ok: false, field: null, message: UNEXPECTED_ERROR_MESSAGE };
+    }
     return { ok: true, data: payload.yarn };
   } catch {
     // Un 2xx con cuerpo ilegible es tan inservible como un 500.
@@ -175,11 +187,14 @@ async function saveYarn(
   }
 }
 
+const CREATE_SUCCESS_STATUS = 201;
+const UPDATE_SUCCESS_STATUS = 200;
+
 /** `POST /api/yarns` → `201 { yarn }` (raw `SerializedYarnRecord`). */
 export async function createYarn(
   payload: CreateYarnPayload,
 ): Promise<YarnSaveResult> {
-  return saveYarn(YARNS_ENDPOINT, "POST", payload);
+  return saveYarn(YARNS_ENDPOINT, "POST", payload, CREATE_SUCCESS_STATUS);
 }
 
 /**
@@ -190,5 +205,10 @@ export async function updateYarn(
   id: string,
   patch: UpdateYarnPayload,
 ): Promise<YarnSaveResult> {
-  return saveYarn(`${YARNS_ENDPOINT}/${id}`, "PATCH", patch);
+  return saveYarn(
+    `${YARNS_ENDPOINT}/${id}`,
+    "PATCH",
+    patch,
+    UPDATE_SUCCESS_STATUS,
+  );
 }

@@ -314,6 +314,30 @@ describe("createYarn", () => {
       message: UNEXPECTED_ERROR_MESSAGE,
     });
   });
+
+  it("un 201 sin `yarn` en el cuerpo es tan inservible como un 500 (R3-002)", async () => {
+    fetchSpy.mockResolvedValue(jsonResponse(201, {}));
+
+    const result = await createYarn(CREATE_PAYLOAD);
+
+    expect(result).toEqual({
+      ok: false,
+      field: null,
+      message: UNEXPECTED_ERROR_MESSAGE,
+    });
+  });
+
+  it("un 200 NO se acepta como creación hecha, aunque traiga `yarn` (R3-003)", async () => {
+    fetchSpy.mockResolvedValue(jsonResponse(200, { yarn: SAVED }));
+
+    const result = await createYarn(CREATE_PAYLOAD);
+
+    expect(result).toEqual({
+      ok: false,
+      field: null,
+      message: UNEXPECTED_ERROR_MESSAGE,
+    });
+  });
 });
 
 describe("updateYarn", () => {
@@ -386,6 +410,30 @@ describe("updateYarn", () => {
       ok: false,
       field: null,
       message: NETWORK_ERROR_MESSAGE,
+    });
+  });
+
+  it("un 200 sin `yarn` en el cuerpo es tan inservible como un 500 (R3-002)", async () => {
+    fetchSpy.mockResolvedValue(jsonResponse(200, {}));
+
+    const result = await updateYarn(CRUDA.id, { colorCode: "N1" });
+
+    expect(result).toEqual({
+      ok: false,
+      field: null,
+      message: UNEXPECTED_ERROR_MESSAGE,
+    });
+  });
+
+  it("un 201 NO se acepta como actualización hecha, aunque traiga `yarn` (R3-003)", async () => {
+    fetchSpy.mockResolvedValue(jsonResponse(201, { yarn: SAVED }));
+
+    const result = await updateYarn(CRUDA.id, { colorCode: "N1" });
+
+    expect(result).toEqual({
+      ok: false,
+      field: null,
+      message: UNEXPECTED_ERROR_MESSAGE,
     });
   });
 });
