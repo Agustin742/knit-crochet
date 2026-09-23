@@ -30,6 +30,8 @@ const COMPONENTS = [
   "ColorFamilyPicker.tsx",
   "NeedleRangeField.tsx",
   "YarnTechnicalTab.tsx",
+  "ChooseOrCreateField.tsx",
+  "YarnIdentityTab.tsx",
 ];
 
 /**

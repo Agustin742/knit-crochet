@@ -599,3 +599,42 @@ split into three chained PRs (`feature/25-s3a-color-family-picker`,
 (A1/A2/B1/C1–C4 from lineages `review-9f26d40d31a99340` and `review-c66f3934617f35ab`) fixing the
 colour-family picker's shared error id and closing four test-coverage gaps. 21/~85 total tasks across
 all 7 phases complete. Ready to continue to Phase 4 (S4 `yarn-identity-tab`) in a future apply batch.
+
+
+## Phase 4: S4 `yarn-identity-tab` (branch `feature/25-s3c-yarn-technical-tab`, base = S3c)
+
+### Completed Tasks
+
+- [x] 4.1 RED — `src/features/yarns/ui/ChooseOrCreateField.test.tsx` created: loading Skeleton + named status, failed retry, ready select/options, inline create row focus, Enter create without enclosing form submit, Escape closes only the row inside `Dialog`, failed create error, disabled propagation, and a follow-up RED proving repeated `Crear` clicks during a pending create must issue only one request.
+- [x] 4.2 GREEN — `src/features/yarns/ui/ChooseOrCreateField.tsx` created: client component with local inline-row open/pending/error state, no nested form, `Crear` as `type="button"`, `pending` included in the disabled guard to prevent duplicate create requests, and a form-local request sequence so late inline results do not update a closed/restarted row.
+- [x] 4.3 — `src/features/yarns/ui/yarns-ui.classes.test.ts` includes `ChooseOrCreateField.tsx`.
+- [x] 4.4 RED — `src/features/yarns/ui/YarnIdentityTab.test.tsx` created: two choose-or-create fields, `colorName`, `colorCode`, `ColorFamilyPicker`, photo control, type disabled until brand, onChange wiring, photo fileName/uploading/onFile, refs, and render smoke.
+- [x] 4.5 GREEN — `src/features/yarns/ui/YarnIdentityTab.tsx` created: client boundary composing `ChooseOrCreateField` twice, `ColorFamilyPicker`, controlled text inputs, and `FileInput` photo controls from the existing form model and catalog state.
+- [x] 4.6 — `src/features/yarns/ui/yarns-ui.classes.test.ts` includes `YarnIdentityTab.tsx`.
+- [x] 4.7 Verification — final `pnpm exec vitest run ChooseOrCreateField YarnIdentityTab yarns-ui.classes`: 3 files, 35/35 passed; `pnpm typecheck`: clean; `pnpm lint`: clean. Earlier literal `pnpm test -- ChooseOrCreateField YarnIdentityTab yarns-ui.classes` ran the full suite (124 files passed / 3 skipped, 2230 passed / 13 skipped) because this repository forwards `--` as a Vitest filter token.
+
+### TDD Cycle Evidence (S4)
+
+| Task | Test File | RED | GREEN | TRIANGULATE / REFACTOR |
+|---|---|---|---|---|
+| 4.1–4.2 | `ChooseOrCreateField.test.tsx` | ✅ `pnpm exec vitest run ChooseOrCreateField YarnIdentityTab yarns-ui.classes` failed with `Failed to resolve import "./ChooseOrCreateField"` before the component existed; follow-up RED failed with 2 `onCreate` calls during a pending create | ✅ final focused run passed, including the class gate | ✅ loading/failed/ready, keyboard Enter/Escape, failed create, disabled, duplicate-click prevention while pending; request sequence added locally to ignore late inline results after cancel/reopen |
+| 4.4–4.5 | `YarnIdentityTab.test.tsx` | ✅ same RED run failed with `Failed to resolve import "./YarnIdentityTab"` before the component existed | ✅ focused run passed, including the class gate | ✅ brand/type/catalog states, controlled text inputs, colour family, photo fileName/uploading/onFile/remove, refs, smoke |
+| 4.3/4.6 | `yarns-ui.classes.test.ts` | ➖ Fixed-list gate update; no standalone RED beyond the new source files requiring inclusion | ✅ class gate passed in the focused run | ➖ None needed |
+
+### Verification Report (S4)
+
+| Command | Result |
+|---|---|
+| `pnpm test -- ChooseOrCreateField YarnIdentityTab yarns-ui.classes` | 124 files passed / 3 skipped (127), 2230 passed / 13 skipped (2243); observed Vitest invocation was `vitest run "--" "ChooseOrCreateField" "YarnIdentityTab" "yarns-ui.classes"`, so it ran the full suite rather than only the focused subset |
+| `pnpm exec vitest run ChooseOrCreateField YarnIdentityTab yarns-ui.classes` | final run: 3 files, 35/35 passed |
+| `pnpm typecheck` | clean, no output |
+| `pnpm lint` | clean, no output |
+
+### Deviations / Issues (S4)
+
+- The late-response safety at this component layer is local only: `ChooseOrCreateField` ignores a create result after cancel/reopen via a local monotonic request sequence and disables `Crear` while pending to avoid duplicate create requests. The catalog/result selection guard still belongs in `YarnFormDialog` S5b, where `brandRequestSeq`/`typeRequestSeq` can compare against current form state and update catalog data.
+- The photo input is disabled while `photo.uploading` is true, matching the D10/S5b design note; the test asserts the uploading label/disabled state first, then rerenders non-uploading to assert `onFile`.
+
+## Status (updated after S4)
+
+S1: 6/6. S2: 7/7 (+ review follow-up). S3: 8/8 (+ review follow-up). S4: 7/7 tasks complete. Ready to continue to S5a `yarn-form-shell-create` in a future apply batch.

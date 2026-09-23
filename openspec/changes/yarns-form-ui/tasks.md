@@ -177,7 +177,7 @@ chain, never merge conflicts.
 *(Split point if the diff runs over budget: land `ChooseOrCreateField` — tasks 4.1–4.3 — as its own
 PR before `YarnIdentityTab`, per `design.md`'s named split.)*
 
-- [ ] 4.1 RED: create `src/features/yarns/ui/ChooseOrCreateField.test.tsx` — `loading` status
+- [x] 4.1 RED: create `src/features/yarns/ui/ChooseOrCreateField.test.tsx` — `loading` status
       shows a `Skeleton` + named status region; `failed` shows a message + «Reintentar» that calls
       `onRetry`; `ready` shows the `Select` with the given `options`; the visible «Nueva marca» /
       «Nuevo tipo» trigger reveals an inline row (`Field` + `Input` + «Crear» + «Cancelar») below
@@ -187,24 +187,24 @@ PR before `YarnIdentityTab`, per `design.md`'s named split.)*
       inline row calls `stopPropagation()` and closes only the row**, tested inside a `Dialog` to
       prove the modal itself does not close; a failed `onCreate` shows an error in the row without
       closing it; `disabled` propagates to the select and the trigger.
-- [ ] 4.2 GREEN: `src/features/yarns/ui/ChooseOrCreateField.tsx` — per `design.md` D3 and the
+- [x] 4.2 GREEN: `src/features/yarns/ui/ChooseOrCreateField.tsx` — per `design.md` D3 and the
       `ChooseOrCreateFieldProps` contract. The inline row is **not** a nested `<form>` (invalid
       HTML inside the yarn form); «Crear» is `type="button"`. Carries `"use client"` (local
       open/pending/error state and handlers).
-- [ ] 4.3 `src/features/yarns/ui/yarns-ui.classes.test.ts` — add `ChooseOrCreateField.tsx`.
-- [ ] 4.4 RED: create `src/features/yarns/ui/YarnIdentityTab.test.tsx` — renders two
+- [x] 4.3 `src/features/yarns/ui/yarns-ui.classes.test.ts` — add `ChooseOrCreateField.tsx`.
+- [x] 4.4 RED: create `src/features/yarns/ui/YarnIdentityTab.test.tsx` — renders two
       `ChooseOrCreateField`s (brand, type) plus `colorName`, `colorCode`, `ColorFamilyPicker`, and
       a photo control; the type field is `disabled` until a brand is chosen; `onChange` wiring for
       every text field; the photo control's `fileName`/`uploading` props render correctly and
       choosing a file calls the given `onFile`; render smoke (SDD-01 §9).
-- [ ] 4.5 GREEN: `src/features/yarns/ui/YarnIdentityTab.tsx` — controlled, composes
+- [x] 4.5 GREEN: `src/features/yarns/ui/YarnIdentityTab.tsx` — controlled, composes
       `ChooseOrCreateField` ×2, `ColorFamilyPicker`, `colorName`/`colorCode` `Input`s, and the photo
       control, per the `YarnTabProps` + `YarnIdentityTab`-specific props contract (`catalog`,
       `onRetryCatalog`, `onCreateBrand`, `onCreateType`, `photo`, refs for its six fields). Carries
       `"use client"` (owns no state itself but is the client boundary for its interactive
       children per `design.md`'s Client directives note).
-- [ ] 4.6 `src/features/yarns/ui/yarns-ui.classes.test.ts` — add `YarnIdentityTab.tsx`.
-- [ ] 4.7 Run `pnpm test -- ChooseOrCreateField YarnIdentityTab yarns-ui.classes`,
+- [x] 4.6 `src/features/yarns/ui/yarns-ui.classes.test.ts` — add `YarnIdentityTab.tsx`.
+- [x] 4.7 Run `pnpm test -- ChooseOrCreateField YarnIdentityTab yarns-ui.classes`,
       `pnpm typecheck`, `pnpm lint` and record the result.
 
 ## Phase 5: S5 `yarn-form-shell-create`
