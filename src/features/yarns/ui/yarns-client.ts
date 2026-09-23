@@ -1,4 +1,8 @@
 import type { YarnFilters } from "@/features/yarns/types";
+import type {
+  CreateYarnPayload,
+  UpdateYarnPayload,
+} from "@/features/yarns/validation";
 
 import type {
   SerializedYarnListItem,
@@ -112,4 +116,79 @@ export async function patchYarnUsedQuantity(
   } catch {
     return { ok: false, message: UNEXPECTED_ERROR_MESSAGE };
   }
+}
+
+/**
+ * `createYarn`/`updateYarn` (design D7). Todo `409` de `POST /api/yarns` o de
+ * `PATCH /api/yarns/:id` se traduce a `field: "colorCode"` con este mensaje
+ * de cliente (determinista, estable en tests, no atado a la redacción del
+ * servidor). **Esto vale porque hoy la restricción `colorCode` duplicado es
+ * la ÚNICA que cualquiera de los dos endpoints devuelve como 409**
+ * (`api/yarns/params.ts:40-57`; el otro 409, `YarnReferencedError`, es
+ * exclusivo del DELETE). Si algún día se suma una segunda restricción
+ * `UNIQUE`, este mapeo NO puede reusarse sin revisar primero cuál 409 es
+ * cuál — de ahí este comentario.
+ */
+export const DUPLICATE_COLOR_CODE_MESSAGE =
+  "Ya existe un color con ese código para esta marca.";
+
+export type YarnSaveResult =
+  | { ok: true; data: SerializedYarnRecord }
+  | { ok: false; field: "colorCode"; message: string }
+  | { ok: false; field: null; message: string };
+
+async function saveYarn(
+  url: string,
+  method: "POST" | "PATCH",
+  body: unknown,
+): Promise<YarnSaveResult> {
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method,
+      credentials: "same-origin",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    return { ok: false, field: null, message: NETWORK_ERROR_MESSAGE };
+  }
+
+  if (response.status === 409) {
+    return {
+      ok: false,
+      field: "colorCode",
+      message: DUPLICATE_COLOR_CODE_MESSAGE,
+    };
+  }
+
+  if (!response.ok) {
+    return { ok: false, field: null, message: UNEXPECTED_ERROR_MESSAGE };
+  }
+
+  try {
+    const payload = (await response.json()) as YarnDetailPayload;
+    return { ok: true, data: payload.yarn };
+  } catch {
+    // Un 2xx con cuerpo ilegible es tan inservible como un 500.
+    return { ok: false, field: null, message: UNEXPECTED_ERROR_MESSAGE };
+  }
+}
+
+/** `POST /api/yarns` → `201 { yarn }` (raw `SerializedYarnRecord`). */
+export async function createYarn(
+  payload: CreateYarnPayload,
+): Promise<YarnSaveResult> {
+  return saveYarn(YARNS_ENDPOINT, "POST", payload);
+}
+
+/**
+ * `PATCH /api/yarns/:id` → `200 { yarn }`. `patch` lleva SÓLO los campos que
+ * cambiaron — lo arma `yarn-form.ts` (`yarnPatch`), no este cliente.
+ */
+export async function updateYarn(
+  id: string,
+  patch: UpdateYarnPayload,
+): Promise<YarnSaveResult> {
+  return saveYarn(`${YARNS_ENDPOINT}/${id}`, "PATCH", patch);
 }
