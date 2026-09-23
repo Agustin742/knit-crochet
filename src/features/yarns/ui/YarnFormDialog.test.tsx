@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
@@ -221,8 +221,10 @@ describe("YarnFormDialog — alta", () => {
     await chooseTechnical(user);
     await user.click(screen.getByRole("button", { name: "Guardar" }));
     view.rerender(<YarnFormDialog target={null} onClose={onClose} onSaved={onSaved} onCatalogChange={vi.fn()} />);
-    resolveCreate({ ok: true, data: RECORD });
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await act(async () => {
+      resolveCreate({ ok: true, data: RECORD });
+    });
     expect(onSaved).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
   });
