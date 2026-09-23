@@ -3087,3 +3087,19 @@ borrada y el servidor reiniciado limpio: **`200 {"sessions":[]}`** y el tab func
      su existencia.
      **Cómo se salda:** cuando entre la 25, el mismo botón pasa de su no-op a abrir el modal, y
      ahí recupera `primary`. Registrado también como RFC-04 §7-ter, enmienda **E2(b)**.
+
+200. **🟠 La subida de foto de una lana tiene su propio cliente, que duplica el contrato de
+     `uploadProjectImage`.** La entrada 25 (`yarns_form_ui`, design D10) agrega
+     `src/features/uploads/ui/uploads-client.ts` con `uploadImage(file)` para que el formulario de
+     crear/editar lana suba la foto al elegirla. Repite, cliente por cliente, los tres puntos que
+     `uploadProjectImage` (`projects-client.ts:640-679`, deuda 60) ya midió: `multipart/form-data`
+     con el campo `file` sin fijar el tipo de contenido a mano, éxito = **201** (nunca 200), y los
+     repliegues 400/401/502 derivados de `ACCEPTED_IMAGE_TYPES`/`MAX_IMAGE_BYTES`. **Escenario de
+     fallo:** si el contrato del endpoint cambiara — un nuevo status, un campo nuevo obligatorio —
+     alguien tendría que acordarse de corregirlo en los dos archivos, y nada avisa si se olvida uno.
+     **Por qué se acepta igual:** todavía no hay cliente HTTP compartido de navegador en el repo
+     (deuda 129, abierta), y extraerlo ahora habría tocado `projects-client.ts`, ya revisado y
+     enviado, a cambio de una feature nueva. **Cómo se saldaría:** cuando entre la 28 (formulario de
+     patrones, tercer consumidor de este mismo contrato), migrar `projects-client.ts` y
+     `yarns-client.ts`/`uploads-client.ts` a un único cliente de subida compartido — la señal de
+     "tercer clon, ahora sí" que ya usó la deuda 129 para otros clientes.
