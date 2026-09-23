@@ -517,9 +517,85 @@ continue to Phase 3 (S3 `yarn-technical-controls`) in a future apply batch.
   skill). No `size:exception` recommendation needed — 420 vs. 400 is a rounding-level overage, not a
   structural one.
 
+## Review follow-up — lineages review-9f26d40d31a99340 and review-c66f3934617f35ab
+
+**Correction to task 3.5's claim above.** "each field's error renders independently with
+`aria-invalid`" overclaimed the achieved coverage: the shipped `YarnTechnicalTab.test.tsx` case only
+exercised 3 of the 7 fields together (`length`, `needleMax`, `lot`); a crossed binding on any of the
+other four (`fiber`, `needleMin`, `thickness`, `quantity`) would have passed undetected. Fixed by
+this follow-up's C2 addition below. S3 was also split into three chained PRs after this section was
+written — `feature/25-s3a-color-family-picker` (`ColorFamilyPicker`, commit `b1c99a4`),
+`feature/25-s3b-needle-range-field` (`NeedleRangeField`, commit `ab24e7b`), and
+`feature/25-s3c-yarn-technical-tab` (`YarnTechnicalTab` + docs, commits `9b1b39a`/`0d4209e`/
+`f74537a`) — the four-commit description above still matches their combined content.
+
+Two blind review lineages (`review-9f26d40d31a99340`, `review-c66f3934617f35ab`) on the merged
+S3a/S3b/S3c chain surfaced seven non-blocking findings, fixed with TDD RED→GREEN where a real defect
+existed, or honest characterisation where the guard already worked, across all three branches, then
+rebased in chain order (s3a fixed → s3b rebased onto it → s3c rebased onto s3b).
+
+- **A1** (WARNING, `ColorFamilyPicker.tsx:21`) — `ERROR_ID` was a fixed module-level string, so two
+  pickers with errors on screen at once produced a duplicate DOM id and a wrong `aria-describedby`.
+  Fixed with React `useId`. RED→GREEN, commit `da99ff3` on `feature/25-s3a-color-family-picker`.
+- **A2** (SUGGESTION, `ColorFamilyPicker.test.tsx:106-110`) — the "no error" test did not assert the
+  error element/`aria-invalid` were absent, and there was no case for `error=""`. Added both;
+  characterisation (the guard at ~line 43 already treated `""` as no error). Same commit `da99ff3`.
+- **B1** (SUGGESTION, `NeedleRangeField.test.tsx:75-118`) — the per-field error text/
+  `aria-describedby` wiring and a both-errors `axe` run were not asserted explicitly. Added;
+  characterisation (`Field.tsx`'s own `useId` already wired it correctly per instance). Commit
+  `fa7daff` on `feature/25-s3b-needle-range-field`.
+- **C1** (WARNING, `YarnTechnicalTab.test.tsx:102-116`) — typing into «Máximo» was untested for its
+  `onChange` patch (only «Mínimo» was). Added; characterisation. Commit `aa598ee` on
+  `feature/25-s3c-yarn-technical-tab`.
+- **C2** (WARNING, `YarnTechnicalTab.test.tsx:171-209`) — only 3 of 7 fields had error coverage in
+  one case (the overclaim corrected above). Added a case with a distinct error on all seven keys,
+  each asserted independently (text + `aria-invalid` + `aria-describedby`). Characterisation. Same
+  commit `aa598ee`.
+- **C3** (SUGGESTION, `YarnTechnicalTab.test.tsx:57-68`) — the "no `usedQuantity` control" check was
+  text-only. Made structural: asserts exactly 7 `<input>` elements render. Characterisation. Same
+  commit `aa598ee`.
+- **C4** (SUGGESTION, `YarnTechnicalTab.test.tsx:171-183`) — no `axe` run existed with errors
+  present. Added one with all 7 fields in error. Characterisation. Same commit `aa598ee`.
+
+### TDD Cycle Evidence (follow-up)
+
+| Finding | Test File | RED / Characterisation | GREEN |
+|---|---|---|---|
+| A1 | `ColorFamilyPicker.test.tsx` — 1 new case (two instances, distinct error ids) | ✅ RED — failed against the fixed `ERROR_ID` constant (`messageA.id === messageB.id`, both `"color-family-error"`) | ✅ 17/17 passed after switching to `useId` |
+| A2 | `ColorFamilyPicker.test.tsx` — extended the "no error" case + 1 new `error=""` case | ⚠️ Characterisation — passed on first run, the `hasError` guard already treated `""` as no error | N/A — no production change |
+| B1 | `NeedleRangeField.test.tsx` — extended 2 cases + 1 new `axe` case | ⚠️ Characterisation — 10/10 passed on first run, `Field.tsx`'s own `useId` already wired `aria-describedby` per instance | N/A — no production change |
+| C1 | `YarnTechnicalTab.test.tsx` — 1 new case (type into Máximo) | ⚠️ Characterisation — passed on first run | N/A — no production change |
+| C2 | `YarnTechnicalTab.test.tsx` — 1 new case (all 7 fields in error) | ⚠️ Characterisation — passed on first run | N/A — no production change |
+| C3 | `YarnTechnicalTab.test.tsx` — 1 new case (exactly 7 inputs) | ⚠️ Characterisation — passed on first run | N/A — no production change |
+| C4 | `YarnTechnicalTab.test.tsx` — 1 new case (`axe` with 7 errors) | ⚠️ Characterisation — passed on first run | N/A — no production change |
+
+### Verification (follow-up, per branch)
+
+| Branch | Command | Result |
+|---|---|---|
+| `feature/25-s3a-color-family-picker` | `pnpm exec vitest run ColorFamilyPicker` | 1 file, 17/17 passed |
+| same | `pnpm typecheck` | clean |
+| same | `pnpm lint` | clean |
+| `feature/25-s3b-needle-range-field` (rebased onto fixed s3a) | `pnpm exec vitest run ColorFamilyPicker NeedleRangeField` | 2 files, 27/27 passed |
+| same | `pnpm typecheck` | clean |
+| same | `pnpm lint` | clean |
+| `feature/25-s3c-yarn-technical-tab` (rebased onto fixed s3b) | `pnpm exec vitest run ColorFamilyPicker NeedleRangeField YarnTechnicalTab` | 3 files, 44/44 passed |
+| same | `pnpm typecheck` | clean |
+| same | `pnpm lint` | clean |
+| same | `pnpm test` (full suite) | 122 files passed / 3 skipped (125), 2208 passed / 13 skipped (2221) — up from the 2201/13 S3 baseline by this follow-up's 7 net-new tests (A1+A2 = 2 in `ColorFamilyPicker.test.tsx`, B1 = 1 in `NeedleRangeField.test.tsx`, C1–C4 = 4 in `YarnTechnicalTab.test.tsx`) |
+
+Authored changed lines per commit (`git show --numstat`): `da99ff3` (A1/A2) —
+`ColorFamilyPicker.test.tsx` +35/-1, `ColorFamilyPicker.tsx` +4/-4 = 39 insertions + 5 deletions;
+`fa7daff` (B1) — `NeedleRangeField.test.tsx` +35/-19 = 35 insertions + 19 deletions; `aa598ee`
+(C1–C4) — `YarnTechnicalTab.test.tsx` +115/-1 = 115 insertions + 1 deletion. **Total this follow-up:
+189 insertions + 25 deletions = 214 authored changed lines**, well under the 400-line budget, and no
+rebase produced a merge conflict on any of the three branches.
+
 ## Status (updated)
 
-S1: 6/6. S2: 7/7 (+ review follow-up). S3: 8/8 tasks complete (3.1–3.8), shipped as four commits on
-`feature/25-s3-yarn-technical-controls` (base = `feature/25-s2b-yarn-form-validation`). 21/~85 total
-tasks across all 7 phases complete. Ready to continue to Phase 4 (S4 `yarn-identity-tab`) in a future
-apply batch.
+S1: 6/6. S2: 7/7 (+ review follow-up). S3: 8/8 tasks complete (3.1–3.8), shipped as four commits,
+split into three chained PRs (`feature/25-s3a-color-family-picker`,
+`feature/25-s3b-needle-range-field`, `feature/25-s3c-yarn-technical-tab`), plus this review follow-up
+(A1/A2/B1/C1–C4 from lineages `review-9f26d40d31a99340` and `review-c66f3934617f35ab`) fixing the
+colour-family picker's shared error id and closing four test-coverage gaps. 21/~85 total tasks across
+all 7 phases complete. Ready to continue to Phase 4 (S4 `yarn-identity-tab`) in a future apply batch.
