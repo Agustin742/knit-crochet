@@ -105,8 +105,14 @@ function YarnForm({ onClose, onSaved }: YarnFormDialogProps & { target: YarnForm
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [catalogPending] = useState(0);
+  const mountedRef = useRef(false);
   const pendingFocusRef = useRef<YarnFormField | null>(null);
   const [focusTick, setFocusTick] = useState(0);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -156,7 +162,17 @@ function YarnForm({ onClose, onSaved }: YarnFormDialogProps & { target: YarnForm
 
     setErrors({});
     setPending(true);
-    const result = await createYarn(checked.payload);
+    let result: Awaited<ReturnType<typeof createYarn>>;
+    try {
+      result = await createYarn(checked.payload);
+    } catch {
+      if (!mountedRef.current) return;
+      setPending(false);
+      setFormError("No se pudo guardar la lana. Intentá de nuevo.");
+      return;
+    }
+
+    if (!mountedRef.current) return;
     setPending(false);
     if (!result.ok) {
       if (result.field === "colorCode") {

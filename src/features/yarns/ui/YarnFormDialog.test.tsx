@@ -197,6 +197,36 @@ describe("YarnFormDialog — alta", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("recovers from a rejected save with a safe form alert and clears pending", async () => {
+    const user = userEvent.setup();
+    vi.mocked(createYarn).mockRejectedValue(new Error("private server detail"));
+    renderDialog();
+    await chooseIdentity(user);
+    await chooseTechnical(user);
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("No se pudo guardar la lana. Intentá de nuevo.");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("private server detail");
+    expect(screen.getByRole("button", { name: "Guardar" })).toBeEnabled();
+  });
+
+  it("ignores a save result after the dialog has been closed", async () => {
+    const user = userEvent.setup();
+    const onSaved = vi.fn();
+    const onClose = vi.fn();
+    let resolveCreate!: (value: Awaited<ReturnType<typeof createYarn>>) => void;
+    vi.mocked(createYarn).mockReturnValue(new Promise((resolve) => { resolveCreate = resolve; }));
+    const view = renderDialog(onSaved, onClose);
+    await chooseIdentity(user);
+    await chooseTechnical(user);
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+    view.rerender(<YarnFormDialog target={null} onClose={onClose} onSaved={onSaved} onCatalogChange={vi.fn()} />);
+    resolveCreate({ ok: true, data: RECORD });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it("no ofrece usedQuantity en la pestaña técnica", async () => {
     const user = userEvent.setup();
     renderDialog();

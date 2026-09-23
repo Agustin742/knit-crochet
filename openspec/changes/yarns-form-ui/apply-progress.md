@@ -695,3 +695,27 @@ Fixed two non-blocking advisory findings from the approved S4 review (`yarn-iden
 ## Status (updated after S5a)
 
 S1: 6/6. S2: 7/7 (+ review follow-up). S3: 8/8 (+ review follow-up). S4: 7/7 (+ review follow-up). S5a: 6/6 slice tasks complete (5.1, 5.2, 5.5–5.8). S5b tasks remain unchecked.
+
+## S5a RDD Reliability Follow-up
+
+Fixed two non-blocking reliability advisories in `YarnFormDialog` before push:
+
+- Rejected `createYarn` promises are caught, clear pending, and display the safe form-level message
+  `No se pudo guardar la lana. Intentá de nuevo.` without exposing rejection details.
+- A mounted ref guards async save completion so closing/unmounting the dialog before the request
+  resolves prevents state changes and success callbacks.
+
+### TDD Evidence
+
+| Behavior | RED | GREEN |
+|---|---|---|
+| Rejected save recovery | Focused run failed to find a safe alert and reported an unhandled `private server detail` rejection | Focused run passed; safe alert rendered and Guardar was enabled again |
+| Closed-dialog async completion | Focused run showed `onSaved` called after the dialog was removed | Focused run passed; neither `onSaved` nor `onClose` was called after closure |
+
+### Verification
+
+| Command | Result |
+|---|---|
+| `pnpm exec vitest run YarnFormDialog yarns-ui.classes` | 2 files, 33/33 passed |
+| `pnpm typecheck` | passed (`tsc --noEmit`, no diagnostics) |
+| `pnpm lint` | passed (`eslint .`, no diagnostics) |
