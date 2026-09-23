@@ -80,7 +80,7 @@ chain, never merge conflicts.
 
 ## Phase 2: S2 `yarn-form-model`
 
-- [ ] 2.1 RED: create `src/features/yarns/ui/yarn-form.ts` test file `yarn-form.test.ts` —
+- [x] 2.1 RED: create `src/features/yarns/ui/yarn-form.ts` test file `yarn-form.test.ts` —
       `emptyYarnFormValues()` starts `quantity: "0"` and every other field empty/`null`;
       `yarnFormValuesOf(yarn)` maps a `SerializedYarnListItem` into `YarnFormValues`, including
       `lotInputValue`; `lotInputValue(iso)` returns the **UTC date part** under
@@ -100,29 +100,29 @@ chain, never merge conflicts.
       `firstInvalidField(errors)` returns fields in `YARN_FORM_FIELDS` screen order (Identidad
       fields, then Ficha técnica fields); a create payload's `lot` serialises to
       `"YYYY-MM-DDT00:00:00.000Z"`.
-- [ ] 2.2 GREEN: `src/features/yarns/ui/yarn-form.ts` — `YARN_FORM_FIELDS`, `YarnFormField`,
+- [x] 2.2 GREEN: `src/features/yarns/ui/yarn-form.ts` — `YARN_FORM_FIELDS`, `YarnFormField`,
       `YarnFormTab`, `TAB_OF_FIELD`, `YarnFormErrors`, `YarnFormValues`, `emptyYarnFormValues`,
       `yarnFormValuesOf`, `lotInputValue`, `applyChange`, `parseDecimal`, `parseCount`,
       `issuesToErrors`, `firstInvalidField`, `validateCreate`, `validateEdit`, internal `yarnPatch`
       helper — per `design.md` Interfaces/Contracts. Imports `createYarnSchema`/`updateYarnSchema`
       from `@/features/yarns/validation` **by internal path** (not the feature barrel, which drags
       Drizzle into the browser).
-- [ ] 2.3 REFACTOR: confirm `yarn-form.ts` has zero React/DOM imports (pure module, no RTL needed
+- [x] 2.3 REFACTOR: confirm `yarn-form.ts` has zero React/DOM imports (pure module, no RTL needed
       to test it) and that `TAB_OF_FIELD` covers every entry in `YARN_FORM_FIELDS`.
-- [ ] 2.4 Extend `src/features/yarns/ui/yarn-copy.ts` (+ `yarn-copy.test.ts` if it pins copy) — tab
+- [x] 2.4 Extend `src/features/yarns/ui/yarn-copy.ts` (+ `yarn-copy.test.ts` if it pins copy) — tab
       names («Identidad», «Ficha técnica»), field labels, the Spanish numeric/date/select override
       messages consumed by `issuesToErrors`'s overrides, `DUPLICATE_COLOR_CODE_MESSAGE`'s
       user-facing text (if distinct from the client constant).
-- [ ] 2.5 Run `pnpm test -- yarn-form yarn-copy`, `pnpm typecheck`, `pnpm lint` and record the
+- [x] 2.5 Run `pnpm test -- yarn-form yarn-copy`, `pnpm typecheck`, `pnpm lint` and record the
       result.
-- [ ] 2.6 RED (Amended 2026-09-22, review lineage review-7a5543c9e8b79ca4, finding R3-004): extend
+- [x] 2.6 RED (Amended 2026-09-22, review lineage review-7a5543c9e8b79ca4, finding R3-004): extend
       `yarn-form.test.ts` — `lotInputValue` under `process.env.TZ = "Asia/Tokyo"` (a **positive**
       UTC offset, complementing task 2.1's negative-offset Buenos Aires case) returns the same UTC
       date part for a matching ISO timestamp; a create payload's `lot` also serialises to
       `"YYYY-MM-DDT00:00:00.000Z"` under `TZ=Asia/Tokyo`, matching the UTC/Buenos Aires case — cites
       spec `yarn-create-edit` "No day shift under a non-UTC local time zone" (GIVEN the local time
       zone is offset "either ahead or behind").
-- [ ] 2.7 GREEN (Amended 2026-09-22, review lineage review-7a5543c9e8b79ca4, finding R3-004): confirm
+- [x] 2.7 GREEN (Amended 2026-09-22, review lineage review-7a5543c9e8b79ca4, finding R3-004): confirm
       `lotInputValue` and the create-payload `lot` serialisation in `yarn-form.ts` stay TZ-agnostic
       (ISO/UTC-string based, never a local-time method) under the added `Asia/Tokyo` case; no
       production change is expected — adjust only if the new test exposes a gap.
