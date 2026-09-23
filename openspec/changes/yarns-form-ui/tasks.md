@@ -129,7 +129,7 @@ chain, never merge conflicts.
 
 ## Phase 3: S3 `yarn-technical-controls`
 
-- [ ] 3.1 RED (Amended 2026-09-22, review lineage review-7a5543c9e8b79ca4, finding R3-003): create
+- [x] 3.1 RED (Amended 2026-09-22, review lineage review-7a5543c9e8b79ca4, finding R3-003): create
       `src/features/yarns/ui/ColorFamilyPicker.test.tsx` — renders 13 named `aria-pressed` buttons
       inside a `<fieldset>` whose `<legend>` names the implicit `role="group"`; pressing an
       unselected swatch calls `onValueChange` with that family; pressing the **currently selected**
@@ -141,20 +141,20 @@ chain, never merge conflicts.
       toggle instead** (never dropped outright, per spec "the control MUST expose that invalid
       state to assistive technology"); the test asserts whichever branch shipped; `axe` clean in
       both branches.
-- [ ] 3.2 GREEN (Amended 2026-09-22, review lineage review-7a5543c9e8b79ca4, finding R3-003):
+- [x] 3.2 GREEN (Amended 2026-09-22, review lineage review-7a5543c9e8b79ca4, finding R3-003):
       `src/features/yarns/ui/ColorFamilyPicker.tsx` — `fieldset` + `legend`, composed from
       `Toggle`, `Swatch`, `yarnSwatchClass`, `COLOR_FAMILY_LABELS` (D4); accessible invalid-state
       fallback moves `aria-invalid="true"` to each `Toggle` when the fieldset-level attribute fails
       axe, never dropping it. No `"use client"` (presentational, reached only through the client
       shell).
-- [ ] 3.3 RED: create `src/features/yarns/ui/NeedleRangeField.test.tsx` — `<fieldset>` +
+- [x] 3.3 RED: create `src/features/yarns/ui/NeedleRangeField.test.tsx` — `<fieldset>` +
       `<legend>` «Aguja recomendada (mm)» names the group; two labelled `Input inputMode="decimal"`
       fields (Mínimo, Máximo), each rendering its own `minError`/`maxError` independently; typing
       calls `onMinChange`/`onMaxChange` with the raw text; `minRef`/`maxRef` attach to the
       respective inputs; `disabled` propagates to both.
-- [ ] 3.4 GREEN: `src/features/yarns/ui/NeedleRangeField.tsx` — per `design.md` D6 and the
+- [x] 3.4 GREEN: `src/features/yarns/ui/NeedleRangeField.tsx` — per `design.md` D6 and the
       `NeedleRangeFieldProps` contract. No `"use client"`.
-- [ ] 3.5 RED: create `src/features/yarns/ui/YarnTechnicalTab.test.tsx` — every field (`length`,
+- [x] 3.5 RED: create `src/features/yarns/ui/YarnTechnicalTab.test.tsx` — every field (`length`,
       `fiber`, needle min/max, `thickness`, `lot`, `quantity`) is controlled by `values`/`onChange`;
       `lot` renders as `<input type="date">`; no control for `usedQuantity` exists anywhere in the
       rendered tab (spec `yarn-create-edit` "`usedQuantity` never appears in the create/edit
@@ -162,14 +162,14 @@ chain, never merge conflicts.
       as a comment if `user-event` fails to drive the `type="date"` input under happy-dom — the
       fallback (`fireEvent.change`) is scoped to that one field only, per `design.md`'s named
       gotcha.
-- [ ] 3.6 GREEN: `src/features/yarns/ui/YarnTechnicalTab.tsx` — controlled, presentational,
+- [x] 3.6 GREEN: `src/features/yarns/ui/YarnTechnicalTab.tsx` — controlled, presentational,
       composes `NeedleRangeField` and the numeric/date inputs per the `YarnTabProps` +
       `YarnTechnicalTab`-specific refs contract (`design.md` Interfaces/Contracts). No
       `"use client"`.
-- [ ] 3.7 `src/features/yarns/ui/yarns-ui.classes.test.ts` — add `ColorFamilyPicker.tsx`,
+- [x] 3.7 `src/features/yarns/ui/yarns-ui.classes.test.ts` — add `ColorFamilyPicker.tsx`,
       `NeedleRangeField.tsx`, `YarnTechnicalTab.tsx` to the `COMPONENTS` list (the compiled-CSS
       gate is a fixed list; fails without this entry).
-- [ ] 3.8 Run `pnpm test -- ColorFamilyPicker NeedleRangeField YarnTechnicalTab yarns-ui.classes`,
+- [x] 3.8 Run `pnpm test -- ColorFamilyPicker NeedleRangeField YarnTechnicalTab yarns-ui.classes`,
       `pnpm typecheck`, `pnpm lint` and record the result.
 
 ## Phase 4: S4 `yarn-identity-tab`

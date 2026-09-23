@@ -361,3 +361,165 @@ authored changed lines**, well under the 400-line budget.
 S1: 6/6 tasks complete (unchanged). S2: 7/7 tasks complete (2.1–2.7), shipped as PR2a + PR2b, plus this
 review follow-up (R3-001–R3-004) on PR2b. 13/~85 total tasks across all 7 phases complete. Ready to
 continue to Phase 3 (S3 `yarn-technical-controls`) in a future apply batch.
+
+## Phase 3: S3 `yarn-technical-controls` (branch `feature/25-s3-yarn-technical-controls`, base = `feature/25-s2b-yarn-form-validation`)
+
+### Completed Tasks
+
+- [x] 3.1 RED (R3-003) — `src/features/yarns/ui/ColorFamilyPicker.test.tsx` created: 15 tests
+      covering the 13-swatch fieldset+legend group, `aria-pressed` exclusivity, the no-op on
+      re-pressing the active swatch, the visible `aria-hidden` selected-family name, always-on
+      `aria-describedby` for the error message, `focusRef` targeting (active swatch, or the first
+      when none is selected), `disabled` propagation, and two `axe` assertions (clean with and
+      without an error).
+- [x] 3.2 GREEN (R3-003) — `src/features/yarns/ui/ColorFamilyPicker.tsx` created: `fieldset` +
+      `legend`, composed from `Toggle`, `Swatch`, `yarnSwatchClass`, `COLOR_FAMILY_LABELS` (D4).
+      **Empirical result on the `aria-invalid` placement**: `aria-invalid="true"` on the
+      `<fieldset>` (implicit `role="group"`) passes `vitest-axe` clean in this project's
+      `vitest-axe` version — confirmed by first shipping it there, then asserting explicitly (not
+      just an OR-check) that the fieldset carries it and no individual `Toggle` does. The
+      per-toggle fallback the design reserves for a rejecting axe was **not needed**; the test
+      records which branch shipped, per the task's own instruction. No `"use client"`.
+- [x] 3.3 RED — `src/features/yarns/ui/NeedleRangeField.test.tsx` created: 9 tests — fieldset named
+      "Aguja recomendada (mm)"; both fields show their controlled `min`/`max`; typing calls
+      `onMinChange`/`onMaxChange` with the raw text; `minError`/`maxError` render independently on
+      their own field (asserted that the other field's `aria-invalid` stays absent); `minRef`/
+      `maxRef` attach to the right input; `disabled` propagates to both; `axe` clean.
+- [x] 3.4 GREEN — `src/features/yarns/ui/NeedleRangeField.tsx` created: `fieldset` + `legend`, two
+      `Field`s ("Mínimo", "Máximo") wrapping `Input inputMode="decimal"`, each with its own
+      `error`/`ref` — per `design.md` D6 and the `NeedleRangeFieldProps` contract. No
+      `"use client"`.
+- [x] 3.5 RED — `src/features/yarns/ui/YarnTechnicalTab.test.tsx` created: 13 tests — every field
+      (`length`, `fiber`, needle min/max via `NeedleRangeField`, `thickness`, `lot`, `quantity`)
+      shows its controlled value; `lot` renders as `Input type="date"`; no `usedQuantity` control
+      anywhere (by label or by text); each text field's `onChange` fires the matching
+      `Partial<YarnFormValues>` patch; each field's error renders independently with
+      `aria-invalid`; `disabled` propagates to all seven controls; all seven refs attach to their
+      own input; `axe` clean. **Date-input gotcha confirmed empirically, not assumed**: a
+      throwaway probe test (`__date-probe.test.tsx`, discarded before this commit) confirmed
+      `user-event`'s `.type()` *does* drive the `type="date"` input under this project's
+      happy-dom/user-event versions (a single `onChange` call with the full typed value) — the
+      `fireEvent.change` fallback `design.md`'s Testing Strategy names was not needed, and the
+      shipped test uses `userEvent.type` throughout, with a comment recording the empirical check.
+- [x] 3.6 GREEN — `src/features/yarns/ui/YarnTechnicalTab.tsx` created: controlled, presentational,
+      composes `NeedleRangeField` and the `length`/`fiber`/`thickness`/`lot`/`quantity` `Field`s +
+      `Input`s, per the `YarnTabProps` + `YarnTechnicalTab`-specific refs contract (`design.md`
+      Interfaces/Contracts). `lot` is `Input type="date"`; `usedQuantity` is deliberately absent
+      (spec `yarn-create-edit`: "never appears in the create/edit form" — it stays exclusive to the
+      detail drawer's stepper, spec `yarn-detail-editing`). Field labels ("Largo (m)", "Fibra",
+      "Grosor (mm)", "Lote", "Stock (ovillos)") are local module constants, not a shared
+      `FORM_FIELD_LABELS` dictionary — same deviation `yarn-copy.ts`'s S2 section already recorded
+      (each S3/S4 component owns its own label text as component props/constants). No
+      `"use client"`.
+- [x] 3.7 — `src/features/yarns/ui/yarns-ui.classes.test.ts`: added `ColorFamilyPicker.tsx`,
+      `NeedleRangeField.tsx`, `YarnTechnicalTab.tsx` to the `COMPONENTS` list. No new
+      `EXTERNAL_SOURCES` entry was needed — the three new files reuse only `className`,
+      `yarnSwatchClass`, and function-parameter passthroughs the gate already recognises.
+- [x] 3.8 Verification — `pnpm exec vitest run ColorFamilyPicker NeedleRangeField YarnTechnicalTab
+      yarns-ui.classes`: 4 files, 53/53 passed; `pnpm typecheck`: clean; `pnpm lint`: clean;
+      `pnpm test` (full suite): 122 files passed / 3 skipped (125), 2201 passed / 13 skipped
+      (2214).
+
+### TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|------|-----------|-------|------------|-----|-------|-------------|----------|
+| 3.1–3.2 | `ColorFamilyPicker.test.tsx` | UI (RTL+axe) | N/A (new file) | ✅ Written — 15 tests, production file temporarily moved aside, confirmed `Failed to resolve import "./ColorFamilyPicker"`, then restored | ✅ 15/15 passed on restore | ✅ 13 colour families, selected/unselected/no-op/none-selected, error-present/error-absent, focusRef with/without selection, both axe branches | ➖ None needed — component was already minimal after the empirical `aria-invalid` decision |
+| 3.3–3.4 | `NeedleRangeField.test.tsx` | UI (RTL+axe) | N/A (new file) | ✅ Written — 9 tests, production file temporarily moved aside, confirmed `Failed to resolve import "./NeedleRangeField"`, then restored | ⚠️ 8/9 passed first execution; 1 failure (multi-character `userEvent.type` against a controlled input with a fixed `value` prop replays each keystroke from the same base text, not accumulating — a test-setup artifact, not a production bug) — fixed by typing a single character, then 9/9 passed | ✅ Mínimo vs Máximo, error-present-on-one-not-the-other, both errors at once, disabled | ➖ None needed |
+| 3.5–3.6 | `YarnTechnicalTab.test.tsx` | UI (RTL+axe) | N/A (new file) | ✅ Written — 13 tests, production file temporarily moved aside, confirmed `Failed to resolve import "./YarnTechnicalTab"`, then restored | ✅ 13/13 passed on restore | ✅ 7 fields × (value, onChange, error, ref) + no-usedQuantity + lot-is-date + disabled + axe | ➖ None needed |
+| 3.7 | `yarns-ui.classes.test.ts` (modified) | Gate | ✅ 16/16 before this task's own `COMPONENTS` addition | ➖ Not applicable — adding a fixed-list entry is config, not behaviour; the gate itself is the safety net (it fails red if a new component is unlisted, which S3's three new files would have done) | ✅ 16/16 passed with the three new entries | ➖ Single | ➖ None needed |
+
+### Test Summary
+- **Total tests written**: 37 (15 + 9 + 13)
+- **Total tests passing**: 37 new + all pre-existing `yarns-ui.classes.test.ts` cases still green
+- **Layers used**: UI/RTL+axe (37)
+- **Approval tests** (refactoring): None — all three files are new, no refactor of existing behaviour
+- **Pure functions created**: 0 — S3 is entirely presentational components consuming the S2 pure
+  model (`yarn-form.ts`); none carry `"use client"`, per `design.md`'s Client directives note
+
+## Work Unit Evidence (S3)
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `pnpm exec vitest run ColorFamilyPicker NeedleRangeField YarnTechnicalTab yarns-ui.classes` → 4 files, 53/53 passed |
+| Runtime harness command/scenario and exact result | N/A — components exist but are not mounted in any route yet (design-confirmed: `YarnIdentityTab`/S4 and `YarnFormDialog`/S5 are the first consumers) |
+| Rollback boundary | Each of the three component commits is independently revertible: reverting `ColorFamilyPicker` removes that file pair only; reverting `NeedleRangeField` removes that file pair only (nothing in this slice imports it except `YarnTechnicalTab`, itself revertible); reverting `YarnTechnicalTab` also un-lists all three from `yarns-ui.classes.test.ts`'s `COMPONENTS`, since that commit is the one that added the three entries together. No file outside this slice references any of the three new components yet. |
+
+## Verification Report (S3)
+
+| Command | Result |
+|---|---|
+| `pnpm exec vitest run ColorFamilyPicker NeedleRangeField YarnTechnicalTab yarns-ui.classes` | 4 files, 53/53 passed |
+| `pnpm test` (full suite) | 122 files passed / 3 skipped (125), 2201 passed / 13 skipped (2214) — up from the 2155/13 S2 baseline by the 46 net-new tests visible in a full run (37 from this slice's own files; the remaining 9 reflect other work already merged onto this branch's base before S3 started, not S3 itself) |
+| `pnpm typecheck` | clean, no output |
+| `pnpm lint` | clean, no output |
+
+## Deviations from Design (S3)
+
+- **`aria-invalid` shipped on the `<fieldset>`, not per-toggle.** `design.md`'s D4 amendment (R3-003)
+  named a fallback in case `vitest-axe` rejected `aria-invalid` on the implicit `role="group"`. It
+  did not reject it in this project's `vitest-axe`/`axe-core` versions — confirmed by shipping the
+  fieldset-level attribute first and running the axe assertion for real, not by assumption. The test
+  asserts this branch explicitly (fieldset has it, no toggle does), per the task's own instruction to
+  record whichever branch shipped.
+- **No `user-event`/`fireEvent.change` fallback needed for the `lot` date input.** `design.md`'s
+  Testing Strategy flagged this as an open gotcha to confirm in RED. A throwaway probe (rendered
+  `YarnTechnicalTab`, drove the date input with `userEvent.type`, logged the resulting `onChange`
+  calls, then discarded the probe file) showed a single call with the complete typed value — the
+  fallback was not exercised in the shipped test.
+- **Field labels are local component constants, not a shared `yarn-copy.ts` dictionary.** Continues
+  the S2 deviation: `design.md`'s Interfaces/Contracts section names the props these components need
+  but not a label dictionary, and S2 explicitly deferred `FORM_FIELD_LABELS` to whichever slice first
+  needed concrete label text. S3 is that slice for its seven technical fields; S4 will do the same for
+  Identidad's.
+- Everything else matches `design.md` D2, D4, D6, D11 and the Interfaces/Contracts block exactly: same
+  exported prop names/types (`ColorFamilyPickerProps`, `NeedleRangeFieldProps`, the `YarnTabProps`
+  shape extended with per-field refs), same `fieldset`+`legend` composition pattern as
+  `NeedlesField.tsx`, no `"use client"` on any of the three files.
+
+## Issues Found (S3)
+
+- **`NeedleRangeField.test.tsx`'s first `onMinChange` RED attempt asserted a value a controlled
+  component can't produce.** Typing a multi-character string (`"4,5"`) via `userEvent.type` against
+  an input whose `value` prop stays fixed (no wrapper state in the test) replays each keystroke from
+  the same base text instead of accumulating — the test asserted the fully-typed string as a single
+  call, which never happens for a genuinely controlled input under RTL without a stateful test
+  wrapper. Not a production bug: fixed by testing a single-character keystroke instead, which is
+  sufficient to prove `onMinChange` receives the raw text unmodified (the parsing itself is
+  `yarn-form.ts` territory, already covered in S2).
+- None blocking.
+
+## Workload / PR Boundary (S3)
+
+- Mode: chained PR slice (feature-branch-chain), split into per-component commits as instructed
+- Current work unit: S3 `yarn-technical-controls` (PR3, base = `feature/25-s2b-yarn-form-validation`)
+- Boundary: starts from S2's clean state (`yarn-form.ts`/`yarn-copy.ts` unmounted, no UI consumer
+  yet); ends with three new presentational components (`ColorFamilyPicker`, `NeedleRangeField`,
+  `YarnTechnicalTab`), all still unmounted — `YarnIdentityTab` (S4) and `YarnFormDialog` (S5) are the
+  first consumers.
+- Four commits, each independently revertible and individually under or near the 400-line budget:
+  1. `feat(yarns): add the required colour-family picker for the yarn form` — 258 lines
+     (`ColorFamilyPicker.tsx` 91 + `.test.tsx` 167).
+  2. `feat(yarns): add the needle-range field for the yarn form` — 235 lines
+     (`NeedleRangeField.tsx` 71 + `.test.tsx` 164).
+  3. `feat(yarns): add the Ficha técnica tab for the yarn form` — 420 lines
+     (`YarnTechnicalTab.tsx` 140 + `.test.tsx` 277 + the 3-line `yarns-ui.classes.test.ts` addition).
+     **20 lines over the nominal 400-line budget on its own.** Not split further: the component and
+     its exhaustive RTL+axe test (13 scenarios covering 7 controlled fields × value/onChange/error/ref,
+     plus the no-`usedQuantity` guarantee and the `lot`-is-`type="date"` assertion) are one cohesive
+     TDD unit: RED referenced the not-yet-existing component, GREEN made it real. Splitting the test
+     file from the component file would break that RED→GREEN pairing for no real reviewability gain.
+     No comment, test, or assertion was trimmed to fit under the line.
+  4. A docs commit (not yet made — see Status) marking tasks 3.1–3.8 `[x]` in `tasks.md` and merging
+     this section into `apply-progress.md`.
+- Estimated review budget impact: three of four commits land under 400 lines; the fourth (component 3)
+  is a minor, justified overage per the budget-is-not-code-golf rule (`Rules` section, this file's own
+  skill). No `size:exception` recommendation needed — 420 vs. 400 is a rounding-level overage, not a
+  structural one.
+
+## Status (updated)
+
+S1: 6/6. S2: 7/7 (+ review follow-up). S3: 8/8 tasks complete (3.1–3.8), shipped as four commits on
+`feature/25-s3-yarn-technical-controls` (base = `feature/25-s2b-yarn-form-validation`). 21/~85 total
+tasks across all 7 phases complete. Ready to continue to Phase 4 (S4 `yarn-identity-tab`) in a future
+apply batch.
