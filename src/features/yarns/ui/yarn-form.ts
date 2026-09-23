@@ -4,7 +4,25 @@
    consume un componente de cliente (`YarnFormDialog.tsx`, S5). Es la misma
    excepción, por el mismo motivo, que `project-form.ts`. `validation.ts` sólo
    importa zod y `shared/config`. */
+import {
+  createYarnSchema,
+  updateYarnSchema,
+  type CreateYarnPayload,
+  type UpdateYarnPayload,
+} from "@/features/yarns/validation";
 import type { ColorFamily } from "@/shared/config";
+
+import {
+  BRAND_REQUIRED_ERROR,
+  COLOR_FAMILY_REQUIRED_ERROR,
+  LENGTH_REQUIRED_ERROR,
+  LOT_REQUIRED_ERROR,
+  NEEDLE_MAX_REQUIRED_ERROR,
+  NEEDLE_MIN_REQUIRED_ERROR,
+  QUANTITY_REQUIRED_ERROR,
+  THICKNESS_REQUIRED_ERROR,
+  TYPE_REQUIRED_ERROR,
+} from "./yarn-copy";
 import type { SerializedYarnListItem } from "./types";
 
 /**
@@ -172,4 +190,272 @@ export function parseDecimal(text: string): number | null {
 export function parseCount(text: string): number | null {
   const trimmed = text.trim();
   return /^\d+$/.test(trimmed) ? Number(trimmed) : null;
+}
+
+/** `parseDecimal`, pero `undefined` en vez de `null` — lo que espera zod
+ *  para "este campo no vino" en un candidato o un parche. */
+function decimalOrUndefined(text: string): number | undefined {
+  return parseDecimal(text) ?? undefined;
+}
+
+/** Igual que `decimalOrUndefined`, para `parseCount`. */
+function countOrUndefined(text: string): number | undefined {
+  return parseCount(text) ?? undefined;
+}
+
+/* ---------------------------------------------------------------------------
+   Errores: issues de zod + copy propia
+   --------------------------------------------------------------------------- */
+
+function isYarnFormField(value: string): value is YarnFormField {
+  return (YARN_FORM_FIELDS as readonly string[]).includes(value);
+}
+
+/**
+ * Mapea los `issues` de zod a campos del formulario. `recommendedNeedle` es
+ * un objeto en el esquema pero dos campos en pantalla (design D6): el refine
+ * de nivel de objeto (`path: ["recommendedNeedle"]`, "El máximo debe ser >=
+ * al mínimo.") cae en `needleMax`, igual que el error propio de `max`.
+ */
+export function issuesToErrors(
+  issues: readonly { path: PropertyKey[]; message: string }[],
+): YarnFormErrors {
+  const errors: YarnFormErrors = {};
+  for (const issue of issues) {
+    const [first, second] = issue.path;
+    if (first === "recommendedNeedle") {
+      const field: YarnFormField = second === "min" ? "needleMin" : "needleMax";
+      errors[field] ??= issue.message;
+      continue;
+    }
+    if (typeof first === "string" && isYarnFormField(first)) {
+      errors[first] ??= issue.message;
+    }
+  }
+  return errors;
+}
+
+/**
+ * zod 4 usa su propio mensaje en inglés cuando un `z.number()` sin mensaje
+ * propio recibe algo que no es un número (`invalid_type` — comprobado contra
+ * el esquema real, ver `design.md` D11): pasa con `length`/`needleMin`/
+ * `needleMax`/`thickness`/`quantity` cuando el texto está vacío o no se puede
+ * leer. Acá también se reemplaza el "no es válida"/"no es válido" genérico de
+ * marca/tipo/familia de color/lote — ya en español, pero describe el
+ * problema, no la acción pendiente — por una copia que nombra qué falta
+ * hacer, cuando el campo está directamente vacío.
+ *
+ * `quantity` es el único numérico **opcional** del esquema: un texto
+ * ilegible se traduce a `undefined`, que zod acepta en silencio (no hay
+ * `issue` que mapear). Por eso `copyOverrides` se evalúa siempre, no sólo
+ * cuando zod ya falló — si no, un stock ilegible se guardaría como "sin
+ * cambios" en vez de mostrar un error.
+ */
+function copyOverrides(
+  values: YarnFormValues,
+  fields: readonly YarnFormField[],
+): YarnFormErrors {
+  const relevant = new Set(fields);
+  const errors: YarnFormErrors = {};
+
+  if (relevant.has("brandId") && values.brandId === "") {
+    errors.brandId = BRAND_REQUIRED_ERROR;
+  }
+  if (relevant.has("typeId") && values.typeId === "") {
+    errors.typeId = TYPE_REQUIRED_ERROR;
+  }
+  if (relevant.has("colorFamily") && values.colorFamily === null) {
+    errors.colorFamily = COLOR_FAMILY_REQUIRED_ERROR;
+  }
+  if (relevant.has("length") && parseDecimal(values.length) === null) {
+    errors.length = LENGTH_REQUIRED_ERROR;
+  }
+  if (relevant.has("needleMin") && parseDecimal(values.needleMin) === null) {
+    errors.needleMin = NEEDLE_MIN_REQUIRED_ERROR;
+  }
+  if (relevant.has("needleMax") && parseDecimal(values.needleMax) === null) {
+    errors.needleMax = NEEDLE_MAX_REQUIRED_ERROR;
+  }
+  if (relevant.has("thickness") && parseDecimal(values.thickness) === null) {
+    errors.thickness = THICKNESS_REQUIRED_ERROR;
+  }
+  if (relevant.has("lot") && values.lot === "") {
+    errors.lot = LOT_REQUIRED_ERROR;
+  }
+  if (relevant.has("quantity") && parseCount(values.quantity) === null) {
+    errors.quantity = QUANTITY_REQUIRED_ERROR;
+  }
+
+  return errors;
+}
+
+/** El primero, en orden de pantalla — el mismo criterio que `ProjectFormDialog`. */
+export function firstInvalidField(
+  errors: YarnFormErrors,
+): YarnFormField | undefined {
+  return YARN_FORM_FIELDS.find((field) => errors[field] !== undefined);
+}
+
+/* ---------------------------------------------------------------------------
+   Validación
+   --------------------------------------------------------------------------- */
+
+function createCandidate(values: YarnFormValues): Record<string, unknown> {
+  return {
+    brandId: values.brandId,
+    typeId: values.typeId,
+    colorName: values.colorName,
+    colorCode: values.colorCode,
+    colorFamily: values.colorFamily ?? undefined,
+    image: values.image,
+    quantity: countOrUndefined(values.quantity),
+    length: decimalOrUndefined(values.length),
+    fiber: values.fiber,
+    recommendedNeedle: {
+      min: decimalOrUndefined(values.needleMin),
+      max: decimalOrUndefined(values.needleMax),
+    },
+    thickness: decimalOrUndefined(values.thickness),
+    lot: values.lot,
+  };
+}
+
+export function validateCreate(
+  values: YarnFormValues,
+):
+  | { ok: true; payload: CreateYarnPayload }
+  | { ok: false; errors: YarnFormErrors } {
+  const parsed = createYarnSchema.safeParse(createCandidate(values));
+  if (!parsed.success) {
+    return {
+      ok: false,
+      errors: {
+        ...issuesToErrors(parsed.error.issues),
+        ...copyOverrides(values, YARN_FORM_FIELDS),
+      },
+    };
+  }
+
+  const overrides = copyOverrides(values, YARN_FORM_FIELDS);
+  if (Object.keys(overrides).length > 0) {
+    return { ok: false, errors: overrides };
+  }
+  return { ok: true, payload: parsed.data };
+}
+
+/**
+ * Los campos de pantalla que tocó un parche crudo: `recommendedNeedle` es un
+ * campo del esquema pero dos de la pantalla (design D6).
+ */
+function formFieldsOf(patch: Record<string, unknown>): YarnFormField[] {
+  const fields: YarnFormField[] = [];
+  for (const key of Object.keys(patch)) {
+    if (key === "recommendedNeedle") {
+      fields.push("needleMin", "needleMax");
+    } else if (isYarnFormField(key)) {
+      fields.push(key);
+    }
+  }
+  return fields;
+}
+
+/**
+ * Lo que cambió, y nada más (design D2, mismo criterio que `projectPatch` en
+ * `project-form.ts`). Compara **valores parseados**, no texto: `"4,50"`
+ * contra `4.5` no es un cambio. `recommendedNeedle` viaja **entero** si
+ * cambió cualquiera de los dos bordes — el esquema no acepta un borde suelto.
+ */
+function yarnPatch(
+  before: YarnFormValues,
+  after: YarnFormValues,
+): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+
+  if (after.brandId !== before.brandId) {
+    patch.brandId = after.brandId;
+  }
+  if (after.typeId !== before.typeId) {
+    patch.typeId = after.typeId;
+  }
+  if (after.colorName !== before.colorName) {
+    patch.colorName = after.colorName;
+  }
+  if (after.colorCode !== before.colorCode) {
+    patch.colorCode = after.colorCode;
+  }
+  if (after.colorFamily !== before.colorFamily) {
+    patch.colorFamily = after.colorFamily ?? undefined;
+  }
+  if (after.image !== before.image) {
+    patch.image = after.image;
+  }
+
+  const beforeLength = parseDecimal(before.length);
+  const afterLength = parseDecimal(after.length);
+  if (afterLength !== beforeLength) {
+    patch.length = decimalOrUndefined(after.length);
+  }
+
+  if (after.fiber !== before.fiber) {
+    patch.fiber = after.fiber;
+  }
+
+  const beforeMin = parseDecimal(before.needleMin);
+  const afterMin = parseDecimal(after.needleMin);
+  const beforeMax = parseDecimal(before.needleMax);
+  const afterMax = parseDecimal(after.needleMax);
+  if (afterMin !== beforeMin || afterMax !== beforeMax) {
+    patch.recommendedNeedle = {
+      min: decimalOrUndefined(after.needleMin),
+      max: decimalOrUndefined(after.needleMax),
+    };
+  }
+
+  const beforeThickness = parseDecimal(before.thickness);
+  const afterThickness = parseDecimal(after.thickness);
+  if (afterThickness !== beforeThickness) {
+    patch.thickness = decimalOrUndefined(after.thickness);
+  }
+
+  if (after.lot !== before.lot) {
+    patch.lot = after.lot;
+  }
+
+  const beforeQuantity = parseCount(before.quantity);
+  const afterQuantity = parseCount(after.quantity);
+  if (afterQuantity !== beforeQuantity) {
+    patch.quantity = countOrUndefined(after.quantity);
+  }
+
+  return patch;
+}
+
+export function validateEdit(
+  before: YarnFormValues,
+  after: YarnFormValues,
+):
+  | { ok: true; patch: UpdateYarnPayload | null }
+  | { ok: false; errors: YarnFormErrors } {
+  const rawPatch = yarnPatch(before, after);
+  if (Object.keys(rawPatch).length === 0) {
+    return { ok: true, patch: null };
+  }
+
+  const fields = formFieldsOf(rawPatch);
+  const parsed = updateYarnSchema.safeParse(rawPatch);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      errors: {
+        ...issuesToErrors(parsed.error.issues),
+        ...copyOverrides(after, fields),
+      },
+    };
+  }
+
+  const overrides = copyOverrides(after, fields);
+  if (Object.keys(overrides).length > 0) {
+    return { ok: false, errors: overrides };
+  }
+  return { ok: true, patch: parsed.data };
 }
