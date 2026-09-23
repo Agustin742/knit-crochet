@@ -45,7 +45,7 @@ chain, never merge conflicts.
 
 ## Phase 1: S1 `yarn-save-client`
 
-- [ ] 1.1 RED: extend `src/features/yarns/ui/yarns-client.test.ts` — `createYarn(payload)` sends
+- [x] 1.1 RED: extend `src/features/yarns/ui/yarns-client.test.ts` — `createYarn(payload)` sends
       `POST /api/yarns` with the payload as the body; `updateYarn(id, patch)` sends
       `PATCH /api/yarns/:id` with only the patch fields; `201`/`200` resolve
       `{ ok: true, data: <raw SerializedYarnRecord> }`; a `409` from **either** call resolves
@@ -53,29 +53,29 @@ chain, never merge conflicts.
       names this assumption); `400`/`404`/network failure/unreadable body resolve
       `{ ok: false, field: null, message }` with the existing `UNEXPECTED_ERROR_MESSAGE` /
       `NETWORK_ERROR_MESSAGE` fallbacks.
-- [ ] 1.2 GREEN: `src/features/yarns/ui/yarns-client.ts` — add `YarnSaveResult` type,
+- [x] 1.2 GREEN: `src/features/yarns/ui/yarns-client.ts` — add `YarnSaveResult` type,
       `DUPLICATE_COLOR_CODE_MESSAGE` constant with a comment naming the D7 assumption (the
       duplicate-`colorCode` constraint is the only 409 either endpoint returns today; a future
       second unique constraint must not silently reuse this mapping), `createYarn(payload)`,
       `updateYarn(id, patch)`.
-- [ ] 1.3 RED: create `src/features/uploads/ui/uploads-client.test.ts` — `uploadImage(file)` posts
+- [x] 1.3 RED: create `src/features/uploads/ui/uploads-client.test.ts` — `uploadImage(file)` posts
       `multipart/form-data` with only the `file` field and **no manually-set content-type header**;
       success is **201 only** (a 200 is treated as failure); `400`/`401`/`502` map to their
       fallback messages derived from `ACCEPTED_IMAGE_TYPES`/`MAX_IMAGE_BYTES`; a readable server
       `{ error }` body wins over the fallback; network failure resolves
       `{ ok: false, message: NETWORK_ERROR_MESSAGE }`.
-- [ ] 1.4 GREEN: create `src/features/uploads/ui/uploads-client.ts` — `uploadImage(file):
+- [x] 1.4 GREEN: create `src/features/uploads/ui/uploads-client.ts` — `uploadImage(file):
       Promise<UploadImageResult>` (D10), mirroring `uploadProjectImage`'s three contract points
       (`projects-client.ts:640-679`): browser sets the multipart boundary itself, success is `201`
       only, the endpoint accepts no other field. Imported by internal path
       (`@/features/uploads/ui/uploads-client`), not through a barrel — matches how
       `yarns-client.ts` is consumed today.
-- [ ] 1.5 Docs: `docs/historial/deuda-tecnica.md` — file new debt **200** (next free number after
+- [x] 1.5 Docs: `docs/historial/deuda-tecnica.md` — file new debt **200** (next free number after
       199, never recycled) at 🟠, Spanish: the yarn photo upload now has its own client
       (`uploads-client.ts`) that duplicates `uploadProjectImage`'s three contract points instead of
       sharing them; migrating `projects-client.ts` to the shared client is the follow-up (design
       D10).
-- [ ] 1.6 Run `pnpm test -- yarns-client uploads-client`, `pnpm typecheck`, `pnpm lint` and record
+- [x] 1.6 Run `pnpm test -- yarns-client uploads-client`, `pnpm typecheck`, `pnpm lint` and record
       the result.
 
 ## Phase 2: S2 `yarn-form-model`
