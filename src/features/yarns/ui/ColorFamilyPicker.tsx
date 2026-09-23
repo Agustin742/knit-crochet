@@ -1,4 +1,4 @@
-import type { RefObject } from "react";
+import { useId, type RefObject } from "react";
 
 import {
   COLOR_FAMILIES,
@@ -18,7 +18,6 @@ export interface ColorFamilyPickerProps {
 }
 
 const GROUP_LABEL = "Familia de color";
-const ERROR_ID = "color-family-error";
 
 /**
  * Selector de familia de color de Identidad, obligatorio (design D4, RFC-04
@@ -41,11 +40,12 @@ export function ColorFamilyPicker({
   focusRef,
 }: ColorFamilyPickerProps) {
   const hasError = error !== undefined && error !== "";
+  const errorId = useId();
 
   return (
     <fieldset
       className="m-0 flex flex-col gap-(--space-3) border-0 p-0"
-      aria-describedby={hasError ? ERROR_ID : undefined}
+      aria-describedby={hasError ? errorId : undefined}
       aria-invalid={hasError ? true : undefined}
     >
       <legend className="mb-(--space-2) p-0 font-mono text-xs uppercase tracking-label text-fg">
@@ -82,7 +82,7 @@ export function ColorFamilyPicker({
         })}
       </div>
       {hasError ? (
-        <span id={ERROR_ID} className="font-mono text-xs leading-base text-danger">
+        <span id={errorId} className="font-mono text-xs leading-base text-danger">
           {error}
         </span>
       ) : null}

@@ -103,10 +103,44 @@ describe("ColorFamilyPicker — obligatorio, aria-pressed exclusivo (design D4)"
     expect(fieldset).toHaveAttribute("aria-describedby", message.id);
   });
 
-  it("sin error no cablea aria-describedby ni muestra mensaje", () => {
+  it("sin error no cablea aria-describedby, no muestra mensaje ni aria-invalid", () => {
     render(<ColorFamilyPicker value={null} onValueChange={vi.fn()} />);
 
     expect(group()).not.toHaveAttribute("aria-describedby");
+    expect(group()).not.toHaveAttribute("aria-invalid");
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(document.querySelector("span.text-danger")).not.toBeInTheDocument();
+  });
+
+  /** A2: un error="" cuenta como "sin error" — mismo guard que undefined (línea ~43). */
+  it("un error de cadena vacía se trata como ausencia de error", () => {
+    render(<ColorFamilyPicker value={null} onValueChange={vi.fn()} error="" />);
+
+    expect(group()).not.toHaveAttribute("aria-describedby");
+    expect(group()).not.toHaveAttribute("aria-invalid");
+    expect(document.querySelector("span.text-danger")).not.toBeInTheDocument();
+  });
+
+  /** A1: dos instancias en pantalla no deben compartir el id de su mensaje de
+   * error — un `ERROR_ID` fijo produciría un `aria-describedby` idéntico en
+   * ambas, apuntando siempre al primer nodo del DOM con ese id. */
+  it("cada instancia resuelve aria-describedby a su propio mensaje (A1)", () => {
+    render(
+      <>
+        <ColorFamilyPicker value={null} onValueChange={vi.fn()} error="Error A" />
+        <ColorFamilyPicker value={null} onValueChange={vi.fn()} error="Error B" />
+      </>,
+    );
+
+    const [firstGroup, secondGroup] = screen.getAllByRole("group", {
+      name: "Familia de color",
+    });
+    const messageA = screen.getByText("Error A");
+    const messageB = screen.getByText("Error B");
+
+    expect(messageA.id).not.toBe(messageB.id);
+    expect(firstGroup).toHaveAttribute("aria-describedby", messageA.id);
+    expect(secondGroup).toHaveAttribute("aria-describedby", messageB.id);
   });
 
   it("focusRef apunta a la activa cuando hay una selección", () => {
