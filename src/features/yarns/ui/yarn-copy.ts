@@ -149,3 +149,31 @@ export function brandBlockedBody(types: number, yarns: number): string {
 export function typeBlockedBody(yarns: number): string {
   return `Este tipo todavía tiene ${pluralClause(yarns, "lana", "lanas")}. Borrá ${actionClause(yarns, "la lana", "las lanas")} antes de eliminar el tipo.`;
 }
+
+/**
+ * Copy del formulario de alta/edición (design D2, D11; RFC-04 §7-quater
+ * E3(a)/E3(d)), slice S2.
+ *
+ * Los mensajes `*_REQUIRED_ERROR` reemplazan, en `yarn-form.ts`
+ * (`copyOverrides`), dos cosas distintas que comparten una misma causa —un
+ * campo vacío o ilegible— pero un resultado distinto en zod 4 (comprobado
+ * contra el esquema real, ver `design.md` D11): el inglés genérico de un
+ * `z.number()` sin mensaje propio ante `length`/`needleMin`/`needleMax`/
+ * `thickness`/`quantity` vacíos o ilegibles, y el "no es válida"/"no es
+ * válido" ya en español de marca, tipo, familia de color y lote, que
+ * describe el problema pero no la acción pendiente cuando el campo está
+ * simplemente sin completar.
+ */
+export const IDENTITY_TAB_LABEL = "Identidad";
+export const TECHNICAL_TAB_LABEL = "Ficha técnica";
+
+export const BRAND_REQUIRED_ERROR = "Elegí una marca.";
+export const TYPE_REQUIRED_ERROR = "Elegí un tipo.";
+export const COLOR_FAMILY_REQUIRED_ERROR = "Elegí una familia de color.";
+export const LENGTH_REQUIRED_ERROR = "Ingresá el largo, en metros.";
+export const NEEDLE_MIN_REQUIRED_ERROR = "Ingresá la aguja mínima, en mm.";
+export const NEEDLE_MAX_REQUIRED_ERROR = "Ingresá la aguja máxima, en mm.";
+export const THICKNESS_REQUIRED_ERROR = "Ingresá el grosor, en mm.";
+export const LOT_REQUIRED_ERROR = "La fecha de lote es obligatoria.";
+export const QUANTITY_REQUIRED_ERROR =
+  "El stock debe ser un número entero, 0 o mayor.";
