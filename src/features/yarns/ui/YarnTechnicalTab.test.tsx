@@ -69,6 +69,22 @@ describe("YarnTechnicalTab — controlado, sin usedQuantity (design)", () => {
     expect(screen.queryByText(/ovillos usados/i)).not.toBeInTheDocument();
   });
 
+  /** C3: chequeo estructural, no sólo por texto — si algún día apareciera un
+   * octavo input (p. ej. para `usedQuantity`), este conteo lo detecta aunque
+   * no lleve la etiqueta "ovillos usados". */
+  it("renderiza exactamente 7 inputs — uno por campo, ninguno de más (C3)", () => {
+    const { container } = render(
+      <YarnTechnicalTab
+        values={VALUES}
+        errors={{}}
+        onChange={vi.fn()}
+        disabled={false}
+      />,
+    );
+
+    expect(container.querySelectorAll("input")).toHaveLength(7);
+  });
+
   it("escribir en Largo llama a onChange con el parche { length }", async () => {
     const onChange = vi.fn();
     render(
@@ -101,7 +117,7 @@ describe("YarnTechnicalTab — controlado, sin usedQuantity (design)", () => {
     expect(onChange).toHaveBeenCalledWith({ fiber: "L" });
   });
 
-  it("mover Mínimo/Máximo llama a onChange con needleMin/needleMax", async () => {
+  it("escribir en Mínimo llama a onChange con el parche { needleMin }", async () => {
     const onChange = vi.fn();
     render(
       <YarnTechnicalTab
@@ -115,6 +131,24 @@ describe("YarnTechnicalTab — controlado, sin usedQuantity (design)", () => {
     await userEvent.type(screen.getByLabelText("Mínimo"), "4");
 
     expect(onChange).toHaveBeenCalledWith({ needleMin: "4" });
+  });
+
+  /** C1: sin este caso, un binding cruzado (p. ej. Máximo llamando a
+   * onMinChange) pasaría inadvertido — el caso de Mínimo arriba no lo cubre. */
+  it("escribir en Máximo llama a onChange con el parche { needleMax } (C1)", async () => {
+    const onChange = vi.fn();
+    render(
+      <YarnTechnicalTab
+        values={{ ...VALUES, needleMax: "" }}
+        errors={{}}
+        onChange={onChange}
+        disabled={false}
+      />,
+    );
+
+    await userEvent.type(screen.getByLabelText("Máximo"), "5");
+
+    expect(onChange).toHaveBeenCalledWith({ needleMax: "5" });
   });
 
   it("escribir en Grosor llama a onChange con el parche { thickness }", async () => {
@@ -210,6 +244,64 @@ describe("YarnTechnicalTab — controlado, sin usedQuantity (design)", () => {
     );
   });
 
+  /** C2: un error distinto por cada uno de los 7 campos — si algún binding
+   * estuviera cruzado (p. ej. el error de `fiber` cableado al input de
+   * `thickness`), este caso lo expondría; el caso de arriba, con sólo 3
+   * campos, no lo garantiza. */
+  it("los 7 campos muestran su propio texto de error y aria-invalid, sin cruzarse (C2)", () => {
+    const ERRORS: Record<keyof typeof VALUES, string> = {
+      brandId: "",
+      typeId: "",
+      colorName: "",
+      colorCode: "",
+      colorFamily: "",
+      image: "",
+      length: "Ingresá el largo, en metros.",
+      fiber: "Ingresá la fibra.",
+      needleMin: "Ingresá la aguja mínima, en mm.",
+      needleMax: "Ingresá la aguja máxima, en mm.",
+      thickness: "Ingresá el grosor, en mm.",
+      lot: "La fecha de lote es obligatoria.",
+      quantity: "Ingresá el stock, en ovillos.",
+    };
+    const FIELD_ERROR_TEXT: Record<string, string> = {
+      "Largo (m)": ERRORS.length,
+      Fibra: ERRORS.fiber,
+      Mínimo: ERRORS.needleMin,
+      Máximo: ERRORS.needleMax,
+      "Grosor (mm)": ERRORS.thickness,
+      Lote: ERRORS.lot,
+      "Stock (ovillos)": ERRORS.quantity,
+    };
+
+    render(
+      <YarnTechnicalTab
+        values={VALUES}
+        errors={{
+          length: ERRORS.length,
+          fiber: ERRORS.fiber,
+          needleMin: ERRORS.needleMin,
+          needleMax: ERRORS.needleMax,
+          thickness: ERRORS.thickness,
+          lot: ERRORS.lot,
+          quantity: ERRORS.quantity,
+        }}
+        onChange={vi.fn()}
+        disabled={false}
+      />,
+    );
+
+    for (const [label, message] of Object.entries(FIELD_ERROR_TEXT)) {
+      const field = screen.getByLabelText(label);
+      expect(field).toHaveAttribute("aria-invalid", "true");
+      expect(screen.getByText(message)).toBeInTheDocument();
+      expect(field).toHaveAttribute(
+        "aria-describedby",
+        screen.getByText(message).id,
+      );
+    }
+  });
+
   it("disabled desactiva todos los campos", () => {
     render(
       <YarnTechnicalTab
@@ -268,6 +360,28 @@ describe("YarnTechnicalTab — controlado, sin usedQuantity (design)", () => {
       <YarnTechnicalTab
         values={VALUES}
         errors={{}}
+        onChange={vi.fn()}
+        disabled={false}
+      />,
+    );
+    expect(await axe(container)).toHaveNoViolations();
+  });
+
+  /** C4: la corrida sin errores no prueba nada sobre aria-invalid ni
+   * aria-describedby en los 7 campos a la vez. */
+  it("no tiene violaciones de axe con los 7 campos en error (C4)", async () => {
+    const { container } = render(
+      <YarnTechnicalTab
+        values={VALUES}
+        errors={{
+          length: "Ingresá el largo, en metros.",
+          fiber: "Ingresá la fibra.",
+          needleMin: "Ingresá la aguja mínima, en mm.",
+          needleMax: "Ingresá la aguja máxima, en mm.",
+          thickness: "Ingresá el grosor, en mm.",
+          lot: "La fecha de lote es obligatoria.",
+          quantity: "Ingresá el stock, en ovillos.",
+        }}
         onChange={vi.fn()}
         disabled={false}
       />,
