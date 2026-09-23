@@ -27,6 +27,9 @@ const COMPONENTS = [
   "YarnFilterPanel.tsx",
   "YarnCatalogPanel.tsx",
   "YarnDetailDrawer.tsx",
+  "ColorFamilyPicker.tsx",
+  "NeedleRangeField.tsx",
+  "YarnTechnicalTab.tsx",
 ];
 
 /**
