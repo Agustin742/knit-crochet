@@ -142,7 +142,7 @@ Authored changed lines (follow-up only, from `git diff --stat` per commit): `yar
 
 ### Completed Tasks
 
-- [x] 2.1 RED — `src/features/yarns/ui/yarn-form.test.ts` created: 40 tests across
+- [x] 2.1 RED — `src/features/yarns/ui/yarn-form.test.ts` created: 34 tests across
       `emptyYarnFormValues`, `yarnFormValuesOf`, `lotInputValue` (Buenos Aires + Tokyo, folded into
       the same RED batch as 2.6 — see below), `parseDecimal`/`parseCount`, `applyChange`,
       `issuesToErrors`, `firstInvalidField`, `validateCreate`, `validateEdit`, and the create
@@ -157,7 +157,7 @@ Authored changed lines (follow-up only, from `git diff --stat` per commit): `yar
       exhaustiveness (also asserted directly in the test: identity+technical field counts sum to
       `YARN_FORM_FIELDS.length`). Extracted `decimalOrUndefined`/`countOrUndefined` helpers to remove
       the repeated `parseX(...) ?? undefined` pattern across `createCandidate`/`yarnPatch` — tests
-      still 40/40 green after the extraction.
+      still 34/34 green after the extraction.
 - [x] 2.4 — `src/features/yarns/ui/yarn-copy.ts` extended: `IDENTITY_TAB_LABEL`,
       `TECHNICAL_TAB_LABEL`, and the nine `*_REQUIRED_ERROR` overrides consumed by
       `issuesToErrors`'s sibling `copyOverrides` in `yarn-form.ts`. No `yarn-copy.test.ts` addition —
@@ -185,14 +185,14 @@ Authored changed lines (follow-up only, from `git diff --stat` per commit): `yar
 
 | Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
 |------|-----------|-------|------------|-----|-------|-------------|----------|
-| 2.1–2.2, 2.6–2.7 | `src/features/yarns/ui/yarn-form.test.ts` | Unit | N/A (new file) | ✅ Written — 40 tests, `Cannot find module './yarn-form'` (whole-file RED: production module did not exist) | ✅ 40/40 passed on the first execution — the implementation was derived from an empirically-verified zod 4 behaviour probe (`.tmp-zodcheck*.mjs`, run against the real `createYarnSchema`/`updateYarnSchema` before writing `yarn-form.ts`, then discarded) rather than guessed, which is why GREEN did not require an iteration | ✅ every behaviour has ≥2 cases (happy path + edge case): `parseDecimal`/`parseCount` (valid/invalid/blank), `issuesToErrors` (plain field, `recommendedNeedle` refine, `min`/`max`), `applyChange` (brand changes/doesn't/same-value), `validateCreate` (valid; empty brand/type/colour/lot; empty/unparseable numerics; needle max<min); `validateEdit` (no change; `"4,50"` vs `4.5`; untouched lot; one field only; `recommendedNeedle` whole; invalid patch; unparseable `quantity` on edit — this last case is the regression test for the `quantity`-is-optional edge case named in Issues Found) | ✅ extracted `decimalOrUndefined`/`countOrUndefined`; still 40/40 after |
+| 2.1–2.2, 2.6–2.7 | `src/features/yarns/ui/yarn-form.test.ts` | Unit | N/A (new file) | ✅ Written — 34 tests, `Cannot find module './yarn-form'` (whole-file RED: production module did not exist) | ✅ 34/34 passed on the first execution — the implementation was derived from an empirically-verified zod 4 behaviour probe (`.tmp-zodcheck*.mjs`, run against the real `createYarnSchema`/`updateYarnSchema` before writing `yarn-form.ts`, then discarded) rather than guessed, which is why GREEN did not require an iteration | ⚠️ almost every behaviour has ≥2 cases (happy path + edge case): `parseDecimal`/`parseCount` (valid/invalid/blank), `issuesToErrors` (plain field, `recommendedNeedle` refine, `min`/`max`), `applyChange` (brand changes/doesn't/same-value), `validateCreate` (valid; empty brand/type/colour/lot; empty/unparseable numerics; needle max<min); `validateEdit` (no change; `"4,50"` vs `4.5`; untouched lot; one field only; `recommendedNeedle` whole; invalid patch; unparseable `quantity` on edit — this last case is the regression test for the `quantity`-is-optional edge case named in Issues Found) — **exception: `yarnFormValuesOf` had exactly 1 case** (review lineage review-dbdbbd215365d976, finding R3-002); left as a known gap rather than padded with an unneeded case | ✅ extracted `decimalOrUndefined`/`countOrUndefined`; still 34/34 after |
 | 2.4 | consumed by 2.1's assertions (no separate copy test file, see task note) | — | N/A (new exports) | ➖ Triangulation skipped: pure string constants, no branching logic — behaviourally covered via `yarn-form.test.ts`'s `toBe(<CONSTANT>)` assertions, not a literal re-pin | — | — | — |
 
 ### Test Summary
-- **Total tests written**: 40
-- **Total tests passing**: 40 (yarn-form.test.ts) + all pre-existing `yarn-copy.test.ts` cases still
+- **Total tests written**: 34
+- **Total tests passing**: 34 (yarn-form.test.ts) + all pre-existing `yarn-copy.test.ts` cases still
   green (unmodified)
-- **Layers used**: Unit (40)
+- **Layers used**: Unit (34)
 - **Approval tests** (refactoring): None — no refactoring of existing behaviour, both files are
   additive
 - **Pure functions created**: 13 exported (`lotInputValue`, `applyChange`, `parseDecimal`,
@@ -270,33 +270,94 @@ Authored changed lines (follow-up only, from `git diff --stat` per commit): `yar
 
 ## Workload / PR Boundary (S2)
 
-- Mode: chained PR slice (feature-branch-chain), PR2, base = `feature/25-s1b-upload-client`
-- Current work unit: S2 `yarn-form-model`
+**Amended (review lineage review-dbdbbd215365d976, finding R3-004): S2 was actually split into two
+PRs, not shipped as a single PR2 with a `size:exception`.** The paragraph below described a plan
+(commits `b3d6128`/`efdf1b9`) that was never the final shape — those hashes do not exist in the repo.
+The applied split:
+
+- **PR2a `yarn-form-values`** (branch `feature/25-s2a-yarn-form-values`, base =
+  `feature/25-s1b-upload-client`): commit `11edebb` (`yarn-copy.ts`, tab labels + the nine
+  `*_REQUIRED_ERROR` overrides, +28 lines) and commit `caa4ee9` (the values half of `yarn-form.ts` +
+  its tests: field/tab constants, `YarnFormValues`, `emptyYarnFormValues`, `yarnFormValuesOf`,
+  `lotInputValue`, `applyChange`, `parseDecimal`/`parseCount`, +365 lines). **Total 393 lines**, under
+  the 400-line budget.
+- **PR2b `yarn-form-validation`** (branch `feature/25-s2b-yarn-form-validation`, base = PR2a):
+  commit `2c86900` (the validation half: `issuesToErrors`, `firstInvalidField`,
+  `validateCreate`/`validateEdit`, internal `yarnPatch`, +523 lines) plus the docs commits
+  `dd768d5` (marks S2 tasks complete) and `b9e0755` (records the split). **523 authored lines on its
+  own**, over budget on this slice alone — accepted as `size:exception` (validation is one TDD unit
+  with `createCandidate`/`yarnPatch`/`copyOverrides` sharing state; splitting it further would cut
+  scenarios `tasks.md` 2.1/2.6 name, not reduce genuine complexity).
 - Boundary: starts from S1's clean state (`yarns-client.ts`/`uploads-client.ts` unmounted, no
   consumer); ends with `yarn-form.ts` + `yarn-form.test.ts` (new, unmounted) and `yarn-copy.ts`
   gaining the form's tab/override copy. `YarnFormDialog` (S5) is the first consumer of any of this.
-- Estimated review budget impact: **actual authored lines exceed both the ≈380 forecast and the
-  400-line budget, substantially.** `git diff --stat`/line counts per commit: `yarn-copy.ts` +28
-  (commit `b3d6128`); `yarn-form.ts` 461 new lines + `yarn-form.test.ts` 427 new lines = 888 insertions
-  (commit `efdf1b9`). **Total authored ≈ 916 lines** (489 src + 427 test), more than double the
-  400-line budget and well past the ≈380 forecast. No production code was trimmed and no test was
-  shortened, deleted, or minified to fit the budget, per the budget-is-not-code-golf rule — every test
-  maps to a distinct spec scenario or an edge case named in `tasks.md` 2.1/2.6, and the implementation
-  needed all of `validateCreate`/`validateEdit`/`issuesToErrors`/`copyOverrides`/`yarnPatch` to satisfy
-  them honestly. Per the orchestrator's instruction, the two commits are already split along a clean
-  seam (copy, `b3d6128`, 28 lines; model+tests, `efdf1b9`, 888 lines) — but unlike S1's split (two
-  genuinely independent modules, `yarns-client.ts` vs `uploads-client.ts`), that seam does not bring
-  either half under budget on its own: the model and its tests are one TDD unit and were not written
-  or reviewable in fewer lines without cutting scenarios `tasks.md` explicitly names. `tasks.md` names
-  no split point for S2 (unlike S4/S5) — this overrun was not anticipated in the plan.
-  **Recommendation: `size:exception` for PR2** (pure, unmounted, individually revertible, and every
-  behaviour is a small exported function with a 1:1 test — reviewable despite the line count in a way
-  a 900-line UI diff would not be), or the orchestrator may split `yarn-copy.ts` (28 lines) as its own
-  trivial PR ahead of the `yarn-form.ts`+test PR (888 lines, still over budget on its own) if a hard
-  cap is preferred over an exception.
+- No production code was trimmed and no test was shortened, deleted, or minified to fit the budget,
+  per the budget-is-not-code-golf rule. `tasks.md` names no split point for S2 (unlike S4/S5) — the
+  ≈916-line overrun (393 + 523) was not anticipated in the plan; splitting along the values/validation
+  seam brought PR2a under budget and kept PR2b as a single, still-over-budget but individually
+  reviewable `size:exception`.
+
+## Review follow-up — lineage review-dbdbbd215365d976
+
+Four non-blocking findings on the applied S2a/S2b split, fixed on `feature/25-s2b-yarn-form-validation`
+(base `feature/25-s2a-yarn-form-values`) — no S2a change needed, since every fix lands in validation-side
+code, tests, or docs.
+
+- **R3-001** (`src/features/yarns/ui/yarn-form.ts`, `validateEdit` + `copyOverrides`) — in edit mode
+  `updateYarnSchema` is `.partial()`, so `length`, `thickness` and both needle bounds are optional
+  like `quantity`; an unreadable text (e.g. `length: "abc"`) becomes `undefined` and zod accepts it
+  silently, and only the always-run `copyOverrides` check (already correct) blocks it. Added four
+  **characterisation tests** to `yarn-form.test.ts` (`validateEdit`, unreadable `length`, `thickness`,
+  needle `min`, needle `max`) — all four passed on the first run against the unmodified production
+  code, confirming the guard already worked; recorded honestly as characterisation, not a fabricated
+  RED. Also corrected the `copyOverrides` doc comment in `yarn-form.ts`, which wrongly said `quantity`
+  is the only optional numeric field in the schema — it now states that in **edit** mode every numeric
+  field is optional (`length`/`thickness`/`quantity` directly via `.partial()`, `needleMin`/`needleMax`
+  because an unreadable single bound leaves `undefined` inside `recommendedNeedle`), which is why the
+  override check must always run, not only after a zod failure.
+- **R3-003** (`yarn-form.test.ts`, the `America/Argentina/Buenos_Aires` block under `lotInputValue`) —
+  only `lotInputValue` was tested under that negative-offset zone; the create-payload `lot`
+  serialisation was tested only under `Asia/Tokyo` (positive offset). Added the same create-payload
+  check under Buenos Aires, using the file's existing `process.env.TZ` set/restore pattern — passed on
+  the first run (no production change), same TZ-agnostic `new Date`/`toISOString` construction as the
+  Tokyo case already exercised.
+- **R3-002** (this file, S2 section) — the recorded evidence said "40 tests" for
+  `yarn-form.test.ts`; the real count was **34** `it()` cases (confirmed by `rg -c "^\s*it\("`) — the
+  combined "`2 files, 40/40 passed`" verification lines were coincidentally correct (34 + 6 in
+  `yarn-copy.test.ts` = 40) and were left as-is. Every "40" that specifically described
+  `yarn-form.test.ts` alone is corrected above to 34. Also corrected the TDD Cycle Evidence claim that
+  "every behaviour has ≥2 cases": `yarnFormValuesOf` had exactly one, left as a documented exception
+  rather than padded with an unneeded case. **After this follow-up's five additions (four R3-001 tests
+  + one R3-003 test), the true counts are 39 `it()` cases in `yarn-form.test.ts` and 6 in
+  `yarn-copy.test.ts` — 45 total.**
+- **R3-004** (this file, `Workload / PR Boundary (S2)`) — the section described S2 as one PR2 shipped
+  with two commits (`b3d6128`/`efdf1b9`, neither of which exists in the repo) recommending
+  `size:exception`. Corrected above to the split actually applied: PR2a
+  (`feature/25-s2a-yarn-form-values`, commits `11edebb` + `caa4ee9`, 393 lines) and PR2b
+  (`feature/25-s2b-yarn-form-validation`, commits `2c86900` + `dd768d5` + `b9e0755`).
+
+### TDD Cycle Evidence (follow-up)
+
+| Finding | Test File | RED / Characterisation | GREEN |
+|---|---|---|---|
+| R3-001 | `yarn-form.test.ts` — 4 new cases (`validateEdit`, unreadable `length`/`thickness`/`needleMin`/`needleMax`) | ⚠️ Characterisation — all 4 passed on the first run against unmodified `yarn-form.ts`; the guard (`copyOverrides` always running) already existed, so no RED was possible without faking one | N/A — no production change; only the `copyOverrides` doc comment was corrected |
+| R3-003 | `yarn-form.test.ts` — 1 new case (Buenos Aires block, create-payload `lot`) | ⚠️ Characterisation — passed on the first run, same TZ-agnostic construction already proven under Tokyo | N/A — no production change |
+
+### Verification (follow-up)
+
+| Command | Result |
+|---|---|
+| `pnpm exec vitest run yarn-form yarn-copy` | 2 files, 45/45 passed |
+| `pnpm test` (full suite) | 119 files passed / 3 skipped (122), 2155 passed / 13 skipped (2168) — up from the 2150/13 baseline by this follow-up's 5 net-new tests |
+| `pnpm typecheck` | clean, no output |
+| `pnpm lint` | clean, no output |
+
+Authored changed lines (follow-up only, `git diff --numstat` before commit): `yarn-form.test.ts`
++57/-0; `yarn-form.ts` +12/-5 (the doc-comment correction) → **69 insertions + 5 deletions = 74
+authored changed lines**, well under the 400-line budget.
 
 ## Status
 
-S1: 6/6 tasks complete (unchanged). S2: 7/7 tasks complete (2.1–2.7). 13/~85 total tasks across all 7
-phases complete. Ready for the orchestrator to decide the PR2 size:exception question, then continue
-to Phase 3 (S3 `yarn-technical-controls`) in a future apply batch.
+S1: 6/6 tasks complete (unchanged). S2: 7/7 tasks complete (2.1–2.7), shipped as PR2a + PR2b, plus this
+review follow-up (R3-001–R3-004) on PR2b. 13/~85 total tasks across all 7 phases complete. Ready to
+continue to Phase 3 (S3 `yarn-technical-controls`) in a future apply batch.
