@@ -93,6 +93,18 @@ E2(e) guarantee without refs, and no `useLatestRequest` extraction is needed at 
 unmounts mid-request, `setState` is a no-op and `onCatalogChange` still fires. `catalogPending` (a
 counter) disables submit while any inline create is in flight.
 
+**Amended 2026-09-22 (review lineage review-7a5543c9e8b79ca4, finding R3-001).** The value-at-request
+equality check above is **not monotonic**: an A→B→A sequence (including back to the empty
+placeholder) lets a stale response win once it coincidentally matches the value again, and two
+overlapping creates started from the same starting value let whichever resolves first override the
+user's later intent instead of the later-started request winning. Fix: replace the equality check
+with a **per-field monotonic request sequence** — a `brandRequestSeq`/`typeRequestSeq` counter ref
+in the shell, incremented on every selection change *and* on every create start; `createBrandInline`/
+`createTypeInline` capture their own sequence number at request start and apply the result only if
+that number still equals the current counter when the response resolves. `onCatalogChange` still
+always fires on `ok`, independent of the sequence check. New RTL coverage: an A→B→A sequence, and
+two overlapping creates from the same starting value (S5, tasks 5.9–5.10).
+
 Changing the brand resets the type — enforced once in the pure `applyChange(values, patch)`
 (`yarn-form.ts`), not in the tab.
 
@@ -129,9 +141,16 @@ buttons (the project's single-select convention, `SegmentedControl.tsx:94-98`).
 
 - Pressing the selected swatch is a **no-op** (`onPressedChange(false)` is ignored); it never clears.
 - The error renders in a `<span id>` with the danger message style; the fieldset carries
-  `aria-describedby` to it and `aria-invalid="true"`. **`aria-invalid` stays only if the `axe` test
-  passes on the fieldset**; if axe flags it, drop it and rely on `aria-describedby` + focus (the
-  error is still announced when focus lands on a swatch).
+  `aria-describedby` to it and `aria-invalid="true"` when the `axe` test passes on the fieldset.
+
+  **Amended 2026-09-22 (review lineage review-7a5543c9e8b79ca4, finding R3-003).** Dropping
+  `aria-invalid` when axe rejects it on the fieldset contradicts this same spec's accessible-invalid-
+  state requirement (`yarn-create-edit`, "Submitting with no colour family chosen is rejected"). The
+  form MUST NOT ship without an accessible invalid state. Fallback: if axe flags `aria-invalid` on
+  the `<fieldset>`/group, move `aria-invalid="true"` onto each individual `Toggle` swatch instead
+  (still keeping `aria-describedby` on the fieldset pointing at the error `<span id>`) — the invalid
+  state is then exposed at the control level rather than the group level, satisfying the requirement
+  either way.
 - The selected family's name is rendered as visible text beside the legend (`aria-hidden`, since
   `aria-pressed` already announces it): a swatch alone communicates by colour only.
 - `focusRef` attaches to the pressed toggle, or to the first toggle when none is pressed.
@@ -150,6 +169,13 @@ buttons (the project's single-select convention, `SegmentedControl.tsx:94-98`).
   invert the glyph to light-on-light.
 - The value is `YYYY-MM-DD`, exactly what `z.coerce.date` parses; `new Date("YYYY-MM-DD")` is UTC
   midnight by spec.
+
+**Amended 2026-09-22 (review lineage review-7a5543c9e8b79ca4, finding R3-004).** The unit test named
+above pins only a negative UTC offset (Buenos Aires). Add a second case under a **positive** UTC
+offset (`Asia/Tokyo`) for both `lotInputValue` and the create-payload `lot` serialisation, asserting
+the same UTC calendar date in both directions — both already operate on the ISO/UTC string, never
+local-time methods, so no production change is expected; the test only closes the coverage gap (S2,
+tasks 2.6–2.7).
 - **Remaining gate is the browser (REGLA 4):** before closing the create slice, open the picker in
   the real modal and check the glyph, the popup and the focus ring. The generic `DateInput`
   primitive (with boundary test) is created **only** if that check fails. Not planned.
@@ -221,6 +247,16 @@ same three contract points (multipart `file`, no manual content-type, success **
 the 400/401/502 fallbacks derived from `ACCEPTED_IMAGE_TYPES`/`MAX_IMAGE_BYTES`. Projects keeps its
 copy; migrating it is a follow-up debt (debt 129 stays open). The shell pre-checks with
 `uploadImageInputSchema` before any network call, exactly as `ProjectFormDialog.tsx:351-378`.
+
+**Amended 2026-09-22 (review lineage review-7a5543c9e8b79ca4, finding R3-002).** As specified, there
+is no guard against overlapping uploads. Add an `uploadRequestSeq` counter ref in the shell,
+incremented on every file choice *and* on «quitar foto»; each `uploadImage` call captures its
+sequence number at request start and applies its result (`uploading`, `fileName`, `values.image`)
+only if that number still equals the current counter when the response resolves — a response that
+resolves after a later file choice, or after the photo was removed, is ignored. The file input stays
+disabled while `uploading` regardless, as a first line of defence; the sequence guard is what makes
+out-of-order resolution safe. New RTL coverage: out-of-order upload resolution, and remove-photo
+during an in-flight upload (S5, tasks 5.11–5.12).
 
 ### D11 — numbers are typed as text, parsed once at submit, with Spanish copy for unparsable input
 
@@ -409,7 +445,7 @@ Strict TDD (RED → GREEN → REFACTOR) with `pnpm test` (Vitest 4, RTL + `user-
 | Unit | `createYarn`/`updateYarn` | POST/PATCH bodies and methods; 201/200 → `ok` with raw record; **409 on each → `field: "colorCode"`** (D7 pin); 400/404/network/unreadable body → `field: null` |
 | Unit | `uploadImage` | `FormData` with only `file`, no manual content-type; **200 is not success**; 400/401/502 fallbacks; server `{ error }` wins when readable |
 | Unit | `yarn-form.ts` | `lotInputValue` under `TZ=America/Argentina/Buenos_Aires` → same UTC day; `parseDecimal("4,5") === 4.5`; `applyChange` brand change resets type; `issuesToErrors` maps the needle refine to `needleMax`; Spanish overrides replace zod's English number message; `validateEdit` returns `patch: null` when nothing changed, including `"4,50"` vs `4.5` and an untouched lot; needle sent whole; create payload's `lot` serialises to `YYYY-MM-DDT00:00:00.000Z` |
-| UI (RTL+axe) | `ColorFamilyPicker` | 13 named `aria-pressed` buttons in a legend-named group; pressing emits the family; pressing the selected one emits nothing; error wiring (`aria-describedby`, `aria-invalid` if axe allows); `axe` clean |
+| UI (RTL+axe) | `ColorFamilyPicker` | 13 named `aria-pressed` buttons in a legend-named group; pressing emits the family; pressing the selected one emits nothing; error wiring (`aria-describedby` always; `aria-invalid` on the fieldset if axe allows, else on each toggle — R3-003); `axe` clean |
 | UI (RTL+axe) | `NeedleRangeField` | legend names the group; two labelled inputs; each error on its own input |
 | UI (RTL) | `YarnTechnicalTab` | every field controlled; `lot` is `type="date"`; `usedQuantity` absent; errors wired; smoke |
 | UI (RTL+axe) | `ChooseOrCreateField` | loading/failed+retry/ready; trigger reveals inline row with focus in its input; **`Enter` creates and does not submit an enclosing form**; **`Escape` closes only the row** (inside a `Dialog`); error on failure; disabled state |
@@ -435,16 +471,18 @@ process-integration boundary. No route is added; `src/proxy.ts` is untouched.
 | Slice | Content | Forecast (src + tests) | User-visible |
 |---|---|---|---|
 | **S1** `yarn-save-client` | `createYarn`/`updateYarn` (D7), `uploads-client` (D10), debt entry | ~140 + ~200 ≈ **340** | No |
-| **S2** `yarn-form-model` | `yarn-form.ts` + form copy | ~170 + ~190 ≈ **360** | No |
-| **S3** `yarn-technical-controls` | `ColorFamilyPicker`, `NeedleRangeField`, `YarnTechnicalTab`, classes-gate entries | ~190 + ~190 ≈ **380** | No |
+| **S2** `yarn-form-model` | `yarn-form.ts` + form copy | ~170 + ~210 ≈ **380** (+Tokyo TZ case, R3-004) | No |
+| **S3** `yarn-technical-controls` | `ColorFamilyPicker`, `NeedleRangeField`, `YarnTechnicalTab`, classes-gate entries | ~190 + ~205 ≈ **395** (+per-toggle `aria-invalid` fallback, R3-003) | No |
 | **S4** `yarn-identity-tab` | `ChooseOrCreateField`, `YarnIdentityTab`, gate entries | ~220 + ~200 ≈ **420** (split `ChooseOrCreateField` alone if the forecast runs high) | No |
-| **S5** `yarn-form-shell-create` | `YarnFormDialog` create mode: state, tabs, focus/tab switch, upload, inline-create handlers, 409 | ~240 + ~200 ≈ **440** (high-risk slice; may split out the inline-create handlers) | No |
+| **S5a** `yarn-form-shell-create` | `YarnFormDialog` create mode: state, tabs, focus/tab switch, create submit, 409 | ~150 + ~150 ≈ **300** | No |
+| **S5b** `yarn-form-async-inputs` | photo upload and inline brand/type create, each built directly with its monotonic request sequence (R3-001/R3-002) — split applied 2026-09-22 because S5 had grown to ≈565 | ~135 + ~130 ≈ **265** | No |
 | **S6** `yarn-create-wiring` | `YarnsView` header/empty action, reload, `handleFormCatalogChange`, panel `refreshToken`, RFC-04 E3(a)–(e), strike debt 193 | ~90 + ~130 ≈ **220** | **Yes: create works** |
 | **S7** `yarn-edit` | edit arm of the shell (prefill, `validateEdit`, empty-patch close, `updateYarn`), drawer «Editar» `primary` + wiring, E3(f)–(g), strike debt 199 | ~90 + ~170 ≈ **260** | **Yes: edit works** |
 
-Total ≈ 2,400 authored lines. Each slice depends only on earlier ones; revert from the top down.
-S1–S5 ship tested but unmounted code, accepted in the proposal. Budget risk: **Medium** (S4, S5
-near the line; both have a named split point).
+Total ≈ 2,580 authored lines (amended 2026-09-22, review lineage review-7a5543c9e8b79ca4: R3-001,
+R3-002, R3-003, R3-004 add ~180 lines, concentrated in S5). Each slice depends only on earlier ones;
+revert from the top down. S1–S5 ship tested but unmounted code, accepted in the proposal. Budget
+risk: **Medium-High** (S4 near the line, S5 now well over it; both have a named split point).
 
 ## Migration / Rollout
 

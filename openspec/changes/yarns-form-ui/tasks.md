@@ -4,10 +4,10 @@
 
 | Field | Value |
 |-------|-------|
-| Estimated changed lines | S1 ~140 src / ~200 test ≈ 340 · S2 ~170 / ~190 ≈ 360 · S3 ~190 / ~190 ≈ 380 · S4 ~220 / ~200 ≈ 420 · S5 ~240 / ~200 ≈ 440 · S6 ~90 / ~130 ≈ 220 · S7 ~90 / ~170 ≈ 260 — total ≈ 2,420 |
-| 400-line budget risk | S1 Medium · S2 Medium · S3 Medium · S4 High (named split point) · S5 High (named split point) · S6 Low · S7 Low |
+| Estimated changed lines | S1 ~140 src / ~200 test ≈ 340 · S2 ~170 / ~210 ≈ 380 · S3 ~190 / ~205 ≈ 395 · S4 ~220 / ~200 ≈ 420 · S5a ~150 / ~150 ≈ 300 · S5b ~135 / ~130 ≈ 265 · S6 ~90 / ~130 ≈ 220 · S7 ~90 / ~170 ≈ 260 — total ≈ 2,580 (amended 2026-09-22, review lineage review-7a5543c9e8b79ca4: R3-001–R3-004 add ~180 lines, mostly S5) |
+| 400-line budget risk | S1 Medium · S2 Medium · S3 Medium · S4 High (named split point) · S5a Medium · S5b Medium (S5 split applied) · S6 Low · S7 Low |
 | Chained PRs recommended | Yes |
-| Suggested split | PR1 S1 → PR2 S2 → PR3 S3 → PR4 S4 → PR5 S5 → PR6 S6 → PR7 S7 |
+| Suggested split | PR1 S1 → PR2 S2 → PR3 S3 → PR4 S4 → PR5 S5a → PR6 S5b → PR7 S6 → PR8 S7 |
 | Delivery strategy | auto-chain |
 | Chain strategy | feature-branch-chain |
 
@@ -32,11 +32,12 @@ merged or reordered to compensate; `sdd-tasks` keeps the seven slices design alr
 | S2 `yarn-form-model` | Pure `yarn-form.ts` (values, parsing, `applyChange`, `validateCreate`/`validateEdit`, `yarnPatch`, `issuesToErrors`, `lotInputValue`) + form copy | PR2, base = PR1 branch | `pnpm test -- yarn-form yarn-copy` | N/A — pure module, no UI mounted | Revert PR2: deletes `yarn-form.ts`+test; copy additions are unused constants until S3+ |
 | S3 `yarn-technical-controls` | `ColorFamilyPicker`, `NeedleRangeField`, `YarnTechnicalTab`, classes-gate entries | PR3, base = PR2 branch | `pnpm test -- ColorFamilyPicker NeedleRangeField YarnTechnicalTab yarns-ui.classes` | N/A — components exist but are not mounted in any route | Revert PR3: deletes the three new components+tests and their classes-gate entries |
 | S4 `yarn-identity-tab` | `ChooseOrCreateField`, `YarnIdentityTab`, classes-gate entries | PR4, base = PR3 branch | `pnpm test -- ChooseOrCreateField YarnIdentityTab yarns-ui.classes` | N/A — not mounted | Revert PR4: deletes the two new components+tests and their classes-gate entries |
-| S5 `yarn-form-shell-create` | `YarnFormDialog` create mode: target/key remount, shell state, tab switch on error + focus, upload wiring, inline-create handlers, 409→`colorCode` | PR5, base = PR4 branch | `pnpm test -- YarnFormDialog` | N/A — dialog exists but nothing in `YarnsView` opens it yet | Revert PR5: deletes `YarnFormDialog.tsx`+test; nothing else references it |
-| S6 `yarn-create-wiring` | `YarnsView` header/empty-state «Agregar lana», filtered-empty «Quitar filtros», reload-after-save, `handleFormCatalogChange`, `YarnCatalogPanel.refreshToken`, `YarnFilterPanel` forwarding, RFC-04 E3(a)–(e), strike debt 193, file debt 201 | PR6, base = PR5 branch | `pnpm test -- YarnsView YarnCatalogPanel YarnFilterPanel` | Manual `/lanas`: from an empty stash, «Agregar lana» → fill both tabs → save → card appears; filter to no matches → «Quitar filtros» restores the list; date input glyph/popup/focus ring in the real modal (D5 REGLA-4 gate); mobile width via iframe (browser — orchestrator only) | Revert PR6: restores the action-less `EmptyState`, the single `"Sin lanas..."` message for every empty case, and the panel's `[retryToken]`-only effect; reopens debt 193 (undo its strike-through) |
-| S7 `yarn-edit` | Edit arm of `YarnFormDialog` (prefill, `validateEdit`, empty-patch short-circuit, `updateYarn`), `YarnDetailDrawer` «Editar» → `primary` + wiring, RFC-04 E3(f)–(g), strike debt 199 | PR7, base = PR6 branch | `pnpm test -- YarnFormDialog YarnDetailDrawer YarnsView` | Manual `/lanas`: open a yarn's drawer, «Editar» (now `primary`) opens the modal stacked over the drawer, pre-filled, `Escape` closes only the modal; change the brand, save, confirm the card's «marca · tipo» and the open drawer both update; submit unchanged → closes without a request (browser — orchestrator only) | Revert PR7: restores the no-op `secondary` «Editar»; reopens debt 199 |
+| S5a `yarn-form-shell-create` | `YarnFormDialog` create mode: target/key remount, shell state, tab switch on error + focus, create submit, 409→`colorCode` | PR5, base = PR4 branch | `pnpm test -- YarnFormDialog` | N/A — dialog exists but nothing in `YarnsView` opens it yet | Revert PR5: deletes `YarnFormDialog.tsx`+test; nothing else references it |
+| S5b `yarn-form-async-inputs` | Photo upload and inline brand/type create in the shell, each with its per-field monotonic request sequence (R3-001, R3-002) | PR6, base = PR5 branch | `pnpm test -- YarnFormDialog` | N/A — still not opened from `YarnsView` | Revert PR6: removes the upload and inline-create handlers; S5a's shell stays |
+| S6 `yarn-create-wiring` | `YarnsView` header/empty-state «Agregar lana», filtered-empty «Quitar filtros», reload-after-save, `handleFormCatalogChange`, `YarnCatalogPanel.refreshToken`, `YarnFilterPanel` forwarding, RFC-04 E3(a)–(e), strike debt 193, file debt 201 | PR7, base = PR6 branch | `pnpm test -- YarnsView YarnCatalogPanel YarnFilterPanel` | Manual `/lanas`: from an empty stash, «Agregar lana» → fill both tabs → save → card appears; filter to no matches → «Quitar filtros» restores the list; date input glyph/popup/focus ring in the real modal (D5 REGLA-4 gate); mobile width via iframe (browser — orchestrator only) | Revert PR7: restores the action-less `EmptyState`, the single `"Sin lanas..."` message for every empty case, and the panel's `[retryToken]`-only effect; reopens debt 193 (undo its strike-through) |
+| S7 `yarn-edit` | Edit arm of `YarnFormDialog` (prefill, `validateEdit`, empty-patch short-circuit, `updateYarn`), `YarnDetailDrawer` «Editar» → `primary` + wiring, RFC-04 E3(f)–(g), strike debt 199 | PR8, base = PR7 branch | `pnpm test -- YarnFormDialog YarnDetailDrawer YarnsView` | Manual `/lanas`: open a yarn's drawer, «Editar» (now `primary`) opens the modal stacked over the drawer, pre-filled, `Escape` closes only the modal; change the brand, save, confirm the card's «marca · tipo» and the open drawer both update; submit unchanged → closes without a request (browser — orchestrator only) | Revert PR8: restores the no-op `secondary` «Editar»; reopens debt 199 |
 
-**Sequencing lock**: S1 → S2 → S3 → S4 → S5 → S6 → S7 is fixed, not reorderable. S3 and S4 both
+**Sequencing lock**: S1 → S2 → S3 → S4 → S5a → S5b → S6 → S7 is fixed, not reorderable. S3 and S4 both
 import `yarn-form.ts` (S2); S5 mounts `YarnIdentityTab` (S4) and `YarnTechnicalTab` (S3); S6 wires
 `YarnFormDialog` (S5) into `YarnsView`; S7 extends the same `YarnFormDialog` and re-opens
 `YarnsView`/`yarns-ui.classes.test.ts` that S6 last touched. These are sequential edits in the
@@ -114,20 +115,38 @@ chain, never merge conflicts.
       user-facing text (if distinct from the client constant).
 - [ ] 2.5 Run `pnpm test -- yarn-form yarn-copy`, `pnpm typecheck`, `pnpm lint` and record the
       result.
+- [ ] 2.6 RED (Amended 2026-09-22, review lineage review-7a5543c9e8b79ca4, finding R3-004): extend
+      `yarn-form.test.ts` — `lotInputValue` under `process.env.TZ = "Asia/Tokyo"` (a **positive**
+      UTC offset, complementing task 2.1's negative-offset Buenos Aires case) returns the same UTC
+      date part for a matching ISO timestamp; a create payload's `lot` also serialises to
+      `"YYYY-MM-DDT00:00:00.000Z"` under `TZ=Asia/Tokyo`, matching the UTC/Buenos Aires case — cites
+      spec `yarn-create-edit` "No day shift under a non-UTC local time zone" (GIVEN the local time
+      zone is offset "either ahead or behind").
+- [ ] 2.7 GREEN (Amended 2026-09-22, review lineage review-7a5543c9e8b79ca4, finding R3-004): confirm
+      `lotInputValue` and the create-payload `lot` serialisation in `yarn-form.ts` stay TZ-agnostic
+      (ISO/UTC-string based, never a local-time method) under the added `Asia/Tokyo` case; no
+      production change is expected — adjust only if the new test exposes a gap.
 
 ## Phase 3: S3 `yarn-technical-controls`
 
-- [ ] 3.1 RED: create `src/features/yarns/ui/ColorFamilyPicker.test.tsx` — renders 13 named
-      `aria-pressed` buttons inside a `<fieldset>` whose `<legend>` names the implicit `role="group"`;
-      pressing an unselected swatch calls `onValueChange` with that family; pressing the
-      **currently selected** swatch calls nothing (no-op, per spec `yarn-create-edit` "Re-activating
-      the selected value is a no-op"); the selected family's name renders as visible `aria-hidden`
-      text beside the legend; an `error` prop renders a message wired via `aria-describedby`, and
-      `aria-invalid="true"` only if `vitest-axe` still passes with it (drop it and keep
-      `aria-describedby` otherwise — record which branch shipped); `axe` clean.
-- [ ] 3.2 GREEN: `src/features/yarns/ui/ColorFamilyPicker.tsx` — `fieldset` + `legend`, composed
-      from `Toggle`, `Swatch`, `yarnSwatchClass`, `COLOR_FAMILY_LABELS` (D4). No `"use client"`
-      (presentational, reached only through the client shell).
+- [ ] 3.1 RED (Amended 2026-09-22, review lineage review-7a5543c9e8b79ca4, finding R3-003): create
+      `src/features/yarns/ui/ColorFamilyPicker.test.tsx` — renders 13 named `aria-pressed` buttons
+      inside a `<fieldset>` whose `<legend>` names the implicit `role="group"`; pressing an
+      unselected swatch calls `onValueChange` with that family; pressing the **currently selected**
+      swatch calls nothing (no-op, per spec `yarn-create-edit` "Re-activating the selected value is
+      a no-op"); the selected family's name renders as visible `aria-hidden` text beside the
+      legend; an `error` prop renders a message wired via `aria-describedby` on the fieldset in
+      every case; `aria-invalid="true"` lands on the fieldset **if** `vitest-axe` still passes with
+      it there — **if axe rejects it on the fieldset, `aria-invalid="true"` lands on each individual
+      toggle instead** (never dropped outright, per spec "the control MUST expose that invalid
+      state to assistive technology"); the test asserts whichever branch shipped; `axe` clean in
+      both branches.
+- [ ] 3.2 GREEN (Amended 2026-09-22, review lineage review-7a5543c9e8b79ca4, finding R3-003):
+      `src/features/yarns/ui/ColorFamilyPicker.tsx` — `fieldset` + `legend`, composed from
+      `Toggle`, `Swatch`, `yarnSwatchClass`, `COLOR_FAMILY_LABELS` (D4); accessible invalid-state
+      fallback moves `aria-invalid="true"` to each `Toggle` when the fieldset-level attribute fails
+      axe, never dropping it. No `"use client"` (presentational, reached only through the client
+      shell).
 - [ ] 3.3 RED: create `src/features/yarns/ui/NeedleRangeField.test.tsx` — `<fieldset>` +
       `<legend>` «Aguja recomendada (mm)» names the group; two labelled `Input inputMode="decimal"`
       fields (Mínimo, Máximo), each rendering its own `minError`/`maxError` independently; typing
@@ -190,9 +209,15 @@ PR before `YarnIdentityTab`, per `design.md`'s named split.)*
 
 ## Phase 5: S5 `yarn-form-shell-create`
 
-*(Split point if the diff runs over budget: land the shell's remount/state/tab-switch/upload
-plumbing first, then the inline-create handlers — `createBrandInline`/`createTypeInline` and their
-late-response guard — as a follow-up commit/PR, per `design.md`'s named split.)*
+*(**Split applied 2026-09-22 (auto-chain)**: folding review findings R3-001/R3-002 pushed S5 to
+≈565 lines, so it ships as two PRs along `design.md`'s named split. **S5a** `yarn-form-shell-create`
+(PR5): 5.1, 5.2, 5.5–5.8 — shell, remount, state, tab switch + focus, create submit, 409. **S5b**
+`yarn-form-async-inputs` (PR6, base = PR5 branch): 5.3, 5.4, 5.9–5.13 — photo upload and inline
+brand/type create, each built **directly** with its per-field monotonic request sequence (the
+value-at-request equality check is never implemented, so nothing is built and then replaced).
+S6 and S7 become PR7 and PR8.)*
+
+### S5a `yarn-form-shell-create`
 
 - [ ] 5.1 RED: create `src/features/yarns/ui/YarnFormDialog.test.tsx`, create-mode scenarios —
       **no target renders nothing** (no dialog in the document); **create target renders an empty
@@ -213,26 +238,14 @@ late-response guard — as a follow-up commit/PR, per `design.md`'s named split.
       colour-code field..."); a valid submit calls `createYarn` with the assembled payload and,
       on success, calls `onSaved` with the raw record and closes; `usedQuantity` is absent from
       both rendered tabs.
-- [ ] 5.3 RED: extend `YarnFormDialog.test.tsx` — choosing a file triggers `uploadImage`
-      immediately (before any submit) and the pre-check via `uploadImageInputSchema` blocks a bad
-      file **without calling `fetch`**; submit is disabled while the upload is in flight; a failed
-      upload shows an error on the photo control without blocking the rest of the form.
-- [ ] 5.4 RED: extend `YarnFormDialog.test.tsx` — an inline brand create selects the new brand and
-      calls `onCatalogChange` exactly once; **a late brand-create response that resolves after the
-      user picked a different brand does not override that newer selection** (spec: "A late
-      response from an inline creation does not override a newer selection" — value-at-request
-      captured before `await`, per D3's correction, not a token ref); the same guard for an inline
-      type create, scoped to `(brandId, typeId)`; choosing a different brand resets the selected
-      type; submit is disabled while any inline create is pending (`catalogPending > 0`).
 - [ ] 5.5 GREEN: `src/features/yarns/ui/YarnFormDialog.tsx` — shell owning `values`, `errors`,
       `tab`, `catalog`, `uploading`, `fileName`, `formError`, `pending`, `catalogPending`; target/key
       remount contract (`ProjectFormDialog.tsx:104-121` pattern — no target renders `null`, inner
       form keyed `"create"`); `reportErrors(errors)` picking `first = YARN_FORM_FIELDS.find(f =>
       errors[f])`, calling `setTab(TAB_OF_FIELD[first])` and `requestFocus(first)` in the same
       batch via the existing pending-focus tick pattern (`pendingFocusRef`/`focusTick`); refs
-      created once per field in the shell and passed down to the tabs; `createBrandInline`/
-      `createTypeInline` with the value-at-request guard (D3 correction); upload wiring via
-      `uploadImage` from `@/features/uploads/ui/uploads-client`; submit calls `validateCreate`,
+      created once per field in the shell and passed down to the tabs; the photo control and the
+      inline-create affordances render but their async handlers land in S5b; submit calls `validateCreate`,
       then `createYarn`, mapping a `field: "colorCode"` result through the same `reportErrors`
       path. Create-mode only in this slice (`YarnFormTarget = { mode: "create" }`); the `edit` arm
       is added in S7. Carries `"use client"`.
@@ -241,6 +254,51 @@ late-response guard — as a follow-up commit/PR, per `design.md`'s named split.
       `ChooseOrCreateField` inline-row UI, which is allowed to be local per `design.md` D3).
 - [ ] 5.7 `src/features/yarns/ui/yarns-ui.classes.test.ts` — add `YarnFormDialog.tsx`.
 - [ ] 5.8 Run `pnpm test -- YarnFormDialog yarns-ui.classes`, `pnpm typecheck`, `pnpm lint` and
+      record the result.
+### S5b `yarn-form-async-inputs`
+
+- [ ] 5.3 RED: extend `YarnFormDialog.test.tsx` — choosing a file triggers `uploadImage`
+      immediately (before any submit) and the pre-check via `uploadImageInputSchema` blocks a bad
+      file **without calling `fetch`**; submit is disabled while the upload is in flight; a failed
+      upload shows an error on the photo control without blocking the rest of the form.
+- [ ] 5.4 RED: extend `YarnFormDialog.test.tsx` — an inline brand create selects the new brand and
+      calls `onCatalogChange` exactly once; **a late brand-create response that resolves after the
+      user picked a different brand does not override that newer selection** (spec: "A late
+      response from an inline creation does not override a newer selection" — value-at-request
+      guarded by the per-field monotonic request sequence of the D3 R3-001 amendment); the same guard for an inline
+      type create, scoped to `(brandId, typeId)`; choosing a different brand resets the selected
+      type; submit is disabled while any inline create is pending (`catalogPending > 0`).
+- [ ] 5.9 RED (Amended 2026-09-22, review lineage review-7a5543c9e8b79ca4, finding R3-001): extend
+      `YarnFormDialog.test.tsx` — an **A→B→A** brand sequence (select brand A, start an inline
+      create while a different value is briefly selected, then reselect A — including back to the
+      empty placeholder — before the stale create resolves) does **not** let the late response
+      override the current selection; **two overlapping inline creates** started from the same
+      starting brand value, resolving out of order, leave the **later-started** create's outcome as
+      the final selection, not whichever resolves first; the same two cases for type creates,
+      scoped to `(brandId, typeId)` — cites spec `yarn-create-edit` "A late response from an inline
+      creation does not override a newer selection".
+- [ ] 5.10 GREEN (Amended 2026-09-22, review lineage review-7a5543c9e8b79ca4, finding R3-001):
+      `src/features/yarns/ui/YarnFormDialog.tsx` — replace the value-at-request equality check with
+      a per-field monotonic request sequence (`brandRequestSeq`/`typeRequestSeq` counter refs,
+      incremented on every selection change and on every create start); `createBrandInline`/
+      `createTypeInline` capture their sequence number at request start and apply the result only
+      if it still matches the current counter on resolve; `onCatalogChange` still always fires on
+      `ok`, independent of the sequence check (design.md D3 amendment).
+- [ ] 5.11 RED (Amended 2026-09-22, review lineage review-7a5543c9e8b79ca4, finding R3-002): extend
+      `YarnFormDialog.test.tsx` — choosing a file, then choosing a **different** file before the
+      first upload resolves, ends with `uploading`/`fileName`/`values.image` reflecting only the
+      **second** file once both requests settle, regardless of resolution order; choosing a file and
+      pressing «quitar foto» before the upload resolves ends with no image/fileName and `uploading`
+      false even after the late response arrives — cites spec `yarn-create-edit` "A photo uploads as
+      soon as it is chosen, not deferred to submit" (submit-disabled-while-uploading scenario) and
+      the D10 amendment's overlapping-upload guard.
+- [ ] 5.12 GREEN (Amended 2026-09-22, review lineage review-7a5543c9e8b79ca4, finding R3-002):
+      `src/features/yarns/ui/YarnFormDialog.tsx` — upload wiring via `uploadImage` from `@/features/uploads/ui/uploads-client` (tasks 5.3 and 5.11) with an `uploadRequestSeq` counter ref,
+      incremented on every file choice and on «quitar foto»; each `uploadImage` call captures its
+      sequence number at request start and applies its result (`uploading`, `fileName`,
+      `values.image`) only if that number still matches the current counter on resolve; the file
+      input stays disabled while `uploading` as a first line of defence (design.md D10 amendment).
+- [ ] 5.13 Run `pnpm test -- YarnFormDialog yarns-ui.classes`, `pnpm typecheck`, `pnpm lint` and
       record the result.
 
 ## Phase 6: S6 `yarn-create-wiring` (settles debt 193, filtered-empty state)
